@@ -71,6 +71,15 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
     const [expandedCapsuleId, setExpandedCapsuleId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
+    const parseBold = (text: string) => {
+        return text.split(/(\*\*.*?\*\*)/g).map((part, index) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={index} className="font-bold text-slate-700 dark:text-zinc-200">{part.slice(2, -2)}</strong>;
+            }
+            return <span key={index}>{part}</span>;
+        });
+    };
+
     const filteredCapsules = useMemo(() => {
         if (!searchTerm.trim()) {
             return capsules;
@@ -347,8 +356,8 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                         <ChevronRightIcon className="w-4 h-4 text-zinc-500 transform group-open:rotate-90 transition-transform"/>
                     </summary>
                     <div className="mt-3 text-xs text-slate-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                        <p>{t('how_it_works_desc1')}</p>
-                        <p>{t('how_it_works_desc2')}</p>
+                        <p>{parseBold(t('how_it_works_desc1'))}</p>
+                        <p>{parseBold(t('how_it_works_desc2'))}</p>
                     </div>
                 </details>
             </div>

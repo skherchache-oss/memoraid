@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { SparklesIcon, XIcon, UploadIcon, AlertTriangleIcon, RefreshCwIcon, ImageIcon, BookOpenIcon, MicrophoneIcon, LearningIllustration } from '../constants';
 import ImportModal from './ImportModal';
@@ -311,7 +310,14 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                 finalFile = await resizeImage(file);
             }
             setSelectedFile(finalFile);
-            setSelectedSourceType(isImage ? 'ocr' : 'file');
+            
+            let type: SourceType = 'unknown';
+            if (isImage) type = 'ocr';
+            else if (isPdf) type = 'pdf';
+            else if (isPpt) type = 'presentation';
+            else if (isText) type = 'text';
+            
+            setSelectedSourceType(type);
         } catch (err) {
             console.error(err);
             setParseError("Erreur image. Essayez une photo moins lourde ou utilisez la galerie.");

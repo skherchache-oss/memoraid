@@ -75,7 +75,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 <div className="p-6">
                     <div className="flex items-start">
                         <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full ${iconContainerClasses} sm:mx-0 sm:h-10 sm:w-10`}>
-                            {finalIcon && React.cloneElement(finalIcon as React.ReactElement, { className: `h-6 w-6 ${iconClasses}`, 'aria-hidden': 'true' })}
+                            {finalIcon && React.cloneElement(finalIcon as React.ReactElement<any>, { className: `h-6 w-6 ${iconClasses}`, 'aria-hidden': 'true' })}
                         </div>
                         <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                             <h3 className="text-lg leading-6 font-bold text-slate-900 dark:text-white" id="confirmation-dialog-title">

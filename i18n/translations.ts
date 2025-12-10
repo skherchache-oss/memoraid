@@ -62,8 +62,8 @@ export const translations = {
         to_review: "À réviser",
         uncategorized: "Non classé",
         how_it_works: "Comment ça marche ?",
-        how_it_works_desc1: "Memoraid utilise la **répétition espacée** pour ancrer les connaissances.",
-        how_it_works_desc2: "L'application calcule le moment optimal pour vous présenter une capsule.",
+        how_it_works_desc1: "Memoraid utilise la **répétition espacée** pour ancrer les connaissances. L'application calcule le moment optimal pour vous présenter une capsule.",
+        how_it_works_desc2: "**1. Créez** : Écrivez, dictez ou importez un cours (PDF < 5Mo). **2. Apprenez** : Concepts clés, flashcards, quiz et croquis. **3. Planifiez** : Générez votre planning de révision jusqu'à l'échéance.",
         
         // Capsule View
         collaborative_capsule: "Capsule Collaborative",
@@ -319,8 +319,8 @@ export const translations = {
         to_review: "To Review",
         uncategorized: "Uncategorized",
         how_it_works: "How it works?",
-        how_it_works_desc1: "Memoraid uses **spaced repetition** to anchor knowledge.",
-        how_it_works_desc2: "The app calculates the optimal time to review a capsule.",
+        how_it_works_desc1: "Memoraid uses **spaced repetition** to anchor knowledge. The app calculates the optimal time to review a capsule.",
+        how_it_works_desc2: "**1. Create**: Write, dictate or import a course (PDF < 5MB). **2. Learn**: Key concepts, flashcards, quiz and sketch. **3. Plan**: Generate your revision schedule until the deadline.",
         
         // Capsule View
         collaborative_capsule: "Collaborative Capsule",

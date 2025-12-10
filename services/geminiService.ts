@@ -1,15 +1,16 @@
 
-import { GoogleGenAI, Type, Chat, Modality } from "@google/genai";
+import { GoogleGenAI, Type, Chat } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType } from '../types';
 import type { Language } from '../i18n/translations';
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Helper pour obtenir le client IA uniquement quand on en a besoin
+const getAiClient = () => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        throw new Error("La clé API (API_KEY) est manquante. Veuillez l'ajouter dans les variables d'environnement de Vercel.");
+    }
+    return new GoogleGenAI({ apiKey: apiKey });
+};
 
 // Helper pour obtenir le nom de la langue en toutes lettres pour le prompt
 const getLangName = (lang: Language) => lang === 'fr' ? 'FRANÇAIS' : 'ENGLISH';
@@ -186,6 +187,7 @@ const generateContentWithFallback = async (
     maxRetries = 3
 ): Promise<any> => {
     let lastError;
+    const ai = getAiClient(); // Initialisation LAZY
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
@@ -310,15 +312,17 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
     let errorMessage = defaultMsg;
     if (error instanceof Error) {
         const msg = error.message.toLowerCase();
-        if (msg.includes("json")) errorMessage = "L'IA a généré un format invalide.";
-        else if (msg.includes("safety") || msg.includes("blocked")) errorMessage = "Contenu bloqué par les filtres.";
+        if (msg.includes("api_key")) errorMessage = "Clé API manquante ou invalide. Vérifiez la configuration Vercel.";
+        else if (msg.includes("json")) errorMessage = "L'IA a généré un format invalide.";
+        else if (msg.includes("safety") || msg.includes("blocked")) errorMessage = "Contenu bloqué par les filtres de sécurité.";
         else if (msg.includes("500") || msg.includes("rpc") || msg.includes("fetch")) errorMessage = "Erreur de connexion. Réessayez.";
-        else if (msg.includes("429")) errorMessage = "Service surchargé.";
+        else if (msg.includes("429")) errorMessage = "Quota API dépassé (Rate Limit).";
     }
     return new Error(errorMessage);
 };
 
 export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingMode = 'standard', userProfile?: UserProfile, language: Language = 'fr'): Chat => {
+    const ai = getAiClient();
     const targetLang = getLangName(language);
     let systemInstruction = `
         You are Memoraid, an intelligent learning coach.
@@ -333,19 +337,20 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     });
 }
 
-// FIX: Improved Memory Aid Generation with STRICT text enforcement and Professional Sketchnote style
+// FIX: Robust Memory Aid Generation with Dual Fallback
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr'): Promise<{ imageData: string, description: string }> => {
+    const ai = getAiClient();
     const targetLang = getLangName(language);
     
-    // 1. Generate text description first with explicit keyword selection AND visual metaphor suggestions
+    // 1. Generate text description first
     const designPrompt = `
     Topic: "${capsule.title}"
     Task: Design a BEAUTIFUL HAND-DRAWN SKETCHNOTE summary.
     Target Language: ${targetLang}.
 
     Step 1: Select 3 to 5 main keywords from the concept.
-    Step 2: SPELLING CHECK: Verify that every selected keyword is spelled correctly in ${targetLang}. This is CRITICAL.
-    Step 3: For each keyword, invent a specific visual metaphor or doodle (e.g., "Lightbulb" for idea, "Shield" for defense, "Tree" for growth).
+    Step 2: SPELLING CHECK: Verify that every selected keyword is spelled correctly in ${targetLang}.
+    Step 3: For each keyword, invent a specific visual metaphor or doodle.
     Step 4: Combine these into a scene description.
 
     Output Format:
@@ -363,7 +368,6 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         
         const rawText = textResponse.text || '';
         
-        // Extract parts
         const explMatch = rawText.match(/EXPLANATION:\s*(.+)/i);
         const labelsMatch = rawText.match(/LABELS:\s*(.+)/i);
         const metaphorsMatch = rawText.match(/METAPHORS:\s*(.+)/i);
@@ -374,32 +378,61 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         const metaphors = metaphorsMatch ? metaphorsMatch[1].trim() : "doodles and icons";
         const baseImagePrompt = promptMatch ? promptMatch[1].trim() : `A professional infographic about ${capsule.title}`;
 
-        // Enforce the text labels in the final prompt with PROFESSIONAL SKETCHNOTE style + ILLUSTRATIONS
         const optimizedImagePrompt = `${baseImagePrompt}. 
-        Style: Beautiful Hand-Drawn Sketchnote / Graphic Facilitation.
-        Appearance: Artistic ink lines, marker coloring (Emerald Green, Amber, Navy), on clean white paper.
-        Content: Central topic "${capsule.title}" surrounded by the keywords.
-        Visuals: Draw specific cute doodles for each concept: ${metaphors}.
-        Text Requirement: WRITE EXACTLY THESE WORDS: ${labels}.
-        Constraint: NO TYPOS. PERFECT SPELLING in ${targetLang}. Text must be horizontal and legible.
-        Vibe: Inspiring, educational, simple, clean, aesthetic.`;
+        Style: Hand-Drawn Sketchnote.
+        Appearance: Artistic ink lines, marker coloring (Green, Amber, Blue), white background.
+        Content: "${capsule.title}" with keywords: ${labels}.
+        Constraint: High quality, educational.`;
 
-        // 2. Generate Image
-        const imageResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [{ text: optimizedImagePrompt }] },
-            config: { responseModalities: [Modality.IMAGE] },
-        });
-
+        // 2. Generate Image (Priority: Gemini Flash Image -> Fallback: Imagen 3)
         let imageBase64 = '';
-        for (const part of imageResponse.candidates[0].content.parts) {
-            if (part.inlineData) {
-                imageBase64 = part.inlineData.data;
-                break;
+        let generationError: any = null;
+
+        // Tentative 1 : Gemini 2.5 Flash Image (Rapide & Multimodal)
+        try {
+            console.log("Tentative génération avec gemini-2.5-flash-image...");
+            const imageResponse = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [{ text: optimizedImagePrompt }] },
+                config: { 
+                    responseModalities: ['IMAGE'], // Use string 'IMAGE' to avoid enum issues in some envs
+                },
+            });
+
+            if (imageResponse.candidates && imageResponse.candidates[0].content.parts) {
+                for (const part of imageResponse.candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        imageBase64 = part.inlineData.data;
+                        break;
+                    }
+                }
+            }
+        } catch (flashError) {
+            console.warn("Gemini Flash Image échoué, tentative avec Imagen...", flashError);
+            generationError = flashError;
+        }
+
+        // Tentative 2 : Fallback sur Imagen 3 (Très robuste) si la première a échoué
+        if (!imageBase64) {
+            try {
+                console.log("Tentative génération avec imagen-3.0-generate-001...");
+                const imagenResponse = await ai.models.generateImages({
+                    model: 'imagen-3.0-generate-001', 
+                    prompt: optimizedImagePrompt,
+                    config: { numberOfImages: 1, outputMimeType: 'image/jpeg' },
+                });
+                
+                if (imagenResponse.generatedImages && imagenResponse.generatedImages[0]) {
+                    imageBase64 = imagenResponse.generatedImages[0].image.imageBytes;
+                }
+            } catch (imagenError) {
+                console.error("Imagen fallback échoué:", imagenError);
+                // Si les deux échouent, on propage l'erreur la plus pertinente
+                throw generationError || imagenError;
             }
         }
 
-        if (!imageBase64) throw new Error("No image generated.");
+        if (!imageBase64) throw new Error("Aucune image n'a été retournée par l'IA.");
 
         return {
             imageData: imageBase64,
@@ -407,12 +440,21 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         };
 
     } catch (error) {
-        console.error("Error generating drawing:", error);
-        throw new Error("Impossible de générer le dessin.");
+        console.error("Erreur fatale lors de la génération du dessin:", error);
+        if (error instanceof Error) {
+             if (error.message.includes("403") || error.message.includes("permission")) {
+                 throw new Error("Accès refusé au modèle d'image. Vérifiez votre clé API.");
+             }
+             if (error.message.includes("SAFETY")) {
+                 throw new Error("L'image a été bloquée par le filtre de sécurité.");
+             }
+        }
+        throw new Error("Impossible de générer le dessin. Le service est peut-être indisponible.");
     }
 };
 
 export const expandKeyConcept = async (title: string, concept: string, context: string, language: Language = 'fr'): Promise<string> => {
+    const ai = getAiClient();
     const targetLang = getLangName(language);
     const prompt = `Topic: "${title}". Concept: "${concept}". Explain deeper in ${targetLang}. 3 sentences max.`;
     const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
@@ -420,6 +462,7 @@ export const expandKeyConcept = async (title: string, concept: string, context: 
 };
 
 export const regenerateQuiz = async (capsule: CognitiveCapsule, language: Language = 'fr'): Promise<QuizQuestion[]> => {
+    const ai = getAiClient();
     const targetLang = getLangName(language);
     const prompt = `Topic: "${capsule.title}". Generate 3 new quiz questions in ${targetLang}. Format: RAW JSON Array.`;
     const schema = {
