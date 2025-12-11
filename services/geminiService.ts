@@ -5,9 +5,12 @@ import type { Language } from '../i18n/translations';
 
 // Helper pour obtenir le client IA uniquement quand on en a besoin
 const getAiClient = () => {
-    const apiKey = process.env.API_KEY;
+    // Tentative de récupération via process.env (Vercel/Node) OU import.meta.env (Vite Local)
+    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+    
     if (!apiKey) {
-        throw new Error("La clé API (API_KEY) est manquante. Veuillez l'ajouter dans les variables d'environnement de Vercel.");
+        console.error("ERREUR CRITIQUE: API_KEY non trouvée.");
+        throw new Error("La clé API est manquante. En local, utilisez VITE_API_KEY dans .env. Sur Vercel, utilisez API_KEY.");
     }
     return new GoogleGenAI({ apiKey: apiKey });
 };
@@ -312,11 +315,12 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
     let errorMessage = defaultMsg;
     if (error instanceof Error) {
         const msg = error.message.toLowerCase();
-        if (msg.includes("api_key")) errorMessage = "Clé API manquante ou invalide. Vérifiez la configuration Vercel.";
+        if (msg.includes("api_key")) errorMessage = "Clé API manquante ou invalide. En local, vérifiez que VITE_API_KEY est défini dans .env";
         else if (msg.includes("json")) errorMessage = "L'IA a généré un format invalide.";
         else if (msg.includes("safety") || msg.includes("blocked")) errorMessage = "Contenu bloqué par les filtres de sécurité.";
         else if (msg.includes("500") || msg.includes("rpc") || msg.includes("fetch")) errorMessage = "Erreur de connexion. Réessayez.";
         else if (msg.includes("429")) errorMessage = "Quota API dépassé (Rate Limit).";
+        else if (msg.includes("permission")) errorMessage = "Permission refusée pour ce modèle (Images).";
     }
     return new Error(errorMessage);
 };
@@ -395,7 +399,7 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                 model: 'gemini-2.5-flash-image',
                 contents: { parts: [{ text: optimizedImagePrompt }] },
                 config: { 
-                    responseModalities: ['IMAGE'], // Use string 'IMAGE' to avoid enum issues in some envs
+                    responseModalities: ['IMAGE'], 
                 },
             });
 
@@ -407,8 +411,13 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                     }
                 }
             }
-        } catch (flashError) {
-            console.warn("Gemini Flash Image échoué, tentative avec Imagen...", flashError);
+        } catch (flashError: any) {
+            // Détection spécifique de l'erreur 429 ou Quota
+            if (flashError.message?.includes('429') || flashError.message?.includes('quota') || flashError.status === 429) {
+                console.warn("Quota Gemini Flash Image dépassé (429). Bascule vers Imagen...");
+            } else {
+                console.warn("Gemini Flash Image échoué, tentative avec Imagen...", flashError);
+            }
             generationError = flashError;
         }
 
@@ -425,10 +434,11 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                 if (imagenResponse.generatedImages && imagenResponse.generatedImages[0]) {
                     imageBase64 = imagenResponse.generatedImages[0].image.imageBytes;
                 }
-            } catch (imagenError) {
+            } catch (imagenError: any) {
                 console.error("Imagen fallback échoué:", imagenError);
-                // Si les deux échouent, on propage l'erreur la plus pertinente
-                throw generationError || imagenError;
+                // Si les deux échouent, on combine les erreurs pour le debug
+                const msg = imagenError.message || JSON.stringify(imagenError);
+                throw new Error(`Échec Imagen: ${msg}. (Flash error: ${generationError?.message})`);
             }
         }
 
@@ -443,10 +453,18 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         console.error("Erreur fatale lors de la génération du dessin:", error);
         if (error instanceof Error) {
              if (error.message.includes("403") || error.message.includes("permission")) {
-                 throw new Error("Accès refusé au modèle d'image. Vérifiez votre clé API.");
+                 throw new Error("Accès refusé au modèle d'image (Vérifiez votre clé API ou les restrictions géographiques).");
              }
              if (error.message.includes("SAFETY")) {
                  throw new Error("L'image a été bloquée par le filtre de sécurité.");
+             }
+             // Si c'est le 429 qui remonte jusqu'ici (double échec)
+             if (error.message.includes("429") || error.message.includes("quota")) {
+                 throw new Error("Quota image dépassé. Réessayez plus tard.");
+             }
+             return {
+                 imageData: "", // On retourne vide pour ne pas crasher l'app, l'UI affichera l'erreur via le catch du composant
+                 description: error.message
              }
         }
         throw new Error("Impossible de générer le dessin. Le service est peut-être indisponible.");
