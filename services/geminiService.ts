@@ -12,9 +12,9 @@ const getAiClient = () => {
     // 1. Essayer la méthode Vite (Local)
     try {
         // @ts-ignore - Vite specific
-        if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
+        if (import.meta && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
             // @ts-ignore
-            apiKey = import.meta.env.VITE_API_KEY;
+            apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         }
     } catch (e) { /* Ignore */ }
 
