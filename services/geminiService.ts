@@ -1,16 +1,35 @@
 
+console.log("CLE API ->", import.meta.env.VITE_GEMINI_API_KEY);
+
 import { GoogleGenAI, Type, Chat } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType } from '../types';
 import type { Language } from '../i18n/translations';
 
 // Helper pour obtenir le client IA uniquement quand on en a besoin
 const getAiClient = () => {
-    // Tentative de récupération via process.env (Vercel/Node) OU import.meta.env (Vite Local)
-    const apiKey = process.env.API_KEY || (import.meta as any).env?.VITE_API_KEY;
+    let apiKey = '';
+
+    // 1. Essayer la méthode Vite (Local)
+    try {
+        // @ts-ignore - Vite specific
+        if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
+            // @ts-ignore
+            apiKey = import.meta.env.VITE_API_KEY;
+        }
+    } catch (e) { /* Ignore */ }
+
+    // 2. Essayer la méthode Process (Vercel / Node) si pas trouvé
+    if (!apiKey) {
+        try {
+            if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+                apiKey = process.env.API_KEY;
+            }
+        } catch (e) { /* Ignore */ }
+    }
     
     if (!apiKey) {
-        console.error("ERREUR CRITIQUE: API_KEY non trouvée.");
-        throw new Error("La clé API est manquante. En local, utilisez VITE_API_KEY dans .env. Sur Vercel, utilisez API_KEY.");
+        console.error("ERREUR CRITIQUE: Aucune clé API trouvée (ni VITE_API_KEY, ni API_KEY).");
+        throw new Error("Clé API manquante. En local : mettez 'VITE_API_KEY=...' dans le fichier .env et REDÉMARREZ le serveur. Sur Vercel : ajoutez 'API_KEY' dans les Settings.");
     }
     return new GoogleGenAI({ apiKey: apiKey });
 };
@@ -315,7 +334,7 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
     let errorMessage = defaultMsg;
     if (error instanceof Error) {
         const msg = error.message.toLowerCase();
-        if (msg.includes("api_key")) errorMessage = "Clé API manquante ou invalide. En local, vérifiez que VITE_API_KEY est défini dans .env";
+        if (msg.includes("api_key") || msg.includes("api key")) errorMessage = "Clé API manquante ou invalide. En local, vérifiez que VITE_API_KEY est défini dans .env et redémarrez.";
         else if (msg.includes("json")) errorMessage = "L'IA a généré un format invalide.";
         else if (msg.includes("safety") || msg.includes("blocked")) errorMessage = "Contenu bloqué par les filtres de sécurité.";
         else if (msg.includes("500") || msg.includes("rpc") || msg.includes("fetch")) errorMessage = "Erreur de connexion. Réessayez.";
