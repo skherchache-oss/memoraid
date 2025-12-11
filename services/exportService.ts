@@ -3,213 +3,268 @@ import pptxgen from 'pptxgenjs';
 import JSZip from 'jszip';
 import type { CognitiveCapsule } from '../types';
 import { generateFilename, downloadBlob } from './pdfService';
+import { MEMORAID_LOGO_BASE64 } from './logoAsset';
 
-// Helper pour nettoyer le texte (empêche les erreurs XML dans le PPTX)
-const sanitizeForPPTX = (text: string) => {
+// Nettoyage agressif pour éviter la corruption XML dans PowerPoint
+const sanitizeForPPTX = (text: string | undefined): string => {
     if (!text) return "";
-    // Supprime les caractères de contrôle XML invalides et normalise
-    return String(text).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "").trim();
+    // 1. Convertir en string
+    let str = String(text);
+    // 2. Supprimer les caractères de contrôle XML invalides (sauf tab, CR, LF)
+    // eslint-disable-next-line no-control-regex
+    str = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+    // 3. Remplacer les caractères problématiques courants
+    str = str.replace(/’/g, "'").replace(/“/g, '"').replace(/”/g, '"');
+    return str.trim();
 };
-
-// --- POWERPOINT GENERATION ---
 
 export const exportToPPTX = async (capsule: CognitiveCapsule) => {
     console.log("PPTX: Début du processus...");
     try {
-        // 0. FIX DEPENDENCIES GLOBALS
-        // PptxGenJS a besoin de JSZip dans l'objet window global
+        // --- 1. INITIALISATION ROBUSTE ---
+        // Injection de JSZip dans window pour pptxgenjs
+        let ZipClass: any = JSZip;
+        if (ZipClass && typeof ZipClass !== 'function' && (ZipClass as any).default) {
+            ZipClass = (ZipClass as any).default;
+        }
         if (typeof window !== 'undefined') {
-            if (!(window as any).JSZip) {
-                console.log("PPTX: Injection de JSZip globalement");
-                (window as any).JSZip = JSZip;
-            }
+            (window as any).JSZip = ZipClass;
         }
 
-        // 1. INSTANCIATION ROBUSTE
         let PresClass: any;
-        
-        // Stratégie de détection du constructeur
-        // 1. Export direct (CommonJS ou certains bundlers)
         if (typeof pptxgen === 'function') {
             PresClass = pptxgen;
-        } 
-        // 2. Export par défaut (ES Modules standard)
-        else if (pptxgen && (pptxgen as any).default && typeof (pptxgen as any).default === 'function') {
+        } else if (pptxgen && (pptxgen as any).default) {
             PresClass = (pptxgen as any).default;
-        } 
-        // 3. Fallback Global (Script tag)
-        else if (typeof window !== 'undefined' && (window as any).PptxGenJS) {
+        } else if (typeof window !== 'undefined' && (window as any).PptxGenJS) {
             PresClass = (window as any).PptxGenJS;
         }
 
-        if (!PresClass) {
-            console.error("PPTX: Librairie introuvable. Dump:", pptxgen);
-            throw new Error("Impossible d'initialiser le générateur PowerPoint. Veuillez recharger la page.");
+        if (!PresClass) throw new Error("Bibliothèque PowerPoint non chargée.");
+
+        const pres = new PresClass();
+
+        // --- 2. DESIGN SYSTEM ---
+        const C = {
+            EMERALD: '059669',    // Principal
+            EMERALD_DARK: '064E3B',
+            EMERALD_LIGHT: 'D1FAE5',
+            ACCENT: 'F59E0B',     // Ambre/Orange
+            TEXT_MAIN: '1E293B',  // Gris foncé
+            TEXT_SEC: '475569',   // Gris moyen
+            BG_LIGHT: 'F8FAFC',   // Gris très pâle
+            WHITE: 'FFFFFF',
+            BLUE_LIGHT: 'EFF6FF',
+            BLUE_BORDER: 'BFDBFE'
+        };
+
+        pres.title = sanitizeForPPTX(capsule.title).substring(0, 100); 
+        pres.author = 'Memoraid';
+
+        // --- 3. MASQUE (MASTER SLIDE) ---
+        // Footer occupe les 5% du bas.
+        // Pour centrer le texte "Memoraid", on utilise un alignement vertical 'middle' dans la zone du footer.
+        pres.defineSlideMaster({
+            title: 'MEMORAID_MASTER',
+            background: { color: C.BG_LIGHT },
+            objects: [
+                // Bandeau vert en bas (y=95%, h=5%)
+                { rect: { x: 0, y: '95%', w: '100%', h: '5%', fill: { color: C.EMERALD } } },
+                // Texte "Memoraid" centré dans le bandeau
+                { 
+                    text: { 
+                        text: 'Memoraid', 
+                        options: { 
+                            x: 0, 
+                            y: '95%', 
+                            w: '100%', 
+                            h: '5%', 
+                            fontSize: 10, 
+                            color: C.EMERALD_LIGHT, 
+                            align: 'center', 
+                            valign: 'middle' // Centrage vertical
+                        } 
+                    } 
+                }
+            ],
+            // Numéro de page aligné à droite, centré verticalement dans le footer
+            slideNumber: { x: '92%', y: '95%', w: '5%', h: '5%', fontSize: 10, color: C.WHITE, align: 'right', valign: 'middle' }
+        });
+
+        // --- 4. SLIDE DE TITRE ---
+        const slideTitle = pres.addSlide();
+        slideTitle.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '30%', h: '100%', fill: { color: C.EMERALD } });
+        slideTitle.addShape(pres.ShapeType.rect, { x: '25%', y: '10%', w: '10%', h: '20%', fill: { color: C.EMERALD_DARK, transparency: 50 } });
+
+        if (MEMORAID_LOGO_BASE64 && MEMORAID_LOGO_BASE64.length > 100) {
+            slideTitle.addImage({ 
+                data: MEMORAID_LOGO_BASE64, 
+                x: 0.8, y: 0.8, w: 1.5, h: 1.5,
+                sizing: { type: 'contain', w: 1.5, h: 1.5 } 
+            });
         }
 
-        // Création de l'instance
-        // @ts-ignore
-        const pres = new PresClass();
-        console.log("PPTX: Instance créée avec succès");
-
-        // 2. CONFIGURATION & THEME
-        pres.layout = 'LAYOUT_16x9';
-        pres.title = sanitizeForPPTX(capsule.title);
-        pres.author = 'Memoraid App';
-        pres.company = 'Memoraid Education';
-
-        // Couleurs Charte (Emerald / Amber / Slate) 
-        // IMPORTANT: PptxGenJS attend des HEX SANS '#' !
-        const C_PRIMARY = '059669'; // Emerald 600
-        const C_ACCENT = 'D97706';  // Amber 600
-        const C_DARK = '1E293B';    // Slate 800
-        const C_LIGHT = 'F8FAFC';   // Slate 50
-        const C_WHITE = 'FFFFFF';
-
-        // Définition du Masque (Master Slide)
-        pres.defineSlideMaster({
-            title: 'MASTER_SLIDE',
-            background: { color: C_LIGHT },
-            objects: [
-                { rect: { x: 0, y: 0, w: 0.3, h: '100%', fill: { color: C_PRIMARY } } },
-                { text: { text: 'MEMORAID', options: { x: '90%', y: '92%', fontSize: 10, color: C_PRIMARY, bold: true, align: 'right' } } },
-                { text: { text: { type: 'number' }, options: { x: '95%', y: '92%', fontSize: 10, color: C_DARK, align: 'right' } } }
-            ]
-        });
-
-        // 3. SLIDES
-        
-        // -- TITRE --
-        const slideTitle = pres.addSlide();
-        slideTitle.addShape('rect', { x: 0, y: 0, w: '100%', h: '35%', fill: { color: C_PRIMARY } });
         slideTitle.addText(sanitizeForPPTX(capsule.title), {
-            x: 0.5, y: 1.5, w: 9, h: 1.5,
-            fontSize: 44, bold: true, align: 'left', color: C_WHITE,
-            shadow: { type: 'outer', color: '000000', opacity: 0.3, offset: 2 }
+            x: '35%', y: '35%', w: '60%', h: 2,
+            fontSize: 32, fontFace: 'Arial', bold: true, color: C.TEXT_MAIN,
+            align: 'left', valign: 'middle', shrinkText: true
         });
+
         slideTitle.addText(sanitizeForPPTX(capsule.summary), {
-            x: 0.5, y: 3.2, w: 9, h: 2,
-            fontSize: 18, align: 'left', color: C_DARK, italic: true
-        });
-        slideTitle.addText("Support de Révision", {
-            x: 0.5, y: 0.5, fontSize: 14, color: 'A7F3D0', bold: true 
+            x: '35%', y: '60%', w: '60%', h: 1.5,
+            fontSize: 14, color: C.TEXT_SEC, italic: true, align: 'left', valign: 'top', wrap: true
         });
 
-        // -- IMAGE (Secure) --
-        if (capsule.memoryAidImage) {
-            try {
-                const slideImg = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-                slideImg.addText("Synthèse Visuelle", {
-                    x: 0.8, y: 0.5, fontSize: 24, bold: true, color: C_PRIMARY,
-                    underline: { style: 'single', color: C_ACCENT }
-                });
-                
-                slideImg.addShape('rect', { x: 1.4, y: 1.4, w: 7.2, h: 4.2, fill: { color: C_WHITE }, line: { color: C_DARK, width: 1 } });
-                
-                const base64Data = capsule.memoryAidImage.split(',')[1] || capsule.memoryAidImage;
-                
-                if (base64Data && base64Data.length > 50) {
-                    slideImg.addImage({ 
-                        data: `data:image/png;base64,${base64Data}`, 
-                        x: 1.5, y: 1.5, w: 7, h: 4,
-                        sizing: { type: 'contain', w: 7, h: 4 }
-                    });
-                }
-
-                if (capsule.memoryAidDescription) {
-                    slideImg.addText(sanitizeForPPTX(capsule.memoryAidDescription), {
-                        x: 1.5, y: 5.8, w: 7, h: 1,
-                        fontSize: 12, italic: true, color: '666666', align: 'center'
-                    });
-                }
-            } catch (err) {
-                console.warn("PPTX: Erreur ajout image (ignorée):", err);
+        // --- 5. SLIDE IMAGE ---
+        if (capsule.memoryAidImage && capsule.memoryAidImage.length > 100) {
+            const slideImg = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
+            slideImg.addText("Synthèse Visuelle", { x: 0.5, y: 0.5, w: '90%', h: 0.5, fontSize: 24, bold: true, color: C.EMERALD_DARK });
+            const base64Data = capsule.memoryAidImage.split(',')[1] || capsule.memoryAidImage;
+            slideImg.addImage({ data: `data:image/png;base64,${base64Data}`, x: 2, y: 1.2, w: 6, h: 3.5, sizing: { type: 'contain', w: 6, h: 3.5 } });
+            if (capsule.memoryAidDescription) {
+                slideImg.addText(sanitizeForPPTX(capsule.memoryAidDescription), { x: 1, y: 4.8, w: 8, h: 0.5, fontSize: 11, color: C.TEXT_SEC, align: 'center', italic: true });
             }
         }
 
-        // -- CONCEPTS --
-        capsule.keyConcepts.forEach((kc, index) => {
-            const slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-            
-            slide.addShape('rect', { x: 0.5, y: 0.5, w: 9, h: 0.8, fill: { color: 'F1F5F9' }, line: { color: C_PRIMARY, width: 0 } });
-            slide.addText(`Concept ${index + 1}`, { x: 0.7, y: 0.6, fontSize: 12, color: C_ACCENT, bold: true });
-            slide.addText(sanitizeForPPTX(kc.concept), { x: 0.7, y: 0.8, w: 8, fontSize: 24, color: C_DARK, bold: true });
-
-            slide.addShape('rect', { x: 0.8, y: 1.8, w: 8.4, h: 3.5, fill: { color: C_WHITE }, shadow: { type: 'outer', opacity: 0.1 } });
-            slide.addText(sanitizeForPPTX(kc.explanation), {
-                x: 1.2, y: 2.2, w: 7.6, h: 3,
-                fontSize: 20, color: '334155', valign: 'top',
-                bullet: { type: 'number', color: C_PRIMARY }
-            });
+        // --- 6. SLIDES CONCEPTS CLÉS ---
+        capsule.keyConcepts.forEach((kc, i) => {
+            const slide = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
+            slide.addText(`Concept ${i + 1}`, { x: 0.5, y: 0.4, fontSize: 12, color: C.ACCENT, bold: true });
+            slide.addText(sanitizeForPPTX(kc.concept), { x: 0.5, y: 0.7, w: '90%', h: 0.8, fontSize: 28, bold: true, color: C.EMERALD_DARK, shrinkText: true });
+            slide.addShape(pres.ShapeType.rect, { x: 0.5, y: 1.6, w: 9, h: 3.5, fill: { color: C.WHITE }, line: { color: 'E2E8F0', width: 1 } });
+            slide.addText(sanitizeForPPTX(kc.explanation), { x: 0.7, y: 1.8, w: 8.6, h: 3.1, fontSize: 16, color: C.TEXT_MAIN, align: 'left', valign: 'top', shrinkText: true });
         });
 
-        // -- EXEMPLES --
-        if (capsule.examples.length > 0) {
-            const exSlide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-            exSlide.addText("Exemples Pratiques", {
-                x: 0.8, y: 0.5, fontSize: 28, bold: true, color: C_PRIMARY
-            });
-
-            capsule.examples.forEach((ex, i) => {
-                const yPos = 1.5 + (i * 1.2);
-                if (yPos < 6) {
-                    exSlide.addShape('rect', { x: 1, y: yPos, w: 8, h: 1, fill: { color: 'E0F2FE' } });
-                    exSlide.addText(sanitizeForPPTX(ex), {
-                        x: 1.2, y: yPos, w: 7.6, h: 1,
-                        fontSize: 16, color: '0369A1', valign: 'middle'
-                    });
-                }
-            });
+        // --- 7. SLIDES EXEMPLES ---
+        if (capsule.examples && capsule.examples.length > 0) {
+            const CHUNK_SIZE = 4;
+            for (let i = 0; i < capsule.examples.length; i += CHUNK_SIZE) {
+                const chunk = capsule.examples.slice(i, i + CHUNK_SIZE);
+                const slide = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
+                slide.addText("Exemples Pratiques", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: C.EMERALD_DARK });
+                if (capsule.examples.length > CHUNK_SIZE) slide.addText(`(Suite)`, { x: 4, y: 0.6, fontSize: 12, color: C.TEXT_SEC });
+                chunk.forEach((ex, idx) => {
+                    const yPos = 1.3 + (idx * 0.9);
+                    slide.addShape(pres.ShapeType.roundRect, { x: 0.6, y: yPos + 0.1, w: 0.15, h: 0.15, fill: { color: C.ACCENT } });
+                    slide.addText(sanitizeForPPTX(ex), { x: 0.9, y: yPos, w: 8.5, h: 0.8, fontSize: 14, color: C.TEXT_MAIN, valign: 'top', shrinkText: true });
+                });
+            }
         }
 
-        // -- QUIZ --
-        if (capsule.quiz.length > 0) {
-            const quizIntroSlide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-            quizIntroSlide.addShape('rect', { x: 0, y: 0, w: '100%', h: '100%', fill: { color: C_ACCENT } });
-            quizIntroSlide.addText("QUIZ DE VALIDATION", {
-                x: 0, y: '45%', w: '100%',
-                fontSize: 48, bold: true, align: 'center', color: C_WHITE
-            });
+        // --- 8. SLIDES QUIZ (QUESTION / RÉPONSE SÉPARÉES) ---
+        if (capsule.quiz && capsule.quiz.length > 0) {
+            const slideInter = pres.addSlide();
+            slideInter.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: C.EMERALD_DARK } });
+            slideInter.addText("QUIZ FINAL", { x: 0, y: 2.5, w: '100%', align: 'center', fontSize: 40, color: C.WHITE, bold: true });
+            slideInter.addText("À vous de jouer !", { x: 0, y: 3.5, w: '100%', align: 'center', fontSize: 18, color: C.EMERALD_LIGHT });
 
             capsule.quiz.forEach((q, i) => {
-                const slideQ = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-                slideQ.addText(`Question ${i + 1}`, { x: 0.8, y: 0.5, fontSize: 18, color: C_ACCENT, bold: true });
-                slideQ.addText(sanitizeForPPTX(q.question), { x: 0.8, y: 1.2, w: 8.5, fontSize: 24, bold: true, color: C_DARK });
-
-                q.options.forEach((opt, idx) => {
-                    const yOpt = 2.5 + (idx * 0.8);
-                    slideQ.addShape('rect', { x: 1.5, y: yOpt, w: 7, h: 0.6, fill: { color: 'F8FAFC' }, line: { color: 'CBD5E1' } });
-                    slideQ.addText(sanitizeForPPTX(opt), { x: 1.7, y: yOpt, w: 6.5, h: 0.6, fontSize: 14, color: '475569', valign: 'middle' });
+                // --- SLIDE A : LA QUESTION ---
+                const slideQ = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
+                
+                // Badge "Question X"
+                slideQ.addShape(pres.ShapeType.roundRect, { x: 0.5, y: 0.3, w: 1.5, h: 0.4, fill: { color: C.ACCENT }, r: 5 });
+                slideQ.addText(`QUESTION ${i + 1}`, { x: 0.5, y: 0.3, w: 1.5, h: 0.4, fontSize: 12, color: C.WHITE, bold: true, align: 'center' });
+                
+                // Texte Question
+                slideQ.addText(sanitizeForPPTX(q.question), {
+                    x: 0.5, y: 0.8, w: 9, h: 1.2,
+                    fontSize: 22, bold: true, color: C.TEXT_MAIN,
+                    valign: 'top', shrinkText: true
                 });
 
-                slideQ.addShape('rect', { x: 0.8, y: 6, w: 8.4, h: 1, fill: { color: 'ECFDF5' }, line: { color: C_PRIMARY } });
-                slideQ.addText(`Réponse correcte : ${sanitizeForPPTX(q.correctAnswer)}`, { x: 1, y: 6.1, w: 8, fontSize: 14, bold: true, color: '065F46' });
-                slideQ.addText(sanitizeForPPTX(q.explanation), { x: 1, y: 6.5, w: 8, fontSize: 12, italic: true, color: '064E3B' });
+                // Options (Neutres) - Espacement optimisé
+                q.options.forEach((opt, idx) => {
+                    // On démarre à y=2.2 pour laisser de la place au titre
+                    const yOffset = 2.2 + (idx * 0.7); 
+                    
+                    // Boite Option (Plus compacte)
+                    slideQ.addShape(pres.ShapeType.rect, {
+                        x: 1, y: yOffset, w: 8, h: 0.6,
+                        fill: { color: C.WHITE }, line: { color: 'CBD5E1', width: 1 }, rx: 5
+                    });
+                    
+                    // Lettre A, B, C...
+                    slideQ.addText(String.fromCharCode(65 + idx), { 
+                        x: 1.1, y: yOffset, w: 0.5, h: 0.6, 
+                        fontSize: 14, color: C.ACCENT, bold: true, valign: 'middle' 
+                    });
+
+                    // Texte Option
+                    slideQ.addText(sanitizeForPPTX(opt), {
+                        x: 1.6, y: yOffset, w: 7.2, h: 0.6,
+                        fontSize: 14, color: C.TEXT_SEC, valign: 'middle',
+                        shrinkText: true
+                    });
+                });
+
+                // --- SLIDE B : LA RÉPONSE ---
+                const slideA = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
+
+                // Header Réponse
+                slideA.addText(`RÉPONSE ${i + 1}`, { x: 0.5, y: 0.4, fontSize: 12, color: C.EMERALD, bold: true });
+
+                // Rappel Question (petit)
+                slideA.addText(sanitizeForPPTX(q.question), {
+                    x: 0.5, y: 0.7, w: 9, h: 0.6,
+                    fontSize: 14, color: C.TEXT_SEC, italic: true
+                });
+
+                // Boite Réponse (Gros et Vert) - Remontée
+                slideA.addShape(pres.ShapeType.rect, {
+                    x: 1, y: 1.4, w: 8, h: 1.0,
+                    fill: { color: C.EMERALD_LIGHT }, line: { color: C.EMERALD, width: 2 }, rx: 10
+                });
+
+                slideA.addText(sanitizeForPPTX(q.correctAnswer), {
+                    x: 1, y: 1.4, w: 8, h: 1.0,
+                    fontSize: 20, bold: true, color: C.EMERALD_DARK,
+                    align: 'center', valign: 'middle', shrinkText: true
+                });
+
+                // Explication - Remontée et taille contrainte pour ne pas toucher le footer
+                // Le footer commence à y=95% (~5.35 pouces). 
+                // Ici la boite va de y=2.6 à y=5.0 (2.6+2.4), ce qui laisse une marge de sécurité.
+                slideA.addShape(pres.ShapeType.rect, {
+                    x: 1, y: 2.6, w: 8, h: 2.4,
+                    fill: { color: C.WHITE }, line: { color: 'E2E8F0' }
+                });
+                
+                slideA.addText("Explication :", { x: 1.2, y: 2.7, fontSize: 12, bold: true, color: C.ACCENT });
+                
+                slideA.addText(sanitizeForPPTX(q.explanation), {
+                    x: 1.2, y: 3.0, w: 7.6, h: 1.9,
+                    fontSize: 14, color: C.TEXT_MAIN, valign: 'top', shrinkText: true
+                });
             });
         }
 
-        console.log("PPTX: Génération du Blob...");
-        
-        // 4. GENERATE BLOB DIRECTLY
+        console.log("PPTX: Écriture du fichier...");
         const blob = await pres.write({ outputType: 'blob' });
         
         if (blob instanceof Blob) {
+            // Force MIME type for mobile compatibility to avoid ZIP download
+            const pptxBlob = new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
             const filename = generateFilename('Presentation', capsule.title, 'pptx');
-            console.log("PPTX: Téléchargement...");
-            downloadBlob(blob, filename);
+            downloadBlob(pptxBlob, filename);
         } else {
-            throw new Error("Format de fichier généré invalide.");
+            throw new Error("Erreur format blob.");
         }
 
     } catch (e: any) {
-        console.error("PPTX Generation Error Full:", e);
+        console.error("PPTX Generation Error:", e);
         throw new Error(`Erreur PowerPoint: ${e.message || 'Inconnue'}`);
     }
 };
 
 export const exportToEPUB = async (capsule: CognitiveCapsule) => {
     try {
-        const zip = new JSZip();
+        let ZipClass: any = JSZip;
+        if (ZipClass && typeof ZipClass !== 'function' && (ZipClass as any).default) {
+            ZipClass = (ZipClass as any).default;
+        }
+        
+        const zip = new ZipClass();
         
         zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
 

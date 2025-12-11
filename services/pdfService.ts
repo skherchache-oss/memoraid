@@ -1,6 +1,7 @@
 
-import { PDFDocument, rgb, PDFFont, StandardFonts, PDFPage } from 'pdf-lib';
+import { PDFDocument, rgb, PDFFont, StandardFonts, PDFPage, PDFImage } from 'pdf-lib';
 import type { CognitiveCapsule, FlashcardContent } from '../types';
+import { MEMORAID_LOGO_BASE64 } from './logoAsset';
 
 // Utility to trigger blob download.
 export const downloadBlob = (blob: Blob, filename: string) => {
@@ -107,9 +108,27 @@ function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: numbe
     return lines;
 }
 
-// Helper to draw branding (MEMORAID Logo) on a page
-const drawBranding = (page: PDFPage, fontBold: PDFFont) => {
+// Helper to draw branding (MEMORAID Text only) on a page
+const drawBranding = (page: PDFPage, fontBold: PDFFont, logoImage: PDFImage | null) => {
     const { width, height } = page.getSize();
+    
+    // Draw Logo if available
+    if (logoImage) {
+        try {
+            // Scale down logo - assuming square or close to square logo
+            const logoSize = 20; 
+            page.drawImage(logoImage, {
+                x: width - 125, // Positioned to the left of the text
+                y: height - 35,
+                width: logoSize,
+                height: logoSize,
+            });
+        } catch (e) {
+            // Ignore drawing error if image is somehow invalid for this page context
+        }
+    }
+
+    // Draw Text
     page.drawText('MEMORAID', {
         x: width - 100, // Top right position
         y: height - 30,
@@ -120,12 +139,12 @@ const drawBranding = (page: PDFPage, fontBold: PDFFont) => {
 };
 
 // Helper to draw text with automatic page breaks
-async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y: number }, fontBold: PDFFont }, text: string, options: {
+async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y: number }, fontBold: PDFFont, logoImage: PDFImage | null }, text: string, options: {
     font: PDFFont;
     fontSize?: number;
     spaceAfter?: number;
 }) {
-    const { doc, cursor, fontBold } = context;
+    const { doc, cursor, fontBold, logoImage } = context;
     const { font } = options;
     // Use context.page directly to avoid stale references after page breaks.
     const maxWidth = context.page.getSize().width - 2 * MARGIN;
@@ -140,7 +159,7 @@ async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y:
     for (const line of lines) {
         if (cursor.y - lineHeight < MARGIN) {
             context.page = doc.addPage();
-            drawBranding(context.page, fontBold); // Add branding to new page
+            drawBranding(context.page, fontBold, logoImage); // Add branding to new page
             cursor.y = context.page.getHeight() - MARGIN;
         }
         context.page.drawText(line, {
@@ -162,16 +181,27 @@ const drawCapsuleContent = async (doc: PDFDocument, capsule: CognitiveCapsule) =
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
     
-    const context: { doc: PDFDocument, page: PDFPage, cursor: { y: number }, fontBold: PDFFont } = {
+    // Load Logo
+    let logoImage: PDFImage | null = null;
+    if (MEMORAID_LOGO_BASE64) {
+        try {
+            logoImage = await doc.embedPng(MEMORAID_LOGO_BASE64);
+        } catch (e) {
+            console.warn("Could not embed logo", e);
+        }
+    }
+    
+    const context: { doc: PDFDocument, page: PDFPage, cursor: { y: number }, fontBold: PDFFont, logoImage: PDFImage | null } = {
         doc: doc,
         page: doc.addPage(),
         cursor: { y: 0 },
-        fontBold: fontBold
+        fontBold: fontBold,
+        logoImage: logoImage
     };
     context.cursor.y = context.page.getHeight() - MARGIN;
     
     // Branding on first page
-    drawBranding(context.page, fontBold);
+    drawBranding(context.page, fontBold, logoImage);
 
     await drawText(context, capsule.title, { font: fontBold, fontSize: FONT_SIZES.h1, spaceAfter: 10 }); // Use Bold for title
     await drawText(context, capsule.summary, { font, fontSize: FONT_SIZES.body, spaceAfter: 20 });
@@ -193,18 +223,15 @@ const drawCapsuleContent = async (doc: PDFDocument, capsule: CognitiveCapsule) =
         const contentHeight = conceptHeight + spaceAfterConcept + explanationHeight;
         
         // 2. If the block (with padding) doesn't fit, move to a new page.
-        // NOTE: If contentHeight is huge (larger than a page), this check handles moving to top of next page,
-        // but doesn't split the background rect. This is acceptable for now as concepts are usually short.
         if (context.cursor.y - (contentHeight + PADDING) < MARGIN) {
             context.page = doc.addPage();
-            drawBranding(context.page, fontBold); // Add branding to new page
+            drawBranding(context.page, fontBold, logoImage); // Add branding to new page
             context.cursor.y = context.page.getHeight() - MARGIN;
         }
         
         const startY = context.cursor.y;
 
         // 3. Draw the background rectangle with padding.
-        // Only draw if we have space, otherwise we are already at top of page
         if (contentHeight < context.page.getHeight() - 2*MARGIN) {
              context.page.drawRectangle({
                 x: MARGIN - PADDING / 2,
@@ -231,6 +258,16 @@ const drawFlashcards = async (doc: PDFDocument, flashcards: FlashcardContent[]) 
 
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+    // Load Logo
+    let logoImage: PDFImage | null = null;
+    if (MEMORAID_LOGO_BASE64) {
+        try {
+            logoImage = await doc.embedPng(MEMORAID_LOGO_BASE64);
+        } catch (e) {
+            console.warn("Could not embed logo", e);
+        }
+    }
 
     const COLUMNS = 2;
     const ROWS = 4;
@@ -261,7 +298,7 @@ const drawFlashcards = async (doc: PDFDocument, flashcards: FlashcardContent[]) 
     for (const card of flashcards) {
         if (cardCounter % CARDS_PER_PAGE === 0) {
             page = doc.addPage();
-            drawBranding(page, fontBold); // Branding
+            drawBranding(page, fontBold, logoImage); // Branding
         }
         
         if (!page) continue;
@@ -384,15 +421,26 @@ const drawQuiz = async (doc: PDFDocument, capsule: CognitiveCapsule) => {
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
 
-    const context: { doc: PDFDocument, page: PDFPage, cursor: { y: number }, fontBold: PDFFont } = {
+    // Load Logo
+    let logoImage: PDFImage | null = null;
+    if (MEMORAID_LOGO_BASE64) {
+        try {
+            logoImage = await doc.embedPng(MEMORAID_LOGO_BASE64);
+        } catch (e) {
+            console.warn("Could not embed logo", e);
+        }
+    }
+
+    const context: { doc: PDFDocument, page: PDFPage, cursor: { y: number }, fontBold: PDFFont, logoImage: PDFImage | null } = {
         doc: doc,
         page: doc.addPage(),
         cursor: { y: 0 },
-        fontBold: fontBold
+        fontBold: fontBold,
+        logoImage: logoImage
     };
     context.cursor.y = context.page.getHeight() - MARGIN;
     
-    drawBranding(context.page, fontBold);
+    drawBranding(context.page, fontBold, logoImage);
 
     // --- Page 1: Questions ---
     await drawText(context, `Quiz : ${capsule.title}`, { font: fontBold, fontSize: FONT_SIZES.h2, spaceAfter: 10 });
@@ -402,7 +450,7 @@ const drawQuiz = async (doc: PDFDocument, capsule: CognitiveCapsule) => {
         const questionBlockHeight = (1 + q.options.length) * (FONT_SIZES.body * LINE_HEIGHT_MULTIPLIER) + 30;
         if (context.cursor.y - questionBlockHeight < MARGIN) {
             context.page = doc.addPage();
-            drawBranding(context.page, fontBold);
+            drawBranding(context.page, fontBold, logoImage);
             context.cursor.y = context.page.getHeight() - MARGIN;
         }
 
@@ -416,7 +464,7 @@ const drawQuiz = async (doc: PDFDocument, capsule: CognitiveCapsule) => {
 
     // --- Page 2: Corrections ---
     context.page = doc.addPage();
-    drawBranding(context.page, fontBold);
+    drawBranding(context.page, fontBold, logoImage);
     context.cursor.y = context.page.getHeight() - MARGIN;
 
     await drawText(context, `Quiz : ${capsule.title}`, { font: fontBold, fontSize: FONT_SIZES.h2, spaceAfter: 10 });
@@ -427,7 +475,7 @@ const drawQuiz = async (doc: PDFDocument, capsule: CognitiveCapsule) => {
         const correctionBlockHeight = (1 + q.options.length) * (FONT_SIZES.body * LINE_HEIGHT_MULTIPLIER) + (explanationLines.length * FONT_SIZES.small * LINE_HEIGHT_MULTIPLIER) + 30;
         if (context.cursor.y - correctionBlockHeight < MARGIN) {
             context.page = doc.addPage();
-            drawBranding(context.page, fontBold);
+            drawBranding(context.page, fontBold, logoImage);
             context.cursor.y = context.page.getHeight() - MARGIN;
         }
 

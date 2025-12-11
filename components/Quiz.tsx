@@ -133,15 +133,7 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
                 </button>
             ) : (
                 <button
-                    onClick={() => {
-                         const nextScore = isCorrect ? score + 1 : score;
-                         if (currentQuestionIndex >= questions.length - 1) {
-                             setScore(nextScore);
-                             finishQuiz(nextScore);
-                         } else {
-                             handleNextQuestion();
-                         }
-                    }}
+                    onClick={handleNextQuestion}
                     className="w-full sm:w-auto px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-bold shadow-md shadow-emerald-200/50 dark:shadow-none"
                 >
                     {currentQuestionIndex < questions.length - 1 ? t('next_question') : t('see_results')}
