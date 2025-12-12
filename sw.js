@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'memoraid-cache-v5';
+const CACHE_NAME = 'memoraid-cache-v6';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',

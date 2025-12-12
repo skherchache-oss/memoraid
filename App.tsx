@@ -22,7 +22,7 @@ import { updateTaskStatus } from './services/planningService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon } from './constants';
+import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress } from './services/cloudService';
@@ -58,6 +58,8 @@ const AppContent: React.FC = () => {
     // PWA Install State
     const [installPrompt, setInstallPrompt] = useState<any>(null);
     const [showInstallBanner, setShowInstallBanner] = useState(false);
+    const [isIOS, setIsIOS] = useState(false);
+    const [isStandalone, setIsStandalone] = useState(false);
     
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -121,17 +123,33 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
 
-    // PWA Install Prompt Listener
+    // PWA Install Logic
     useEffect(() => {
+        // Detect iOS
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        const ios = /iphone|ipad|ipod/.test(userAgent);
+        setIsIOS(ios);
+
+        // Detect Standalone mode (App already installed)
+        const isInStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+        setIsStandalone(isInStandalone);
+
+        // Android/Desktop Prompt Listener
         const handler = (e: any) => {
-            // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
-            // Stash the event so it can be triggered later.
             setInstallPrompt(e);
-            // Show our custom banner
-            setShowInstallBanner(true);
+            if (!isInStandalone) {
+                setShowInstallBanner(true);
+            }
         };
         window.addEventListener('beforeinstallprompt', handler);
+
+        // For iOS: Show banner if not standalone
+        if (ios && !isInStandalone) {
+            // Delay slightly to not annoy user immediately
+            setTimeout(() => setShowInstallBanner(true), 2000);
+        }
+
         return () => window.removeEventListener('beforeinstallprompt', handler);
     }, []);
 
@@ -1070,33 +1088,58 @@ const AppContent: React.FC = () => {
             </div>
 
             {/* BANNIÈRE D'INSTALLATION PWA FLOTTANTE */}
-            {showInstallBanner && installPrompt && (
-                <div className="fixed bottom-20 left-4 right-4 z-[60] bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-4 rounded-2xl shadow-2xl flex items-center justify-between border border-slate-700 dark:border-slate-200 animate-add-capsule md:bottom-6 md:left-auto md:w-96">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-white dark:bg-slate-900 p-2 rounded-xl">
+            {showInstallBanner && !isStandalone && (
+                <div className="fixed bottom-20 left-4 right-4 z-[60] bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-4 rounded-2xl shadow-2xl flex flex-col md:flex-row items-center justify-between border border-slate-700 dark:border-slate-200 animate-add-capsule md:bottom-6 md:left-auto md:w-96">
+                    <div className="flex items-center gap-3 w-full mb-3 md:mb-0">
+                        <div className="bg-white dark:bg-slate-900 p-2 rounded-xl flex-shrink-0">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-emerald-600 dark:text-emerald-400">
                                 <path d="M12 2L12 16M12 16L7 11M12 16L17 11M4 20L20 20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </div>
                         <div>
                             <p className="font-bold text-sm">Installer l'application</p>
-                            <p className="text-xs text-slate-300 dark:text-slate-600">Accès rapide et hors-ligne.</p>
+                            <p className="text-xs text-slate-300 dark:text-slate-600">Pour un accès rapide et hors-ligne.</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={handleInstallApp}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors"
-                        >
-                            Installer
-                        </button>
-                        <button 
-                            onClick={handleDismissInstall}
-                            className="p-1.5 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-full transition-colors"
-                        >
-                            <XIcon className="w-4 h-4"/>
-                        </button>
-                    </div>
+                    
+                    {/* Logique différente selon l'OS */}
+                    {isIOS ? (
+                        <div className="w-full text-xs space-y-2 bg-slate-800 dark:bg-slate-100 p-3 rounded-lg text-slate-300 dark:text-slate-700">
+                            <div className="flex items-center gap-2">
+                                <span>1. Appuyez sur</span>
+                                <Share2Icon className="w-4 h-4 text-blue-400" />
+                                <span className="font-bold">Partager</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span>2. Choisissez</span>
+                                <div className="flex items-center gap-1 font-bold">
+                                    <PlusIcon className="w-3 h-3 border border-current rounded-sm" />
+                                    Sur l'écran d'accueil
+                                </div>
+                            </div>
+                            <button 
+                                onClick={handleDismissInstall}
+                                className="w-full mt-2 text-center text-slate-400 hover:text-white dark:hover:text-black underline"
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 ml-auto">
+                            <button 
+                                onClick={handleInstallApp}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                            >
+                                Installer
+                            </button>
+                            <button 
+                                onClick={handleDismissInstall}
+                                className="p-2 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-full transition-colors"
+                            >
+                                <XIcon className="w-4 h-4"/>
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
