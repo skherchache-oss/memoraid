@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import type { AppData, UserProfile, CognitiveCapsule, UserLevel, LearningStyle, UserRole } from '../types';
-import { XIcon, UserIcon, UploadIcon, DownloadIcon, BookOpenIcon, LayersIcon, BrainIcon, CrownIcon, TrophyIcon, MedalIcon, FlameIcon, ZapIcon, SchoolIcon, InfoIcon, MailIcon, UsersIcon } from '../constants';
+import { XIcon, UserIcon, UploadIcon, DownloadIcon, BookOpenIcon, LayersIcon, BrainIcon, CrownIcon, TrophyIcon, MedalIcon, FlameIcon, ZapIcon, SchoolIcon, InfoIcon, MailIcon, UsersIcon, MoonIcon, SunIcon } from '../constants';
 import { downloadBlob } from '../services/pdfService';
 import { ToastType } from '../hooks/useToast';
 import ProgressionDashboard from './ProgressionDashboard';
@@ -23,9 +23,11 @@ interface ProfileModalProps {
     isOpenAsPage?: boolean;
     installPrompt?: any;
     onInstall?: () => void;
+    currentTheme?: 'light' | 'dark';
+    onToggleTheme?: () => void;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, onImport, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, installPrompt, onInstall }) => {
+const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, onImport, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, installPrompt, onInstall, currentTheme, onToggleTheme }) => {
     const { t } = useLanguage();
     const [name, setName] = useState(profile.user.name);
     const [email, setEmail] = useState(profile.user.email || '');
@@ -241,6 +243,32 @@ ${examples}
                             </button>
                         </div>
                     </section>
+                )}
+
+                {/* THEME SWITCHER */}
+                {onToggleTheme && (
+                    <div className="p-4 bg-slate-50 dark:bg-zinc-800/50 rounded-lg border border-slate-200 dark:border-zinc-700">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                {currentTheme === 'dark' ? <MoonIcon className="w-5 h-5 text-indigo-500" /> : <SunIcon className="w-5 h-5 text-amber-500" />}
+                                <span className="font-bold text-slate-700 dark:text-zinc-200">Apparence</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                                    {currentTheme === 'dark' ? 'Mode Sombre' : 'Mode Clair'}
+                                </span>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer" 
+                                        checked={currentTheme === 'dark'} 
+                                        onChange={onToggleTheme} 
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 )}
 
                 {/* GAMIFICATION / TROPHIES */}
