@@ -1,0 +1,16 @@
+{
+  "name": "Memoraid",
+  "short_name": "Memoraid",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Assistant personnel d'apprentissage intelligent.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ]
+}
