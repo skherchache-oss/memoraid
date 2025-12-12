@@ -55,6 +55,9 @@ const AppContent: React.FC = () => {
     const [mobileTab, setMobileTab] = useState<MobileTab>('create');
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     
+    // PWA Install State
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+    
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
     const [isAuthInitializing, setIsAuthInitializing] = useState(true);
@@ -116,6 +119,32 @@ const AppContent: React.FC = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
+
+    // PWA Install Prompt Listener
+    useEffect(() => {
+        const handler = (e: any) => {
+            // Prevent the mini-infobar from appearing on mobile
+            e.preventDefault();
+            // Stash the event so it can be triggered later.
+            setInstallPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstallApp = useCallback(() => {
+        if (installPrompt) {
+            installPrompt.prompt();
+            installPrompt.userChoice.then((choiceResult: any) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                setInstallPrompt(null);
+            });
+        }
+    }, [installPrompt]);
 
     useEffect(() => {
         const currentName = profile.user.name;
@@ -878,6 +907,8 @@ const AppContent: React.FC = () => {
                         currentUser={currentUser}
                         onOpenGroupManager={() => setIsGroupModalOpen(true)}
                         isOpenAsPage={true}
+                        installPrompt={installPrompt}
+                        onInstall={handleInstallApp}
                     />
                 </div>
             );
@@ -1069,6 +1100,8 @@ const AppContent: React.FC = () => {
                     setSelectedCapsuleIds={setSelectedCapsuleIds}
                     currentUser={currentUser}
                     onOpenGroupManager={() => setIsGroupModalOpen(true)}
+                    installPrompt={installPrompt}
+                    onInstall={handleInstallApp}
                 />
             )}
             {isGroupModalOpen && currentUser && (

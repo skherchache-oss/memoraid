@@ -16,14 +16,26 @@
 
     <title>Memoraid - Assistant d'Apprentissage</title>
     <script>
+      // Enregistrement du Service Worker pour la PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(registration => {
+            console.log('SW registered: ', registration);
+          }).catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+        });
+      }
+
       // IIFE pour appliquer le thème (clair/sombre) avant le rendu pour éviter le scintillement
+      // LOGIQUE : Thème CLAIR par défaut.
       (function() {
         try {
           const theme = localStorage.getItem('memoraid_theme');
-          if (theme === 'light') {
-            document.documentElement.classList.remove('dark');
-          } else {
+          if (theme === 'dark') {
             document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
           }
         } catch (_) { /* ignore */ }
       })();

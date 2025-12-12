@@ -1,21 +1,22 @@
+
 import { useState, useEffect, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
 const getInitialTheme = (): Theme => {
     if (typeof window === 'undefined') {
-        return 'dark';
+        return 'light'; // Default SSR/Initial state
     }
     try {
         const savedTheme = localStorage.getItem('memoraid_theme');
-        // Le thème sombre est le défaut, sauf si l'utilisateur a explicitement choisi le thème clair.
-        if (savedTheme === 'light') {
-            return 'light';
+        // Le thème CLAIR est le défaut, sauf si l'utilisateur a explicitement choisi le thème sombre.
+        if (savedTheme === 'dark') {
+            return 'dark';
         }
     } catch (_) {
         // Ignorer les erreurs de localStorage
     }
-    return 'dark';
+    return 'light';
 };
 
 /**

@@ -20,10 +20,12 @@ interface ProfileModalProps {
     setSelectedCapsuleIds: React.Dispatch<React.SetStateAction<string[]>>;
     currentUser: User | null;
     onOpenGroupManager: () => void;
-    isOpenAsPage?: boolean; // Nouvelle prop pour le mode affichage page vs modal
+    isOpenAsPage?: boolean;
+    installPrompt?: any;
+    onInstall?: () => void;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, onImport, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false }) => {
+const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, onImport, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, installPrompt, onInstall }) => {
     const { t } = useLanguage();
     const [name, setName] = useState(profile.user.name);
     const [email, setEmail] = useState(profile.user.email || '');
@@ -223,6 +225,24 @@ ${examples}
 
             <div className={`space-y-8 overflow-y-auto flex-grow ${isOpenAsPage ? 'py-6 px-0' : 'p-6'}`}>
                 
+                {/* INSTALLATION APP (Si disponible) */}
+                {installPrompt && (
+                    <section className="mb-4">
+                        <div className="bg-blue-600 rounded-xl p-4 text-white flex items-center justify-between shadow-md">
+                            <div>
+                                <h3 className="font-bold text-lg">Installer l'application</h3>
+                                <p className="text-sm text-blue-100">Ajoutez Memoraid à votre écran d'accueil.</p>
+                            </div>
+                            <button 
+                                onClick={onInstall}
+                                className="px-4 py-2 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-colors"
+                            >
+                                Installer
+                            </button>
+                        </div>
+                    </section>
+                )}
+
                 {/* GAMIFICATION / TROPHIES */}
                 {profile.user.gamification && (
                     <section>
