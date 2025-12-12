@@ -22,7 +22,7 @@ import { updateTaskStatus } from './services/planningService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon } from './constants';
+import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress } from './services/cloudService';
@@ -49,7 +49,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const AppContent: React.FC = () => {
-    const { theme } = useTheme();
+    const { theme, toggleTheme } = useTheme();
     const { language, t } = useLanguage();
     const [view, setView] = useState<View>('create');
     const [mobileTab, setMobileTab] = useState<MobileTab>('create');
@@ -57,6 +57,7 @@ const AppContent: React.FC = () => {
     
     // PWA Install State
     const [installPrompt, setInstallPrompt] = useState<any>(null);
+    const [showInstallBanner, setShowInstallBanner] = useState(false);
     
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -127,6 +128,8 @@ const AppContent: React.FC = () => {
             e.preventDefault();
             // Stash the event so it can be triggered later.
             setInstallPrompt(e);
+            // Show our custom banner
+            setShowInstallBanner(true);
         };
         window.addEventListener('beforeinstallprompt', handler);
         return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -138,6 +141,7 @@ const AppContent: React.FC = () => {
             installPrompt.userChoice.then((choiceResult: any) => {
                 if (choiceResult.outcome === 'accepted') {
                     console.log('User accepted the install prompt');
+                    setShowInstallBanner(false);
                 } else {
                     console.log('User dismissed the install prompt');
                 }
@@ -145,6 +149,10 @@ const AppContent: React.FC = () => {
             });
         }
     }, [installPrompt]);
+
+    const handleDismissInstall = () => {
+        setShowInstallBanner(false);
+    };
 
     useEffect(() => {
         const currentName = profile.user.name;
@@ -909,6 +917,8 @@ const AppContent: React.FC = () => {
                         isOpenAsPage={true}
                         installPrompt={installPrompt}
                         onInstall={handleInstallApp}
+                        currentTheme={theme}
+                        onToggleTheme={toggleTheme}
                     />
                 </div>
             );
@@ -928,6 +938,8 @@ const AppContent: React.FC = () => {
                     gamification={profile.user.gamification}
                     addToast={addToast}
                     onLogoClick={handleGoHome}
+                    currentTheme={theme}
+                    onToggleTheme={toggleTheme}
                 />
             </div>
 
@@ -1057,6 +1069,37 @@ const AppContent: React.FC = () => {
                 {renderMobileContent()}
             </div>
 
+            {/* BANNIÈRE D'INSTALLATION PWA FLOTTANTE */}
+            {showInstallBanner && installPrompt && (
+                <div className="fixed bottom-20 left-4 right-4 z-[60] bg-slate-900 dark:bg-white text-white dark:text-slate-900 p-4 rounded-2xl shadow-2xl flex items-center justify-between border border-slate-700 dark:border-slate-200 animate-add-capsule md:bottom-6 md:left-auto md:w-96">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white dark:bg-slate-900 p-2 rounded-xl">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-emerald-600 dark:text-emerald-400">
+                                <path d="M12 2L12 16M12 16L7 11M12 16L17 11M4 20L20 20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="font-bold text-sm">Installer l'application</p>
+                            <p className="text-xs text-slate-300 dark:text-slate-600">Accès rapide et hors-ligne.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={handleInstallApp}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
+                            Installer
+                        </button>
+                        <button 
+                            onClick={handleDismissInstall}
+                            className="p-1.5 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-full transition-colors"
+                        >
+                            <XIcon className="w-4 h-4"/>
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <MobileNavBar 
                 activeTab={mobileTab} 
                 onTabChange={handleMobileTabChange}
@@ -1102,6 +1145,8 @@ const AppContent: React.FC = () => {
                     onOpenGroupManager={() => setIsGroupModalOpen(true)}
                     installPrompt={installPrompt}
                     onInstall={handleInstallApp}
+                    currentTheme={theme}
+                    onToggleTheme={toggleTheme}
                 />
             )}
             {isGroupModalOpen && currentUser && (

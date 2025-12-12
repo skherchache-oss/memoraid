@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'memoraid-cache-v2';
+const CACHE_NAME = 'memoraid-cache-v5';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
@@ -21,7 +21,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // Nettoyage des anciens caches (v1, etc.)
+  // Nettoyage des anciens caches
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -36,7 +36,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Stratégie simple : Cache first, fallback to network
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);

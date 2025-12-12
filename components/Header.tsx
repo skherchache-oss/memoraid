@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon } from '../constants';
+import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
 import type { GamificationStats } from '../types';
@@ -15,9 +15,11 @@ interface HeaderProps {
     gamification?: GamificationStats;
     addToast: (message: string, type: ToastType) => void;
     onLogoClick: () => void;
+    currentTheme: 'light' | 'dark';
+    onToggleTheme: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, isOnline = true, gamification, addToast, onLogoClick }) => {
+const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, isOnline = true, gamification, addToast, onLogoClick, currentTheme, onToggleTheme }) => {
     const { language, toggleLanguage, t } = useLanguage();
     const xpProgress = gamification ? getLevelProgress(gamification.xp) : 0;
 
@@ -41,7 +43,17 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                         </h1>
                     </button>
                     
-                    <div className="flex items-center gap-2 md:gap-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                        {/* THEME SWITCHER - MOVED FIRST FOR VISIBILITY */}
+                        <button
+                            onClick={onToggleTheme}
+                            className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 transition-all hover:ring-2 hover:ring-emerald-500"
+                            title={currentTheme === 'dark' ? "Passer en mode clair" : "Passer en mode sombre"}
+                            aria-label="Changer de thème"
+                        >
+                            {currentTheme === 'dark' ? <SunIcon className="w-5 h-5 text-amber-400" /> : <MoonIcon className="w-5 h-5 text-indigo-600" />}
+                        </button>
+
                         {/* GAMIFICATION STATS (Compact on Mobile) */}
                         {gamification && (
                             <div 
@@ -99,17 +111,6 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                         {/* USER SECTION */}
                         {currentUser ? (
                             <>
-                                <div className="hidden md:flex flex-col items-end mr-2">
-                                    <span className="text-sm font-semibold text-slate-700 dark:text-zinc-200">
-                                        {currentUser.displayName || currentUser.email?.split('@')[0]}
-                                    </span>
-                                    <div className="flex items-center gap-1">
-                                        <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-slate-400 dark:bg-zinc-500'}`}></span>
-                                        <span className={`text-xs font-medium ${isOnline ? 'text-green-600 dark:text-green-500' : 'text-slate-500 dark:text-zinc-500'}`}>
-                                            {isOnline ? t('online') : t('offline')}
-                                        </span>
-                                    </div>
-                                </div>
                                 {/* Avatar / Profile Button - HIDDEN ON MOBILE (md:block) */}
                                 {currentUser.photoURL ? (
                                     <img 
