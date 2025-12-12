@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
-    <link rel="manifest" href="/manifest.json" />
+    <!-- Le manifest est injecté automatiquement par VitePWA, on retire le lien manuel pour éviter les doublons -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
     <!-- PWA Theme Color - Force Light Mode -->
@@ -15,21 +16,7 @@
 
     <title>Memoraid - Assistant d'Apprentissage</title>
     <script>
-      // Enregistrement du Service Worker pour la PWA
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(registration => {
-            console.log('SW registered: ', registration);
-            // Force update check
-            registration.update();
-          }).catch(registrationError => {
-            console.log('SW registration failed: ', registrationError);
-          });
-        });
-      }
-
       // IIFE pour appliquer le thème (clair/sombre) avant le rendu pour éviter le scintillement
-      // LOGIQUE : Thème CLAIR par défaut. Nouvelle clé v2.
       (function() {
         try {
           const theme = localStorage.getItem('memoraid_theme_v2');
@@ -45,7 +32,6 @@
     <!-- Chargement Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-      // Configuration sécurisée : on attend que le script soit chargé
       window.addEventListener('load', () => {
         if (typeof tailwind !== 'undefined') {
           tailwind.config = {
@@ -135,7 +121,10 @@
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
     "pptxgenjs": "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.es.js",
     "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm",
-    "html2canvas": "https://jspm.dev/html2canvas"
+    "html2canvas": "https://jspm.dev/html2canvas",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0"
   }
 }
 </script>
