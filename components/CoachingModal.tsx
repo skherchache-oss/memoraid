@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CognitiveCapsule, ChatMessage, CoachingMode, UserProfile } from '../types';
 import { createCoachingSession } from '../services/geminiService';
@@ -58,7 +59,7 @@ interface CoachingModalProps {
 
 type RecognitionState = 'idle' | 'recording' | 'error';
 
-// Helper functions for audio (inchangées)
+// Helper functions for audio
 function decode(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -94,20 +95,21 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const [chatSession, setChatSession] = useState<Chat | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
+    // SPLIT STATE for Coach
+    const [tempSpeech, setTempSpeech] = useState('');
     
     const [isLoading, setIsLoading] = useState(true);
     const [recognitionState, setRecognitionState] = useState<RecognitionState>('idle');
     const [selectedMode, setSelectedMode] = useState<CoachingMode>('standard');
-    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null); // Base64 image for solver
 
+    // Refs for managing speech recognition lifecycle
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    
-    // Ref pour stocker l'historique fiable de la dictée
-    const finalTranscriptRef = useRef('');
+    const wasLastInputFromSpeech = useRef<boolean>(false);
     
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -115,6 +117,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     useEffect(scrollToBottom, [messages]);
 
+    // Initialize AudioContext for TTS in Oral Mode
     useEffect(() => {
         if (!audioContextRef.current) {
             try {
@@ -126,28 +129,31 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         }
     }, []);
 
+    // Initialize Chat Session
     const initializeChat = useCallback(async () => {
         setIsLoading(true);
-        setMessages([]);
+        setMessages([]); // Clear history on mode switch
         try {
             const session = createCoachingSession(capsule, selectedMode, userProfile, language);
             setChatSession(session);
             
+            // Initial prompt message depends on mode
             let introMsg = "";
-            if (selectedMode === 'solver') introMsg = language === 'fr' ? "Bonjour. Quel exercice souhaitez-vous résoudre ?" : "Hello. What exercise would you like to solve?";
-            else introMsg = "";
+            if (selectedMode === 'solver') introMsg = language === 'fr' ? "Bonjour. Quel exercice ou problème souhaitez-vous résoudre aujourd'hui ? Vous pouvez envoyer une photo." : "Hello. What exercise or problem would you like to solve today? You can upload a photo.";
+            else introMsg = ""; // Standard modes prompt AI to start
 
             const initialResponse: GenerateContentResponse = await session.sendMessage({ message: introMsg });
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
+            // Auto-speak in Oral Mode
             if (selectedMode === 'oral') {
                 playTTS(text);
             }
 
         } catch (error) {
             console.error("Failed to initialize coaching session:", error);
-            setMessages([{ role: 'model', content: language === 'fr' ? "Erreur lors du démarrage." : "Error starting session." }]);
+            setMessages([{ role: 'model', content: language === 'fr' ? "Désolé, une erreur est survenue lors du démarrage du coaching." : "Sorry, an error occurred while starting the coaching session." }]);
         } finally {
             setIsLoading(false);
         }
@@ -187,75 +193,58 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         }
     };
 
-    // Regex puissant pour nettoyer les répétitions "le le" -> "le"
-    const dedupeString = (text: string): string => {
-        return text.replace(/\b(\w+)\s+\1\b/gi, '$1').trim();
-    };
-
     const cleanTranscription = (text: string): string => {
-        let cleaned = text
+        return text
             .replace(/\b(euh+|hum+|ben|bah|genre|bref|enfin|um+|uh+|like|you know)\b/gi, '')
             .replace(/\s+/g, ' ')
             .replace(/\s+([.,!?])/g, '$1')
-            .trim();
-        
-        cleaned = dedupeString(cleaned);
-        return cleaned.replace(/^\w/, c => c.toUpperCase());
+            .trim()
+            .replace(/^\w/, c => c.toUpperCase());
     };
 
     const startRecording = useCallback(() => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
-            addToast("Navigateur incompatible pour la dictée.", "error");
+            addToast("Ce navigateur ne supporte pas la dictée vocale. Utilisez Google Chrome ou Edge.", "error");
             return;
         }
         if (recognitionRef.current) recognitionRef.current.abort();
 
         const recognition = new SpeechRecognitionAPI();
         recognition.continuous = true;
-        // MOBILE FIX: On désactive interimResults pour stabilité max sur Android
-        recognition.interimResults = false; 
+        recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
 
+        // 1. Blur
         if (textareaRef.current) textareaRef.current.blur();
 
-        finalTranscriptRef.current = userInput; // Sync with current input
+        // 2. Reset temp speech
+        setTempSpeech('');
+        wasLastInputFromSpeech.current = true; 
+        
         setRecognitionState('recording');
 
-        recognition.onstart = () => {};
-        
+        recognition.onstart = () => { /* already handled via setRecognitionState */ };
         recognition.onresult = (event: SpeechRecognitionEvent) => {
-            // On ne prend que le dernier résultat final
-            const lastIndex = event.results.length - 1;
-            const transcript = event.results[lastIndex][0].transcript;
-            
-            if (!transcript) return;
-
-            const cleanedNewPart = cleanTranscription(transcript);
-            const currentFullText = finalTranscriptRef.current.trim();
-
-            // Anti-rebouclage (si Android renvoie l'historique complet, on évite le doublon)
-            if (currentFullText.endsWith(cleanedNewPart)) {
-                return;
+            let transcript = '';
+            for (let i = 0; i < event.results.length; ++i) {
+                transcript += event.results[i][0].transcript;
             }
-
-            const separator = currentFullText.length > 0 ? ' ' : '';
-            const newFullText = dedupeString(currentFullText + separator + cleanedNewPart);
-            
-            finalTranscriptRef.current = newFullText;
-            setUserInput(newFullText);
+            const cleaned = cleanTranscription(transcript);
+            setTempSpeech(cleaned);
         };
-
         recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
             if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-                addToast("Accès micro refusé.", "error");
+                addToast("Accès au micro refusé.", "error");
             }
             if (event.error !== 'no-speech') {
                 stopRecording();
+                setRecognitionState('error');
             }
         };
         recognition.onend = () => {
             if (recognitionState === 'recording') {
+                // Auto stop (silence) - update UI
                 stopRecording();
             }
         };
@@ -267,14 +256,25 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             setRecognitionState('error');
             addToast("Erreur micro.", "error");
         }
-    }, [language, addToast, recognitionState, userInput]);
+    }, [language, addToast, recognitionState]);
 
     const stopRecording = useCallback(() => {
         if (recognitionRef.current) {
             recognitionRef.current.stop();
         }
         setRecognitionState('idle');
-    }, []);
+        
+        // Commit temp speech to main input
+        if (tempSpeech) {
+            setUserInput(prev => {
+                const prefix = prev.trim();
+                const suffix = tempSpeech.trim();
+                if (!prefix) return suffix;
+                return prefix + " " + suffix;
+            });
+            setTempSpeech('');
+        }
+    }, [tempSpeech]);
 
     const handleToggleRecording = () => {
         recognitionState === 'recording' ? stopRecording() : startRecording();
@@ -295,11 +295,14 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        // If recording, stop and commit before sending
         if (recognitionState === 'recording') {
             stopRecording();
         }
 
-        const finalInput = userInput.trim();
+        // Use a small timeout to ensure state update if recording was just stopped
+        // Or construct the final string directly
+        const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
 
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
         
@@ -311,11 +314,12 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
-        finalTranscriptRef.current = ''; // Reset buffer after send
+        setTempSpeech('');
         setSelectedImage(null);
         setIsLoading(true);
 
         try {
+            // Build message content for Gemini
             let messageParts: any[] = [];
             
             if (userMessage.image) {
@@ -346,13 +350,16 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
         } catch (error) {
             console.error("Error sending message:", error);
-            setMessages(prev => [...prev, { role: 'model', content: language === 'fr' ? "Erreur de traitement. Réessayons." : "Processing error. Let's try again." }]);
+            setMessages(prev => [...prev, { role: 'model', content: language === 'fr' ? "Oups, je n'ai pas pu traiter votre message. Réessayons." : "Oops, I couldn't process your message. Let's try again." }]);
         } finally {
             setIsLoading(false);
         }
     };
 
     const isRecording = recognitionState === 'recording';
+    const displayValue = isRecording 
+        ? (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech)
+        : userInput;
 
     const modes: { id: CoachingMode, label: string, icon: any }[] = [
         { id: 'standard', label: language === 'fr' ? 'Coach' : 'Coach', icon: SparklesIcon },
@@ -375,6 +382,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                         </button>
                     </div>
                     
+                    {/* Mode Selector */}
                     <div className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
                         {modes.map(mode => (
                             <button
@@ -425,6 +433,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 </div>
                 
                 <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 flex-shrink-0 bg-white dark:bg-zinc-900">
+                    {/* Image Preview */}
                     {selectedImage && (
                         <div className="mb-2 flex items-center gap-2 bg-slate-100 dark:bg-zinc-800 p-2 rounded-lg inline-block">
                             <img src={selectedImage} alt="Preview" className="h-12 w-12 object-cover rounded" />
@@ -458,11 +467,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                         <div className="flex-grow relative">
                              <textarea
                                 ref={textareaRef}
-                                value={userInput}
+                                value={displayValue}
                                 onChange={(e) => {
                                     if (isRecording) return;
                                     setUserInput(e.target.value);
-                                    finalTranscriptRef.current = e.target.value;
+                                    wasLastInputFromSpeech.current = false;
                                 }}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -490,7 +499,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                             </button>
                         </div>
 
-                        <button type="submit" disabled={isLoading || (!userInput.trim() && !selectedImage)} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 transition-colors shadow-sm">
+                        <button type="submit" disabled={isLoading || (!displayValue.trim() && !selectedImage)} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 transition-colors shadow-sm">
                             <SendIcon className="w-5 h-5" />
                         </button>
                     </form>

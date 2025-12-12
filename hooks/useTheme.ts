@@ -44,7 +44,13 @@ export const useTheme = (): { theme: Theme; toggleTheme: () => void } => {
             root.classList.remove('dark');
         }
 
-        // 2. Persister le choix du thème dans le localStorage
+        // 2. Mettre à jour la couleur de la barre d'adresse (Mobile Safari/Chrome)
+        const metaThemeColor = document.querySelector("meta[name='theme-color']");
+        if (metaThemeColor) {
+            metaThemeColor.setAttribute("content", theme === 'dark' ? '#09090b' : '#ffffff');
+        }
+
+        // 3. Persister le choix du thème dans le localStorage
         try {
             localStorage.setItem(STORAGE_KEY, theme);
         } catch (_) {

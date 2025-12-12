@@ -22,15 +22,15 @@ import { updateTaskStatus } from './services/planningService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon } from './constants';
+import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress } from './services/cloudService';
 import { useLanguage } from './contexts/LanguageContext';
 import { translations } from './i18n/translations';
 
-type View = 'create' | 'base' | 'agenda' | 'store' | 'profile';
-type MobileTab = 'create' | 'library' | 'agenda' | 'store' | 'profile';
+type View = 'create' | 'base' | 'agenda' | 'store' | 'profile' | 'classes';
+type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -348,6 +348,9 @@ const AppContent: React.FC = () => {
     };
 
     const handleGamificationAction = (action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge', quizScore?: number) => {
+        // Les profs ne participent pas à la gamification classique
+        if (profile.user.role === 'teacher') return;
+
         const currentGamification = profile.user.gamification || getInitialGamificationStats();
         const { stats, newBadges, levelUp } = processGamificationAction(
             currentGamification, 
@@ -579,22 +582,6 @@ const AppContent: React.FC = () => {
         if (activeCapsule) setIsActiveLearning(true);
     };
 
-    const handleImportProfile = (importedData: AppData) => {
-        if (currentUser) {
-            if (window.confirm("Vous êtes en mode Cloud. L'importation va ajouter ces capsules à votre compte. Continuer ?")) {
-                 migrateLocalDataToCloud(currentUser.uid, importedData.capsules);
-                 addToast("Importation vers le cloud lancée...", "info");
-            }
-        } else {
-            setProfile(importedData);
-            setActiveCapsule(null);
-            setView('create');
-            setMobileTab('create');
-            addToast(`${importedData.capsules.length} capsule(s) importée(s) avec succès !`, 'success');
-        }
-        setIsProfileModalOpen(false);
-    };
-
     const handleUpdateProfile = (newProfile: UserProfile) => {
         setProfile(prev => ({ ...prev, user: newProfile }));
         addToast(t('profile_updated'), 'success');
@@ -802,6 +789,10 @@ const AppContent: React.FC = () => {
             setView('base');
         }
         if (tab === 'agenda') setView('agenda');
+        if (tab === 'classes') {
+            setIsTeacherDashboardOpen(true);
+            // On ne change pas la vue principale, le modal Dashboard s'ouvre
+        }
         if (tab === 'store') setView('store');
         if (tab === 'profile') {
             setView('profile');
@@ -818,6 +809,26 @@ const AppContent: React.FC = () => {
         if (mobileTab === 'create') {
             return (
                 <div className="space-y-6 pb-20">
+                    {/* ENSEIGNANT : Raccourcis Rapides en haut */}
+                    {profile.user.role === 'teacher' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <button 
+                                onClick={() => setIsTeacherDashboardOpen(true)}
+                                className="bg-emerald-600 text-white p-4 rounded-xl shadow-lg flex flex-col items-center justify-center gap-2"
+                            >
+                                <SchoolIcon className="w-6 h-6" />
+                                <span className="text-xs font-bold">Mes Classes</span>
+                            </button>
+                            <button 
+                                onClick={() => setIsGroupModalOpen(true)}
+                                className="bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 p-4 rounded-xl shadow border border-slate-100 dark:border-zinc-700 flex flex-col items-center justify-center gap-2"
+                            >
+                                <UsersIcon className="w-6 h-6 text-emerald-500" />
+                                <span className="text-xs font-bold">Créer Groupe</span>
+                            </button>
+                        </div>
+                    )}
+
                     {isLoading ? loadingIndicator : (
                         <InputArea 
                             onGenerate={handleGenerate} 
@@ -888,6 +899,7 @@ const AppContent: React.FC = () => {
             );
         }
 
+        // Si Enseignant, pas d'Agenda personnel classique
         if (mobileTab === 'agenda') {
             if (profile.user.activePlan) {
                 return <div className="pb-20 h-full"><AgendaView plan={profile.user.activePlan} onUpdateTask={handleUpdatePlanTask} onDeletePlan={handleDeletePlan} onOpenCapsule={handleOpenCapsuleFromAgenda} /></div>;
@@ -926,7 +938,6 @@ const AppContent: React.FC = () => {
                         profile={profile}
                         onClose={() => setMobileTab('create')}
                         onUpdateProfile={handleUpdateProfile}
-                        onImport={handleImportProfile}
                         addToast={addToast}
                         selectedCapsuleIds={selectedCapsuleIds}
                         setSelectedCapsuleIds={setSelectedCapsuleIds}
@@ -935,8 +946,8 @@ const AppContent: React.FC = () => {
                         isOpenAsPage={true}
                         installPrompt={installPrompt}
                         onInstall={handleInstallApp}
-                        currentTheme={theme}
-                        onToggleTheme={toggleTheme}
+                        isIOS={isIOS}
+                        isStandalone={isStandalone}
                     />
                 </div>
             );
@@ -979,6 +990,7 @@ const AppContent: React.FC = () => {
                 ) : (
                     <div className="grid grid-cols-3 gap-8 items-start">
                         <div ref={mainContentRef} className="col-span-2 space-y-8">
+                            {/* TEACHER DASHBOARD SHORTCUT (DESKTOP) */}
                             {profile.user.role === 'teacher' && (
                                 <div className="p-4 bg-emerald-700 rounded-xl shadow-lg flex justify-between items-center text-white animate-fade-in-fast">
                                     <div className="flex items-center gap-3">
@@ -1071,19 +1083,6 @@ const AppContent: React.FC = () => {
             </main>
 
             <div className="md:hidden p-4 min-h-[calc(100vh-64px)]">
-                {profile.user.role === 'teacher' && mobileTab === 'create' && (
-                    <div className="mb-6 p-4 bg-emerald-700 rounded-xl shadow-lg text-white">
-                        <div className="flex justify-between items-center mb-2">
-                            <h3 className="font-bold flex items-center gap-2"><SchoolIcon className="w-5 h-5"/> {t('teacher_mode_active')}</h3>
-                        </div>
-                        <button 
-                            onClick={() => setIsTeacherDashboardOpen(true)}
-                            className="w-full py-2 bg-white text-emerald-700 font-bold rounded-lg text-sm"
-                        >
-                            {t('manage_class')}
-                        </button>
-                    </div>
-                )}
                 {renderMobileContent()}
             </div>
 
@@ -1147,6 +1146,7 @@ const AppContent: React.FC = () => {
                 activeTab={mobileTab} 
                 onTabChange={handleMobileTabChange}
                 hasActivePlan={!!profile.user.activePlan}
+                userRole={profile.user.role}
             />
 
             {isCoaching && activeCapsule && (
@@ -1180,7 +1180,6 @@ const AppContent: React.FC = () => {
                     profile={profile}
                     onClose={() => setIsProfileModalOpen(false)}
                     onUpdateProfile={handleUpdateProfile}
-                    onImport={handleImportProfile}
                     addToast={addToast}
                     selectedCapsuleIds={selectedCapsuleIds}
                     setSelectedCapsuleIds={setSelectedCapsuleIds}
@@ -1188,8 +1187,8 @@ const AppContent: React.FC = () => {
                     onOpenGroupManager={() => setIsGroupModalOpen(true)}
                     installPrompt={installPrompt}
                     onInstall={handleInstallApp}
-                    currentTheme={theme}
-                    onToggleTheme={toggleTheme}
+                    isIOS={isIOS}
+                    isStandalone={isStandalone}
                 />
             )}
             {isGroupModalOpen && currentUser && (

@@ -1,23 +1,28 @@
 
 import React from 'react';
-import { HomeIcon, LayoutGridIcon, CalendarIcon, ShoppingBagIcon, UserIcon } from '../constants';
+import { HomeIcon, LayoutGridIcon, CalendarIcon, ShoppingBagIcon, UserIcon, SchoolIcon } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
+import type { UserRole } from '../types';
 
-type MobileTab = 'create' | 'library' | 'agenda' | 'store' | 'profile';
+type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
 
 interface MobileNavBarProps {
-    activeTab: MobileTab;
-    onTabChange: (tab: MobileTab) => void;
+    activeTab: MobileTab | string;
+    onTabChange: (tab: any) => void;
     hasActivePlan: boolean;
+    userRole: UserRole;
 }
 
-const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChange, hasActivePlan }) => {
+const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChange, hasActivePlan, userRole }) => {
     const { t } = useLanguage();
 
     const navItems = [
         { id: 'create', label: t('nav_create'), icon: HomeIcon },
         { id: 'library', label: t('nav_library'), icon: LayoutGridIcon },
-        { id: 'agenda', label: t('nav_agenda'), icon: CalendarIcon },
+        // Conditionnel : Agenda (Élève) vs Classes (Prof)
+        userRole === 'teacher' 
+            ? { id: 'classes', label: t('manage_class'), icon: SchoolIcon }
+            : { id: 'agenda', label: t('nav_agenda'), icon: CalendarIcon },
         { id: 'store', label: t('nav_store'), icon: ShoppingBagIcon },
         { id: 'profile', label: t('nav_profile'), icon: UserIcon },
     ];
@@ -30,7 +35,7 @@ const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChange, has
                     return (
                         <button
                             key={item.id}
-                            onClick={() => onTabChange(item.id as MobileTab)}
+                            onClick={() => onTabChange(item.id)}
                             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
                                 isActive 
                                     ? 'text-emerald-600 dark:text-emerald-400' 

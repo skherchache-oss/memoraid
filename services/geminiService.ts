@@ -1,6 +1,4 @@
 
-console.log("CLE API ->", import.meta.env.VITE_GEMINI_API_KEY);
-
 import { GoogleGenAI, Type, Chat } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType } from '../types';
 import type { Language } from '../i18n/translations';
@@ -12,9 +10,9 @@ const getAiClient = () => {
     // 1. Essayer la méthode Vite (Local)
     try {
         // @ts-ignore - Vite specific
-        if (import.meta && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
+        if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
             // @ts-ignore
-            apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+            apiKey = import.meta.env.VITE_API_KEY;
         }
     } catch (e) { /* Ignore */ }
 
