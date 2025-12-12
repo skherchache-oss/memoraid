@@ -16,6 +16,7 @@ import AgendaView from './components/AgendaView';
 import PremiumStore from './components/PremiumStore';
 import MobileNavBar from './components/MobileNavBar';
 import TeacherDashboard from './components/TeacherDashboard';
+import ConfirmationModal from './components/ConfirmationModal'; // Import ajouté
 import { generateCognitiveCapsule, generateCognitiveCapsuleFromFile } from './services/geminiService';
 import { isCapsuleDue, analyzeGlobalPerformance, calculateMasteryScore } from './services/srsService';
 import { updateTaskStatus } from './services/planningService';
@@ -103,6 +104,7 @@ const AppContent: React.FC = () => {
     });
     
     const [activeCapsule, setActiveCapsule] = useState<CognitiveCapsule | null>(null);
+    const [capsuleToDelete, setCapsuleToDelete] = useState<CognitiveCapsule | null>(null); // Nouvel état pour la suppression
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isCoaching, setIsCoaching] = useState<boolean>(false);
@@ -598,6 +600,7 @@ const AppContent: React.FC = () => {
         }
     }, [addToast, displayCapsules, currentUser, isOnline, t]);
 
+    // Cette fonction exécute réellement la suppression
     const handleDeleteCapsule = useCallback(async (capsuleId: string) => {
         const capsule = displayCapsules.find(c => c.id === capsuleId);
         const capsuleTitle = capsule?.title || 'La capsule';
@@ -623,6 +626,14 @@ const AppContent: React.FC = () => {
         }
         addToast(`"${capsuleTitle}" ${t('capsule_deleted')}`, 'info');
     }, [activeCapsule?.id, displayCapsules, addToast, currentUser, t]);
+
+    // Cette fonction confirme la suppression via le modal
+    const confirmDeleteCapsule = useCallback(() => {
+        if (capsuleToDelete) {
+            handleDeleteCapsule(capsuleToDelete.id);
+            setCapsuleToDelete(null);
+        }
+    }, [capsuleToDelete, handleDeleteCapsule]);
 
     const handleMarkAsReviewed = useCallback((capsuleId: string, score: number = 100, type: ReviewLog['type'] = 'manual') => {
         const now = Date.now();
@@ -888,7 +899,7 @@ const AppContent: React.FC = () => {
                         onNewCapsule={() => setMobileTab('create')}
                         notificationPermission={notificationPermission}
                         onRequestNotificationPermission={handleRequestNotificationPermission}
-                        onDeleteCapsule={handleDeleteCapsule}
+                        onDeleteCapsule={(capsule) => setCapsuleToDelete(capsule)}
                         newlyAddedCapsuleId={newlyAddedCapsuleId}
                         onClearNewCapsule={() => setNewlyAddedCapsuleId(null)}
                         selectedCapsuleIds={selectedCapsuleIds}
@@ -1070,7 +1081,7 @@ const AppContent: React.FC = () => {
                                 onNewCapsule={handleNewCapsule}
                                 notificationPermission={notificationPermission}
                                 onRequestNotificationPermission={handleRequestNotificationPermission}
-                                onDeleteCapsule={handleDeleteCapsule}
+                                onDeleteCapsule={(capsule) => setCapsuleToDelete(capsule.id ? capsule : null)}
                                 newlyAddedCapsuleId={newlyAddedCapsuleId}
                                 onClearNewCapsule={() => setNewlyAddedCapsuleId(null)}
                                 selectedCapsuleIds={selectedCapsuleIds}
@@ -1221,6 +1232,17 @@ const AppContent: React.FC = () => {
                     onAssignTask={handleAssignTask}
                 />
             )}
+            
+            {/* Modal de Confirmation de Suppression Global */}
+            <ConfirmationModal
+                isOpen={!!capsuleToDelete}
+                onClose={() => setCapsuleToDelete(null)}
+                onConfirm={confirmDeleteCapsule}
+                title="Supprimer la capsule"
+                message={`Êtes-vous sûr de vouloir supprimer la capsule "${capsuleToDelete?.title}" ? Cette action est irréversible.`}
+                confirmText="Supprimer"
+                cancelText="Annuler"
+            />
         </div>
     );
 };

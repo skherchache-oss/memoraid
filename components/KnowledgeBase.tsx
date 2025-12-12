@@ -14,7 +14,7 @@ interface KnowledgeBaseProps {
     onNewCapsule: () => void;
     notificationPermission: NotificationPermission;
     onRequestNotificationPermission: () => void;
-    onDeleteCapsule: (capsuleId: string) => void;
+    onDeleteCapsule: (capsule: CognitiveCapsule) => void; // Prop type updated to accept full object
     newlyAddedCapsuleId: string | null;
     onClearNewCapsule: () => void;
     selectedCapsuleIds: string[];
@@ -65,7 +65,6 @@ const NotificationManager: React.FC<{ permission: NotificationPermission, onRequ
 
 const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId, onSelectCapsule, onNewCapsule, notificationPermission, onRequestNotificationPermission, onDeleteCapsule, newlyAddedCapsuleId, onClearNewCapsule, selectedCapsuleIds, setSelectedCapsuleIds, onOpenStore }) => {
     const { t } = useLanguage();
-    const [capsuleToDelete, setCapsuleToDelete] = useState<CognitiveCapsule | null>(null);
     const [isReviewConfirmOpen, setIsReviewConfirmOpen] = useState(false);
     const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
     const [expandedCapsuleId, setExpandedCapsuleId] = useState<string | null>(null);
@@ -121,20 +120,6 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
         return { sortedCategories, groups, uncategorized };
     }, [filteredCapsules]);
 
-    const handleRequestDelete = (capsule: CognitiveCapsule) => {
-        setCapsuleToDelete(capsule);
-    };
-
-    const handleConfirmDelete = () => {
-        if (capsuleToDelete) {
-            onDeleteCapsule(capsuleToDelete.id);
-            setCapsuleToDelete(null);
-        }
-    };
-    
-    const handleCancelDelete = () => {
-        setCapsuleToDelete(null);
-    };
     
     const handleToggleSelection = (capsuleId: string) => {
         setSelectedCapsuleIds(prev =>
@@ -283,7 +268,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                             isDue={true} 
                                             onToggleExpand={() => handleToggleExpand(capsule)}
                                             onToggleSelection={() => handleToggleSelection(capsule.id)}
-                                            onRequestDelete={handleRequestDelete}
+                                            onRequestDelete={onDeleteCapsule} // Pass function directly
                                             newlyAddedCapsuleId={newlyAddedCapsuleId}
                                             onClearNewCapsule={onClearNewCapsule}
                                         />
@@ -311,7 +296,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                             isDue={false} 
                                             onToggleExpand={() => handleToggleExpand(capsule)}
                                             onToggleSelection={() => handleToggleSelection(capsule.id)}
-                                            onRequestDelete={handleRequestDelete}
+                                            onRequestDelete={onDeleteCapsule} // Pass function directly
                                             newlyAddedCapsuleId={newlyAddedCapsuleId}
                                             onClearNewCapsule={onClearNewCapsule}
                                         />
@@ -337,7 +322,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                             isDue={false} 
                                             onToggleExpand={() => handleToggleExpand(capsule)}
                                             onToggleSelection={() => handleToggleSelection(capsule.id)}
-                                            onRequestDelete={handleRequestDelete}
+                                            onRequestDelete={onDeleteCapsule} // Pass function directly
                                             newlyAddedCapsuleId={newlyAddedCapsuleId}
                                             onClearNewCapsule={onClearNewCapsule}
                                         />
@@ -362,15 +347,6 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                 </details>
             </div>
 
-            <ConfirmationModal
-                isOpen={!!capsuleToDelete}
-                onClose={handleCancelDelete}
-                onConfirm={handleConfirmDelete}
-                title="Supprimer la capsule"
-                message={`Êtes-vous sûr de vouloir supprimer la capsule "${capsuleToDelete?.title}" ? Cette action est irréversible.`}
-                confirmText="Supprimer"
-                cancelText="Annuler"
-            />
             <ConfirmationModal
                 isOpen={isReviewConfirmOpen && dueCapsules.length > 0}
                 onClose={handleCancelReview}
