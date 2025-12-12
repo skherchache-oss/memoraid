@@ -3,13 +3,16 @@ import { useState, useEffect, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
+// Nouvelle clé pour forcer le reset des préférences utilisateurs existants
+const STORAGE_KEY = 'memoraid_theme_v2';
+
 const getInitialTheme = (): Theme => {
     if (typeof window === 'undefined') {
         return 'light'; // Default SSR/Initial state
     }
     try {
-        const savedTheme = localStorage.getItem('memoraid_theme');
-        // Le thème CLAIR est le défaut, sauf si l'utilisateur a explicitement choisi le thème sombre.
+        const savedTheme = localStorage.getItem(STORAGE_KEY);
+        // Le thème CLAIR est le défaut absolu.
         if (savedTheme === 'dark') {
             return 'dark';
         }
@@ -43,7 +46,7 @@ export const useTheme = (): { theme: Theme; toggleTheme: () => void } => {
 
         // 2. Persister le choix du thème dans le localStorage
         try {
-            localStorage.setItem('memoraid_theme', theme);
+            localStorage.setItem(STORAGE_KEY, theme);
         } catch (_) {
             // ignorer les erreurs de stockage
         }

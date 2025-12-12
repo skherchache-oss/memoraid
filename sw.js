@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'memoraid-cache-v1';
+const CACHE_NAME = 'memoraid-cache-v2';
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
@@ -21,8 +21,18 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  // Prendre le contrôle de tous les clients immédiatement
-  event.waitUntil(self.clients.claim());
+  // Nettoyage des anciens caches (v1, etc.)
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
