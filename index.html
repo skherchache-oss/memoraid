@@ -5,19 +5,28 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
-    <!-- Lien manuel vers le manifest pour garantir la détection PWA dans l'environnement de preview -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
-    <!-- PWA Theme Color - Force Light Mode -->
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Memoraid">
+    <meta name="description" content="Assistant personnel d'apprentissage intelligent.">
 
     <title>Memoraid - Assistant d'Apprentissage</title>
+    
     <script>
-      // IIFE pour appliquer le thème (clair/sombre) avant le rendu pour éviter le scintillement
+      // Capture de l'événement d'installation
+      window.deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        console.log("PWA install event captured");
+        e.preventDefault();
+        window.deferredPrompt = e;
+      });
+    </script>
+
+    <script>
       (function() {
         try {
           const theme = localStorage.getItem('memoraid_theme_v2');
@@ -30,7 +39,6 @@
       })();
     </script>
     
-    <!-- Chargement Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       window.addEventListener('load', () => {
@@ -181,7 +189,6 @@
 </head>
   <body class="bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200 selection:bg-emerald-200 dark:selection:bg-emerald-900">
     <div id="root">
-      <!-- Splash Screen Content (Visible immediately) -->
       <div id="splash-screen">
         <svg class="splash-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>

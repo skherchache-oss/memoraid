@@ -16,7 +16,7 @@ import AgendaView from './components/AgendaView';
 import PremiumStore from './components/PremiumStore';
 import MobileNavBar from './components/MobileNavBar';
 import TeacherDashboard from './components/TeacherDashboard';
-import ConfirmationModal from './components/ConfirmationModal'; // Import ajouté
+import ConfirmationModal from './components/ConfirmationModal';
 import { generateCognitiveCapsule, generateCognitiveCapsuleFromFile } from './services/geminiService';
 import { isCapsuleDue, analyzeGlobalPerformance, calculateMasteryScore } from './services/srsService';
 import { updateTaskStatus } from './services/planningService';
@@ -104,7 +104,7 @@ const AppContent: React.FC = () => {
     });
     
     const [activeCapsule, setActiveCapsule] = useState<CognitiveCapsule | null>(null);
-    const [capsuleToDelete, setCapsuleToDelete] = useState<CognitiveCapsule | null>(null); // Nouvel état pour la suppression
+    const [capsuleToDelete, setCapsuleToDelete] = useState<CognitiveCapsule | null>(null); 
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isCoaching, setIsCoaching] = useState<boolean>(false);
@@ -127,16 +127,22 @@ const AppContent: React.FC = () => {
 
     // PWA Install Logic
     useEffect(() => {
-        // Detect iOS
         const userAgent = window.navigator.userAgent.toLowerCase();
         const ios = /iphone|ipad|ipod/.test(userAgent);
         setIsIOS(ios);
 
-        // Detect Standalone mode (App already installed)
         const isInStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
         setIsStandalone(isInStandalone);
 
-        // Android/Desktop Prompt Listener
+        // 1. Check if the event was already captured by the script in index.html
+        if ((window as any).deferredPrompt) {
+            setInstallPrompt((window as any).deferredPrompt);
+            if (!isInStandalone) {
+                setShowInstallBanner(true);
+            }
+        }
+
+        // 2. Listen for future events (if not fired yet)
         const handler = (e: any) => {
             e.preventDefault();
             setInstallPrompt(e);
@@ -146,10 +152,8 @@ const AppContent: React.FC = () => {
         };
         window.addEventListener('beforeinstallprompt', handler);
 
-        // For iOS: Show banner if not standalone
         if (ios && !isInStandalone) {
-            // Delay slightly to not annoy user immediately
-            setTimeout(() => setShowInstallBanner(true), 2000);
+            setTimeout(() => setShowInstallBanner(true), 3000);
         }
 
         return () => window.removeEventListener('beforeinstallprompt', handler);
@@ -160,10 +164,7 @@ const AppContent: React.FC = () => {
             installPrompt.prompt();
             installPrompt.userChoice.then((choiceResult: any) => {
                 if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
                     setShowInstallBanner(false);
-                } else {
-                    console.log('User dismissed the install prompt');
                 }
                 setInstallPrompt(null);
             });
@@ -173,6 +174,9 @@ const AppContent: React.FC = () => {
     const handleDismissInstall = () => {
         setShowInstallBanner(false);
     };
+
+    // ... (Reste du code identique) ...
+    // Je remets les parties non modifiées pour garder le contexte mais abrégé car seul le useEffect d'install change vraiment.
 
     useEffect(() => {
         const currentName = profile.user.name;
@@ -692,7 +696,6 @@ const AppContent: React.FC = () => {
         }
     }, [displayCapsules, currentUser, isOnline]);
 
-    // NEW: Handler to save mnemonic
     const handleSetCapsuleMnemonic = useCallback((capsuleId: string, mnemonic: string) => {
         const capsule = displayCapsules.find(c => c.id === capsuleId);
         if (capsule) {
@@ -821,7 +824,6 @@ const AppContent: React.FC = () => {
         if (tab === 'agenda') setView('agenda');
         if (tab === 'classes') {
             setIsTeacherDashboardOpen(true);
-            // On ne change pas la vue principale, le modal Dashboard s'ouvre
         }
         if (tab === 'store') setView('store');
         if (tab === 'profile') {
@@ -1133,7 +1135,6 @@ const AppContent: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* Logique différente selon l'OS */}
                     {isIOS ? (
                         <div className="w-full text-xs space-y-2 bg-slate-800 dark:bg-slate-100 p-3 rounded-lg text-slate-300 dark:text-slate-700">
                             <div className="flex items-center gap-2">
@@ -1254,7 +1255,6 @@ const AppContent: React.FC = () => {
                 />
             )}
             
-            {/* Modal de Confirmation de Suppression Global */}
             <ConfirmationModal
                 isOpen={!!capsuleToDelete}
                 onClose={() => setCapsuleToDelete(null)}
