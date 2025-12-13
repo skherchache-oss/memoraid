@@ -228,7 +228,7 @@ const AppContent: React.FC = () => {
                     const localCapsules = profile.capsules;
                     if (localCapsules.length > 0) {
                         if (navigator.onLine) {
-                            addToast("Synchronisation de vos capsules vers le cloud...", "info");
+                            addToast(t('sync_cloud'), "info");
                             await migrateLocalDataToCloud(user.uid, localCapsules);
                         }
                     }
@@ -333,7 +333,7 @@ const AppContent: React.FC = () => {
             try {
                 await saveCapsuleToCloud(currentUser.uid, capsule);
                 if (!isOnline) {
-                    addToast("Sauvegardé hors ligne. Synchro en attente.", "info");
+                    addToast(t('offline_save'), "info");
                 }
             } catch (e) {
                 addToast(t('error_save'), "error");
@@ -367,10 +367,10 @@ const AppContent: React.FC = () => {
         }));
 
         if (levelUp) {
-            addToast(`Niveau Supérieur ! Vous êtes maintenant Niveau ${stats.level} !`, 'success');
+            addToast(t('level_up').replace('{level}', stats.level.toString()), 'success');
         }
         if (newBadges.length > 0) {
-            newBadges.forEach(b => addToast(`Badge Débloqué : ${b.name}`, 'success'));
+            newBadges.forEach(b => addToast(t('badge_unlocked').replace('{badge}', b.name), 'success'));
         }
     };
     
@@ -438,7 +438,7 @@ const AppContent: React.FC = () => {
 
         } catch (e) {
             console.error(e);
-            addToast("Erreur lors de l'ajout du pack.", 'error');
+            addToast(t('pack_error'), 'error');
         }
     };
 
@@ -463,7 +463,7 @@ const AppContent: React.FC = () => {
 
     const handleGenerate = useCallback(async (inputText: string, sourceType?: SourceType) => {
         if (!isOnline) {
-            setError("La génération par IA nécessite une connexion Internet.");
+            setError(t('gen_needs_online'));
             return;
         }
         generationController.current.isCancelled = false;
@@ -506,7 +506,7 @@ const AppContent: React.FC = () => {
     
     const handleGenerateFromFile = useCallback(async (file: File, sourceType?: SourceType) => {
         if (!isOnline) {
-            setError("L'analyse de fichiers nécessite une connexion Internet.");
+            setError(t('file_needs_online'));
             return;
         }
         generationController.current.isCancelled = false;
@@ -609,7 +609,7 @@ const AppContent: React.FC = () => {
             try {
                 await deleteCapsuleFromCloud(currentUser.uid, capsuleId);
             } catch(e) {
-                addToast("Erreur lors de la suppression.", "error");
+                addToast(t('delete_error'), "error");
                 return;
             }
         } else {
@@ -717,15 +717,15 @@ const AppContent: React.FC = () => {
     const handleShareCapsule = async (group: Group, capsule: CognitiveCapsule) => {
         if (!currentUser) return;
         if (!isOnline) {
-            addToast("Le partage nécessite une connexion Internet.", "error");
+            addToast(t('share_needs_online'), "error");
             return;
         }
         try {
             await shareCapsuleToGroup(currentUser.uid, group, capsule);
-            addToast("Capsule partagée avec le groupe.", "success");
+            addToast(t('share_success'), "success");
         } catch (e) {
             console.error(e);
-            addToast("Erreur lors du partage.", "error");
+            addToast(t('share_error'), "error");
         }
     };
 
@@ -764,10 +764,13 @@ const AppContent: React.FC = () => {
             if (capsuleToNotify) {
                 const isCritical = stats.overdueCount > 0 && isCapsuleDue(capsuleToNotify);
                 
-                const notification = new Notification(isCritical ? '⚠️ Risque d\'oubli critique !' : 'Memoraid: Il est temps de réviser !', {
-                    body: isCritical 
-                        ? `Votre mémorisation de "${capsuleToNotify.title}" est en baisse. Révisez maintenant.` 
-                        : `"${capsuleToNotify.title}" vous attend pour renforcer vos connaissances.`,
+                const title = isCritical ? t('notif_risk_title') : t('notif_review_title');
+                const body = isCritical 
+                    ? t('notif_risk_body').replace('{title}', capsuleToNotify.title)
+                    : t('notif_review_body').replace('{title}', capsuleToNotify.title);
+                
+                const notification = new Notification(title, {
+                    body: body,
                     icon: '/vite.svg',
                     tag: capsuleToNotify.id,
                 });
@@ -779,7 +782,7 @@ const AppContent: React.FC = () => {
             }
         }, 60000);
         return () => clearInterval(intervalId);
-    }, [notificationPermission, handleSelectCapsule, displayCapsules]);
+    }, [notificationPermission, handleSelectCapsule, displayCapsules, t]);
     
 
     const allCategories = useMemo(() => {

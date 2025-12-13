@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CognitiveCapsule } from '../types';
 import { PlusIcon, BookOpenIcon, BellIcon, MemoraidLogoIcon, PlayIcon, SearchIcon, XIcon, ChevronRightIcon, CheckCircleIcon, LayersIcon, InfoIcon, ShoppingBagIcon, LearningIllustration } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
@@ -23,6 +24,8 @@ interface KnowledgeBaseProps {
 }
 
 const NotificationManager: React.FC<{ permission: NotificationPermission, onRequest: () => void, onShowInstructions: () => void }> = ({ permission, onRequest, onShowInstructions }) => {
+    const { t } = useLanguage();
+    
     if (permission === 'default') {
         return (
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 my-4">
@@ -31,11 +34,11 @@ const NotificationManager: React.FC<{ permission: NotificationPermission, onRequ
                         <BellIcon className="w-5 h-5 text-blue-600 dark:text-blue-200 flex-shrink-0"/>
                     </div>
                     <div className="flex-grow">
-                        <p className="font-bold text-sm text-blue-800 dark:text-blue-200">Ne manquez pas vos révisions</p>
-                        <p className="text-xs text-blue-600 dark:text-blue-300">Activez les rappels intelligents.</p>
+                        <p className="font-bold text-sm text-blue-800 dark:text-blue-200">{t('notifications_title')}</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-300">{t('notifications_desc')}</p>
                     </div>
                     <button onClick={onRequest} className="px-3 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm">
-                        Activer
+                        {t('notifications_enable')}
                     </button>
                 </div>
             </div>
@@ -49,10 +52,10 @@ const NotificationManager: React.FC<{ permission: NotificationPermission, onRequ
                         <BellIcon className="w-5 h-5 text-amber-600 dark:text-amber-200 flex-shrink-0"/>
                     </div>
                     <div>
-                       <p className="font-bold text-sm text-amber-800 dark:text-amber-200">Notifications bloquées</p>
+                       <p className="font-bold text-sm text-amber-800 dark:text-amber-200">{t('notifications_blocked')}</p>
                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                           Le navigateur empêche l'envoi de rappels.
-                           <button onClick={onShowInstructions} className="block mt-1 underline hover:no-underline font-semibold">Voir comment débloquer</button>
+                           {t('notifications_blocked_desc')}
+                           <button onClick={onShowInstructions} className="block mt-1 underline hover:no-underline font-semibold">{t('how_to_unblock')}</button>
                        </p>
                     </div>
                 </div>
@@ -69,15 +72,6 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
     const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
     const [expandedCapsuleId, setExpandedCapsuleId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-
-    const parseBold = (text: string) => {
-        return text.split(/(\*\*.*?\*\*)/g).map((part, index) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={index} className="font-bold text-slate-700 dark:text-zinc-200">{part.slice(2, -2)}</strong>;
-            }
-            return <span key={index}>{part}</span>;
-        });
-    };
 
     const filteredCapsules = useMemo(() => {
         if (!searchTerm.trim()) {
@@ -158,7 +152,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
     };
 
     return (
-        <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg h-full min-h-[80vh] flex flex-col border border-slate-100 dark:border-zinc-800">
+        <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg h-full min-h-[80vh] flex flex-col border border-slate-100 dark:border-zinc-800 relative">
             <h2 className="flex items-center text-2xl font-bold mb-2 text-slate-900 dark:text-white">
                 <BookOpenIcon className="w-8 h-8 mr-3 text-emerald-500" />
                 {t('my_knowledge_base')}
@@ -334,19 +328,6 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                 )}
             </div>
 
-            <div className="mt-6 pt-6 border-t border-slate-100 dark:border-zinc-800">
-                <details className="group">
-                    <summary className="list-none flex items-center justify-between cursor-pointer text-sm font-bold text-slate-600 dark:text-zinc-300 hover:text-slate-800 dark:hover:text-white transition-colors">
-                        <span>{t('how_it_works')}</span>
-                        <ChevronRightIcon className="w-4 h-4 text-zinc-500 transform group-open:rotate-90 transition-transform"/>
-                    </summary>
-                    <div className="mt-3 text-xs text-slate-500 dark:text-zinc-400 space-y-2 leading-relaxed">
-                        <p>{parseBold(t('how_it_works_desc1'))}</p>
-                        <p>{parseBold(t('how_it_works_desc2'))}</p>
-                    </div>
-                </details>
-            </div>
-
             <ConfirmationModal
                 isOpen={isReviewConfirmOpen && dueCapsules.length > 0}
                 onClose={handleCancelReview}
@@ -358,32 +339,32 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                 variant="info"
                 icon={<PlayIcon />}
             />
-             {isInstructionsModalOpen && (
+             {isInstructionsModalOpen && createPortal(
                 <div 
-                    className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in"
+                    className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 animate-fade-in"
                     role="dialog"
                     aria-modal="true"
                     onClick={() => setIsInstructionsModalOpen(false)}
                 >
                     <div 
-                        className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md m-4 flex flex-col overflow-hidden"
+                        className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md m-4 flex flex-col overflow-hidden relative z-[10000]"
                         onClick={e => e.stopPropagation()}
                     >
                          <header className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/80">
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                 <InfoIcon className="w-6 h-6 text-blue-500"/>
-                                Réactiver les notifications
+                                {t('notifications_instructions_title')}
                             </h3>
                             <button onClick={() => setIsInstructionsModalOpen(false)} className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-zinc-800" aria-label="Fermer">
                                 <XIcon className="w-5 h-5 text-slate-500" />
                             </button>
                         </header>
                         <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
-                            <p className="text-sm text-slate-700 dark:text-zinc-300">Pour réactiver les notifications :</p>
+                            <p className="text-sm text-slate-700 dark:text-zinc-300">{t('notifications_instructions_intro')}</p>
                             <ol className="list-decimal list-inside space-y-2 text-sm text-slate-700 dark:text-zinc-300">
-                                <li>Cliquez sur l'icône de cadenas dans la barre d'adresse.</li>
-                                <li>Cliquez sur "Réinitialiser les autorisations".</li>
-                                <li>Actualisez la page.</li>
+                                <li>{t('notifications_instructions_step1')}</li>
+                                <li>{t('notifications_instructions_step2')}</li>
+                                <li>{t('notifications_instructions_step3')}</li>
                             </ol>
                         </div>
                          <div className="bg-slate-50 dark:bg-zinc-900/50 px-6 py-4 text-right border-t border-slate-200 dark:border-zinc-800">
@@ -392,11 +373,12 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                 className="inline-flex justify-center rounded-lg border border-transparent shadow-sm px-5 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm"
                                 onClick={() => setIsInstructionsModalOpen(false)}
                             >
-                                J'ai compris
+                                {t('got_it')}
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

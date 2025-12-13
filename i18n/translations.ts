@@ -28,6 +28,13 @@ export const translations = {
         school_button: "Scolaire",
         generate_button: "Générer la Capsule",
         analyzing: "Analyse en cours...",
+        micro_not_supported: "Ce navigateur ne supporte pas la dictée vocale. Utilisez Chrome ou Edge.",
+        micro_denied: "Accès au micro refusé. Vérifiez vos permissions.",
+        micro_error_start: "Impossible de démarrer le micro.",
+        file_empty: "Le fichier est vide.",
+        image_too_large: "L'image est trop volumineuse (> 30Mo).",
+        image_error: "Erreur image. Essayez une photo moins lourde.",
+        image_processing: "Traitement et compression de l'image...",
         
         // Loading
         loading_title: "Création de votre capsule...",
@@ -39,6 +46,12 @@ export const translations = {
         error_generation: "Erreur de Génération",
         retry: "Réessayer",
         close: "Fermer",
+        gen_needs_online: "La génération par IA nécessite une connexion Internet.",
+        file_needs_online: "L'analyse de fichiers nécessite une connexion Internet.",
+        delete_error: "Erreur lors de la suppression.",
+        share_error: "Erreur lors du partage.",
+        share_needs_online: "Le partage nécessite une connexion Internet.",
+        pack_error: "Erreur lors de l'ajout du pack.",
         
         // Dashboard / Recent
         recent_activity: "Activité récente",
@@ -65,6 +78,24 @@ export const translations = {
         how_it_works_desc1: "Memoraid utilise la **répétition espacée** pour ancrer les connaissances. L'application calcule le moment optimal pour vous présenter une capsule.",
         how_it_works_desc2: "**1. Créez** : Écrivez, dictez ou importez un cours (PDF < 5Mo). **2. Apprenez** : Concepts clés, flashcards, quiz et croquis. **3. Planifiez** : Générez votre planning de révision jusqu'à l'échéance.",
         
+        // Notifications & Permissions
+        notifications_title: "Ne manquez pas vos révisions",
+        notifications_desc: "Activez les rappels intelligents.",
+        notifications_enable: "Activer",
+        notifications_blocked: "Notifications bloquées",
+        notifications_blocked_desc: "Le navigateur empêche l'envoi de rappels.",
+        how_to_unblock: "Voir comment débloquer",
+        notifications_instructions_title: "Réactiver les notifications",
+        notifications_instructions_intro: "Pour réactiver les notifications :",
+        notifications_instructions_step1: "Cliquez sur l'icône de cadenas dans la barre d'adresse.",
+        notifications_instructions_step2: "Cliquez sur \"Réinitialiser les autorisations\".",
+        notifications_instructions_step3: "Actualisez la page.",
+        got_it: "J'ai compris",
+        notif_risk_title: "⚠️ Risque d'oubli critique !",
+        notif_risk_body: "Votre mémorisation de \"{title}\" est en baisse. Révisez maintenant.",
+        notif_review_title: "Memoraid: Il est temps de réviser !",
+        notif_review_body: "\"{title}\" vous attend pour renforcer vos connaissances.",
+
         // Capsule View
         collaborative_capsule: "Capsule Collaborative",
         shared_in: "Partagée dans le groupe",
@@ -78,9 +109,14 @@ export const translations = {
         examples: "Exemples Pratiques",
         mnemonic_title: "Secret de Mémorisation",
         mnemonic_desc: "Une phrase, un acronyme ou une rime pour tout retenir.",
+        mnemonic_boost: "Boostez votre mémoire avec une phrase clé.",
+        mnemonic_label: "Mnémotechnique",
+        mnemonic_generated_by: "Astuce générée par Memoraid",
         generate_mnemonic: "Générer une astuce",
+        generating_mnemonic: "Création de votre astuce...",
         memory_aid_sketch: "Croquis Aide-Mémoire",
-        sketch_placeholder_text: "Visualisez les concepts avec un croquis style 'Sketchnote' fait main.",
+        sketch_placeholder_text: "Visualisez les concepts avec un croquis style 'Sketchnote'.",
+        sketch_warning: "Le texte du dessin peut contenir de petites erreurs.",
         generate_sketch: "Générer le croquis",
         sketching: "Memoraid dessine...",
         info: "Info :",
@@ -238,6 +274,8 @@ export const translations = {
         // Toasts
         connection_restored: "Connexion rétablie. Synchronisation en cours...",
         offline_mode: "Vous êtes hors ligne. Mode consultation activé.",
+        sync_cloud: "Synchronisation de vos capsules vers le cloud...",
+        offline_save: "Sauvegardé hors ligne. Synchro en attente.",
         capsule_created: "Capsule créée avec succès !",
         generation_cancelled: "Génération annulée.",
         coach_needs_online: "Le coach IA nécessite une connexion Internet.",
@@ -249,6 +287,9 @@ export const translations = {
         plan_generated: "Planning d'étude généré !",
         plan_deleted: "Planning supprimé.",
         pack_added: "Pack ajouté à votre bibliothèque !",
+        share_success: "Capsule partagée avec le groupe.",
+        level_up: "Niveau Supérieur ! Vous êtes maintenant Niveau {level} !",
+        badge_unlocked: "Badge Débloqué : {badge}",
         
         // Auth
         login: "Connexion",
@@ -289,6 +330,13 @@ export const translations = {
         school_button: "School",
         generate_button: "Generate Capsule",
         analyzing: "Analyzing...",
+        micro_not_supported: "This browser does not support voice dictation. Use Chrome or Edge.",
+        micro_denied: "Microphone access denied. Check your permissions.",
+        micro_error_start: "Could not start microphone.",
+        file_empty: "The file is empty.",
+        image_too_large: "Image is too large (> 30MB).",
+        image_error: "Image error. Try a smaller photo.",
+        image_processing: "Processing and compressing image...",
         
         // Loading
         loading_title: "Creating your capsule...",
@@ -300,6 +348,12 @@ export const translations = {
         error_generation: "Generation Error",
         retry: "Retry",
         close: "Close",
+        gen_needs_online: "AI generation requires an internet connection.",
+        file_needs_online: "File analysis requires an internet connection.",
+        delete_error: "Error during deletion.",
+        share_error: "Error during sharing.",
+        share_needs_online: "Sharing requires an internet connection.",
+        pack_error: "Error adding the pack.",
         
         // Dashboard / Recent
         recent_activity: "Recent Activity",
@@ -326,6 +380,24 @@ export const translations = {
         how_it_works_desc1: "Memoraid uses **spaced repetition** to anchor knowledge. The app calculates the optimal time to review a capsule.",
         how_it_works_desc2: "**1. Create**: Write, dictate or import a course (PDF < 5MB). **2. Learn**: Key concepts, flashcards, quiz and sketch. **3. Plan**: Generate your revision schedule until the deadline.",
         
+        // Notifications & Permissions
+        notifications_title: "Don't miss your reviews",
+        notifications_desc: "Enable smart reminders.",
+        notifications_enable: "Enable",
+        notifications_blocked: "Notifications blocked",
+        notifications_blocked_desc: "The browser is blocking reminders.",
+        how_to_unblock: "See how to unblock",
+        notifications_instructions_title: "Re-enable notifications",
+        notifications_instructions_intro: "To re-enable notifications:",
+        notifications_instructions_step1: "Click the lock icon in the address bar.",
+        notifications_instructions_step2: "Click 'Reset permissions'.",
+        notifications_instructions_step3: "Refresh the page.",
+        got_it: "Got it",
+        notif_risk_title: "⚠️ Critical Forgetting Risk!",
+        notif_risk_body: "Your memory of \"{title}\" is fading. Review now.",
+        notif_review_title: "Memoraid: Time to review!",
+        notif_review_body: "\"{title}\" is ready to strengthen your knowledge.",
+
         // Capsule View
         collaborative_capsule: "Collaborative Capsule",
         shared_in: "Shared in group",
@@ -339,9 +411,14 @@ export const translations = {
         examples: "Practical Examples",
         mnemonic_title: "Memory Secret",
         mnemonic_desc: "A phrase, acronym, or rhyme to remember everything.",
+        mnemonic_boost: "Boost your memory with a key phrase.",
+        mnemonic_label: "Mnemonic",
+        mnemonic_generated_by: "Tip generated by Memoraid",
         generate_mnemonic: "Generate tip",
+        generating_mnemonic: "Generating your mnemonic...",
         memory_aid_sketch: "Memory Aid Sketch",
         sketch_placeholder_text: "Visualize concepts with a hand-drawn 'Sketchnote' style sketch.",
+        sketch_warning: "Text in the drawing may contain small errors.",
         generate_sketch: "Generate Sketch",
         sketching: "Memoraid is sketching...",
         info: "Info:",
@@ -499,6 +576,8 @@ export const translations = {
         // Toasts
         connection_restored: "Connection restored. Syncing...",
         offline_mode: "You are offline. Read-only mode.",
+        sync_cloud: "Syncing your capsules to the cloud...",
+        offline_save: "Saved offline. Pending sync.",
         capsule_created: "Capsule created successfully!",
         generation_cancelled: "Generation cancelled.",
         coach_needs_online: "AI Coach requires internet connection.",
@@ -510,6 +589,9 @@ export const translations = {
         plan_generated: "Study plan generated!",
         plan_deleted: "Plan deleted.",
         pack_added: "Pack added to your library!",
+        share_success: "Capsule shared with the group.",
+        level_up: "Level Up! You are now Level {level}!",
+        badge_unlocked: "Badge Unlocked: {badge}",
         
         // Auth
         login: "Login",

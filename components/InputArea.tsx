@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { SparklesIcon, XIcon, UploadIcon, AlertTriangleIcon, RefreshCwIcon, ImageIcon, BookOpenIcon, MicrophoneIcon, LearningIllustration } from '../constants';
 import ImportModal from './ImportModal';
@@ -5,6 +6,7 @@ import type { SourceType } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Language } from '../i18n/translations';
 import { useToast } from '../hooks/useToast';
+import HowItWorks from './HowItWorks';
 
 interface InputAreaProps {
     onGenerate: (text: string, sourceType?: SourceType) => void;
@@ -82,7 +84,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
     const startRecording = () => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
-            addToast("Ce navigateur ne supporte pas la dictée vocale. Veuillez utiliser Google Chrome ou Microsoft Edge.", "error");
+            addToast(t('micro_not_supported'), "error");
             return;
         }
 
@@ -128,7 +130,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
 
         recognition.onerror = (event: any) => {
             if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-                addToast("Accès au micro refusé. Veuillez vérifier les permissions de votre navigateur.", "error");
+                addToast(t('micro_denied'), "error");
                 stopRecording();
             } else if (event.error === 'no-speech') {
                 // Ignorer le silence
@@ -150,7 +152,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
             recognition.start();
         } catch (e) {
             console.error("Failed to start recognition:", e);
-            addToast("Impossible de démarrer le micro.", "error");
+            addToast(t('micro_error_start'), "error");
             setIsRecording(false);
         }
     };
@@ -265,7 +267,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
         setParseError(null);
         
         if (file.size === 0) {
-             setParseError("Le fichier est vide.");
+             setParseError(t('file_empty'));
              event.target.value = '';
              return;
         }
@@ -294,7 +296,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
         }
         
         if (isImage && file.size > MAX_RAW_IMAGE_SIZE_MB * 1024 * 1024) {
-             setParseError("L'image est trop volumineuse (> 30Mo).");
+             setParseError(t('image_too_large'));
              setSelectedFile(null);
              event.target.value = '';
              return;
@@ -320,7 +322,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
             setSelectedSourceType(type);
         } catch (err) {
             console.error(err);
-            setParseError("Erreur image. Essayez une photo moins lourde ou utilisez la galerie.");
+            setParseError(t('image_error'));
             event.target.value = '';
         } finally {
             setIsProcessingImage(false);
@@ -432,7 +434,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
     }
 
     return (
-        <div className="w-full">
+        <div className="w-full pb-8">
             <div className="bg-white dark:bg-zinc-900 p-8 md:p-10 rounded-3xl shadow-xl border border-transparent dark:border-zinc-800 relative z-10">
                 
                 <h2 className="text-3xl font-bold text-emerald-900 dark:text-white mb-2 text-center">{t('create_capsule')}</h2>
@@ -508,7 +510,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                     {isProcessingImage && (
                         <div className="mt-4 flex items-center justify-center gap-2 text-emerald-600 dark:text-emerald-400 animate-pulse bg-emerald-50 dark:bg-emerald-900/10 p-3 rounded-lg">
                             <RefreshCwIcon className="w-5 h-5 animate-spin" />
-                            <span className="font-semibold">Traitement et compression de l'image en cours...</span>
+                            <span className="font-semibold">{t('image_processing')}</span>
                         </div>
                     )}
 
@@ -550,9 +552,14 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                 )}
             </div>
             
-            {/* ILLUSTRATION EN BAS DE PAGE */}
-            <div className="flex justify-center mt-12 opacity-90 relative z-0">
-                <LearningIllustration className="w-full max-w-[280px] h-auto" />
+            {/* ENCADRÉ COMMENT ÇA MARCHE */}
+            <div className="mt-6 bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 w-full relative z-10">
+                <HowItWorks />
+            </div>
+
+            {/* ILLUSTRATION */}
+            <div className="flex justify-center mt-8 opacity-70 relative z-0">
+                <LearningIllustration className="w-full max-w-[200px] h-auto" />
             </div>
         </div>
     );

@@ -691,7 +691,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                             <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
                                 <div>
                                     <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">{t('mnemonic_desc')}</p>
-                                    <p className="text-xs text-orange-600 dark:text-orange-300">Boostez votre mémoire avec une phrase clé.</p>
+                                    <p className="text-xs text-orange-600 dark:text-orange-300">{t('mnemonic_boost')}</p>
                                 </div>
                                 <button
                                     onClick={handleGenerateMnemonic}
@@ -705,7 +705,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         {isGeneratingMnemonic && (
                             <div className="p-6 bg-slate-50 dark:bg-zinc-900/50 rounded-xl flex items-center justify-center gap-3">
                                 <RefreshCwIcon className="w-5 h-5 text-orange-500 animate-spin" />
-                                <span className="text-sm text-slate-500 dark:text-zinc-400">Création de votre astuce...</span>
+                                <span className="text-sm text-slate-500 dark:text-zinc-400">{t('generating_mnemonic')}</span>
                             </div>
                         )}
 
@@ -716,11 +716,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                         <ZapIcon className="w-6 h-6 text-orange-500" />
                                     </div>
                                     <div>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600/70 dark:text-orange-300/70 mb-1 block">
+                                            {t('mnemonic_label')}
+                                        </span>
                                         <p className="text-lg font-bold text-slate-800 dark:text-zinc-100 italic leading-relaxed">
                                             "{mnemonic}"
                                         </p>
                                         <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-medium uppercase tracking-wide">
-                                            Astuce générée par Memoraid
+                                            {t('mnemonic_generated_by')}
                                         </p>
                                     </div>
                                 </div>
@@ -749,8 +752,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         
                         {!memoryAidImage && !isGeneratingImage && !imageError && (
                             <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
-                                <p className="text-slate-600 dark:text-zinc-400 mb-4">
+                                <p className="text-slate-600 dark:text-zinc-400 mb-2">
                                     {t('sketch_placeholder_text')}
+                                </p>
+                                <p className="text-xs text-slate-400 dark:text-zinc-500 italic mb-6">
+                                    {t('sketch_warning')}
                                 </p>
                                 <button
                                     onClick={handleGenerateDrawing}

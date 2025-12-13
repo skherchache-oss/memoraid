@@ -413,7 +413,7 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
     }
 };
 
-// FIX: Drawing Generation updated for "White Sketchbook" and "No Text Errors"
+// FIX: Drawing Generation updated for "White Sketchbook" and "ENGLISH KEYWORDS ONLY"
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr'): Promise<{ imageData: string, description: string }> => {
     const ai = getAiClient();
     const targetLang = getLangName(language);
@@ -444,10 +444,13 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         const explMatch = rawText.match(/EXPLANATION:\s*(.+)/i);
         const metaphorsMatch = rawText.match(/METAPHORS:\s*(.+)/i);
         
-        const explanation = explMatch ? explMatch[1].trim() : "Visualisation du concept.";
+        let explanation = explMatch ? explMatch[1].trim() : "Visualisation du concept.";
+        // NETTOYAGE: Enlever les ** qui peuvent apparaître si l'IA utilise du Markdown
+        explanation = explanation.replace(/\*\*/g, '').trim();
+
         const metaphors = metaphorsMatch ? metaphorsMatch[1].trim() : "educational concepts";
 
-        // STRATEGY: CLEAN WHITE SKETCHBOOK PAGE + STRICT "NO TEXT"
+        // STRATEGY: CLEAN WHITE SKETCHBOOK PAGE + ENGLISH KEYWORDS ONLY
         const optimizedImagePrompt = `
         Subject: Educational Sketchnote Masterpiece for "${capsule.title}".
         Visuals: ${metaphors}.
@@ -455,10 +458,11 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         Background: Realistic BLANK WHITE SPIRAL SKETCHBOOK PAGE (high quality paper, metal spiral binding on the left, NO lines).
         Style: High-quality Hand-Drawn Ink Illustration with Watercolor accents (Emerald Green, Amber, Blue).
         
-        CRITICAL TEXT RULES:
-        1. NO TEXT LABELS INSIDE THE DRAWING. Use visual symbols and icons ONLY to explain concepts.
-        2. DO NOT attempt to write explanations or words.
-        3. EXCEPTION: You MUST write ONLY the signature "Memoraid" clearly in the bottom right corner (handwritten signature style).
+        TEXT RULES:
+        1. If you write words, they MUST be in **ENGLISH** (even if the topic is French).
+        2. Limit to 1 or 2 keywords max.
+        3. Write in bold, clear block letters.
+        4. EXCEPTION: You MUST write the signature "Memoraid" clearly in the bottom right corner (handwritten signature style).
         
         Aesthetics: Clean, artistic, minimalist study notes style.
         `;
