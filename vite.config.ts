@@ -8,13 +8,65 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
-      // ✅ CORRECTION CRITIQUE POUR VERCEL
+      // ⚠️ important : assets réellement nécessaires
+      includeAssets: ['icon.svg'],
+
+      // DEV uniquement
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
+
+      manifest: {
+        name: 'Memoraid',
+        short_name: 'Memoraid',
+        description: "Assistant personnel d'apprentissage intelligent.",
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        id: '/',
+        icons: [
+          {
+            src: 'icon.svg',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'icon.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
+          }
+        ],
+        screenshots: [
+          {
+            src: 'icon.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            form_factor: 'wide',
+            label: 'Memoraid Desktop'
+          },
+          {
+            src: 'icon.svg',
+            sizes: '512x512',
+            type: 'image/svg+xml',
+            form_factor: 'narrow',
+            label: 'Memoraid Mobile'
+          }
+        ]
+      },
+
       workbox: {
+        navigateFallback: '/index.html',
+        cleanupOutdatedCaches: true,
+
+        // ✅ CORRECTION CRITIQUE ICI
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
 
-        navigateFallback: '/index.html',
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        cleanupOutdatedCaches: true,
 
         runtimeCaching: [
           {
@@ -26,9 +78,7 @@ export default defineConfig({
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 * 365
               },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
+              cacheableResponse: { statuses: [0, 200] }
             }
           },
           {
@@ -40,9 +90,7 @@ export default defineConfig({
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 * 365
               },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
+              cacheableResponse: { statuses: [0, 200] }
             }
           },
           {
@@ -57,36 +105,8 @@ export default defineConfig({
                 maxEntries: 50,
                 maxAgeSeconds: 60 * 60 * 24
               },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
+              cacheableResponse: { statuses: [0, 200] }
             }
-          }
-        ]
-      },
-
-      includeAssets: ['icon.svg', 'index.html'],
-      manifest: {
-        name: 'Memoraid',
-        short_name: 'Memoraid',
-        description: "Assistant personnel d'apprentissage intelligent.",
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait',
-        start_url: '/',
-        icons: [
-          {
-            src: 'icon.svg',
-            sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          },
-          {
-            src: 'icon.svg',
-            sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
           }
         ]
       }
