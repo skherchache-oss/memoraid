@@ -12,6 +12,7 @@ import { ToastType } from '../hooks/useToast';
 import { addCommentToCapsule, saveCapsuleToCloud, assignTaskToMember, updateTaskStatus } from '../services/cloudService';
 import FocusMode from './FocusMode';
 import { useLanguage } from '../contexts/LanguageContext';
+import { canGenerateCroquis, registerCroquis, getRemainingQuota } from '../services/quotaManager';
 
 
 // Helper functions for audio decoding (truncated for brevity, keep existing implementation)
@@ -81,6 +82,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [memoryAidDescription, setMemoryAidDescription] = useState<string | null>(null);
     const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
     const [imageError, setImageError] = useState<string | null>(null);
+    const [remainingQuota, setRemainingQuota] = useState(getRemainingQuota());
     
     const [expandedConcepts, setExpandedConcepts] = useState<Record<string, string>>({});
     const [loadingConcepts, setLoadingConcepts] = useState<Record<string, boolean>>({});
@@ -112,6 +114,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setShowShareMenu(false);
         setIsFocusMode(false);
         setNewTaskDesc('');
+        setRemainingQuota(getRemainingQuota()); // Update quota on capsule change
         
         return () => {
             if (audioSourceRef.current) {
@@ -168,6 +171,16 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     }, []);
 
     const handleGenerateDrawing = async () => {
+        // 1. Vérification du Quota
+        if (!canGenerateCroquis()) {
+            setImageError("⚠️ Trop de demandes. Veuillez patienter une minute.");
+            return;
+        }
+
+        // 2. Enregistrement de l'utilisation et mise à jour UI
+        registerCroquis();
+        setRemainingQuota(getRemainingQuota());
+
         setIsGeneratingImage(true);
         setImageError(null);
         setMemoryAidImage(null);
@@ -644,10 +657,16 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                     {/* Dessin Aide-Mémoire */}
                     <div>
-                        <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4">
-                            <ImageIcon className="w-6 h-6 mr-3 text-violet-500" />
-                            <span>{t('memory_aid_sketch')}</span>
-                        </h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100">
+                                <ImageIcon className="w-6 h-6 mr-3 text-violet-500" />
+                                <span>{t('memory_aid_sketch')}</span>
+                            </h3>
+                            <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                Quota: {remainingQuota}/5
+                            </span>
+                        </div>
+                        
                         {!memoryAidImage && !isGeneratingImage && !imageError && (
                             <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
                                 <p className="text-slate-600 dark:text-zinc-400 mb-4">
