@@ -349,7 +349,7 @@ const AppContent: React.FC = () => {
         }
     };
 
-    const handleGamificationAction = (action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge', quizScore?: number) => {
+    const handleGamificationAction = (action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge' | 'manual_review', quizScore?: number) => {
         // Les profs ne participent pas à la gamification classique
         if (profile.user.role === 'teacher') return;
 
@@ -656,6 +656,9 @@ const AppContent: React.FC = () => {
             
             if (type === 'quiz' || type === 'flashcard') {
                 handleGamificationAction(type, score);
+            } else if (type === 'manual') {
+                // Nouvelle valorisation de la révision manuelle
+                handleGamificationAction('manual_review');
             }
 
             if (capsule.isShared && currentUser && capsule.groupId) {
@@ -683,6 +686,19 @@ const AppContent: React.FC = () => {
                 ...capsule, 
                 memoryAidImage: imageData || undefined,
                 memoryAidDescription: description || undefined
+            };
+            saveCapsuleData(updatedCapsule);
+            setActiveCapsule(prev => prev && prev.id === capsuleId ? updatedCapsule : prev);
+        }
+    }, [displayCapsules, currentUser, isOnline]);
+
+    // NEW: Handler to save mnemonic
+    const handleSetCapsuleMnemonic = useCallback((capsuleId: string, mnemonic: string) => {
+        const capsule = displayCapsules.find(c => c.id === capsuleId);
+        if (capsule) {
+            const updatedCapsule = { 
+                ...capsule, 
+                mnemonic: mnemonic
             };
             saveCapsuleData(updatedCapsule);
             setActiveCapsule(prev => prev && prev.id === capsuleId ? updatedCapsule : prev);
@@ -878,6 +894,7 @@ const AppContent: React.FC = () => {
                             onSetCategory={handleSetCapsuleCategory}
                             allCategories={allCategories}
                             onSetMemoryAid={handleSetCapsuleMemoryAid}
+                            onSetMnemonic={handleSetCapsuleMnemonic} // Added prop
                             onUpdateQuiz={handleUpdateCapsuleQuiz}
                             onBackToList={() => setActiveCapsule(null)}
                             addToast={addToast}
@@ -1053,6 +1070,7 @@ const AppContent: React.FC = () => {
                                     onSetCategory={handleSetCapsuleCategory}
                                     allCategories={allCategories}
                                     onSetMemoryAid={handleSetCapsuleMemoryAid}
+                                    onSetMnemonic={handleSetCapsuleMnemonic} // Added prop
                                     onUpdateQuiz={handleUpdateCapsuleQuiz}
                                     onBackToList={handleNewCapsule}
                                     addToast={addToast}

@@ -3,9 +3,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group, Comment, CollaborativeTask } from '../types';
 import Quiz from './Quiz';
-import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon } from '../constants';
+import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
-import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz } from '../services/geminiService';
+import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic } from '../services/geminiService';
 import { downloadFlashcardsPdf, downloadCapsulePdf, generateFilename, downloadQuizPdf } from '../services/pdfService';
 import { exportToPPTX, exportToEPUB } from '../services/exportService';
 import { ToastType } from '../hooks/useToast';
@@ -57,6 +57,7 @@ interface CapsuleViewProps {
     onSetCategory: (capsuleId: string, category: string) => void;
     allCategories: string[];
     onSetMemoryAid: (capsuleId: string, imageData: string | null, description: string | null) => void;
+    onSetMnemonic: (capsuleId: string, mnemonic: string) => void; // Nouvelle prop
     onUpdateQuiz: (capsuleId: string, newQuiz: QuizQuestion[]) => void;
     onBackToList: () => void;
     addToast: (message: string, type: ToastType) => void;
@@ -67,7 +68,7 @@ interface CapsuleViewProps {
     isPremium?: boolean;
 }
 
-const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToast, onBackToList, onSetMemoryAid, allCategories, onSetCategory, onMarkAsReviewed, onStartActiveLearning, onStartFlashcards, onStartCoaching, userGroups, onShareCapsule, currentUserId, currentUserName, isPremium }) => {
+const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToast, onBackToList, onSetMemoryAid, onSetMnemonic, allCategories, onSetCategory, onMarkAsReviewed, onStartActiveLearning, onStartFlashcards, onStartCoaching, userGroups, onShareCapsule, currentUserId, currentUserName, isPremium }) => {
     const { language, t } = useLanguage();
     const isDue = isCapsuleDue(capsule);
     const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -84,6 +85,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [imageError, setImageError] = useState<string | null>(null);
     const [remainingQuota, setRemainingQuota] = useState(getRemainingQuota());
     
+    const [mnemonic, setMnemonic] = useState<string | null>(capsule.mnemonic || null);
+    const [isGeneratingMnemonic, setIsGeneratingMnemonic] = useState(false);
+
     const [expandedConcepts, setExpandedConcepts] = useState<Record<string, string>>({});
     const [loadingConcepts, setLoadingConcepts] = useState<Record<string, boolean>>({});
     const [errorConcepts, setErrorConcepts] = useState<Record<string, string | null>>({});
@@ -106,7 +110,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setIsEditingCategory(false);
         setMemoryAidImage(capsule.memoryAidImage || null);
         setMemoryAidDescription(capsule.memoryAidDescription || null);
+        setMnemonic(capsule.mnemonic || null); // Reset mnemonic state
         setIsGeneratingImage(false);
+        setIsGeneratingMnemonic(false);
         setImageError(null);
         setExpandedConcepts({});
         setLoadingConcepts({});
@@ -203,6 +209,22 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         }
     };
 
+    const handleGenerateMnemonic = async () => {
+        setIsGeneratingMnemonic(true);
+        try {
+            const result = await generateMnemonic({
+                title: capsule.title,
+                keyConcepts: capsule.keyConcepts
+            }, language);
+            setMnemonic(result);
+            onSetMnemonic(capsule.id, result); // Sauvegarde persistante
+        } catch (e) {
+            addToast("Erreur génération mnémotechnique", 'error');
+        } finally {
+            setIsGeneratingMnemonic(false);
+        }
+    };
+
     const handleClearDrawing = () => {
         setMemoryAidImage(null);
         setMemoryAidDescription(null);
@@ -239,7 +261,8 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         if (!memoryAidImage) return;
         const link = document.createElement('a');
         link.href = memoryAidImage;
-        link.download = generateFilename('Dessin', capsule.title || 'sans-titre', 'png');
+        // CHANGE: Filename includes Memoraid
+        link.download = generateFilename('Memoraid_Croquis', capsule.title || 'sans-titre', 'png');
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -655,6 +678,63 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         </ul>
                     </div>
 
+                    {/* NEW: ASTUCE MNÉMOTECHNIQUE */}
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100">
+                                <ZapIcon className="w-6 h-6 mr-3 text-orange-500" />
+                                <span>{t('mnemonic_title')}</span>
+                            </h3>
+                        </div>
+                        
+                        {!mnemonic && !isGeneratingMnemonic && (
+                            <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">{t('mnemonic_desc')}</p>
+                                    <p className="text-xs text-orange-600 dark:text-orange-300">Boostez votre mémoire avec une phrase clé.</p>
+                                </div>
+                                <button
+                                    onClick={handleGenerateMnemonic}
+                                    className="px-4 py-2 bg-white dark:bg-zinc-800 text-orange-600 dark:text-orange-400 font-bold rounded-lg shadow-sm border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-zinc-700 transition-colors whitespace-nowrap"
+                                >
+                                    {t('generate_mnemonic')}
+                                </button>
+                            </div>
+                        )}
+
+                        {isGeneratingMnemonic && (
+                            <div className="p-6 bg-slate-50 dark:bg-zinc-900/50 rounded-xl flex items-center justify-center gap-3">
+                                <RefreshCwIcon className="w-5 h-5 text-orange-500 animate-spin" />
+                                <span className="text-sm text-slate-500 dark:text-zinc-400">Création de votre astuce...</span>
+                            </div>
+                        )}
+
+                        {mnemonic && !isGeneratingMnemonic && (
+                            <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl border border-orange-200 dark:border-orange-800 shadow-sm animate-fade-in relative group">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-2 bg-white dark:bg-zinc-800 rounded-full shadow-sm">
+                                        <ZapIcon className="w-6 h-6 text-orange-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-lg font-bold text-slate-800 dark:text-zinc-100 italic leading-relaxed">
+                                            "{mnemonic}"
+                                        </p>
+                                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-medium uppercase tracking-wide">
+                                            Astuce générée par Memoraid
+                                        </p>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={handleGenerateMnemonic}
+                                    className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-zinc-800/80 rounded-full text-orange-500 hover:bg-orange-100 dark:hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                    title={t('regenerate')}
+                                >
+                                    <RefreshCwIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Dessin Aide-Mémoire */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
@@ -670,7 +750,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         {!memoryAidImage && !isGeneratingImage && !imageError && (
                             <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
                                 <p className="text-slate-600 dark:text-zinc-400 mb-4">
-                                    Générez un croquis simple pour ancrer visuellement les concepts.
+                                    {t('sketch_placeholder_text')}
                                 </p>
                                 <button
                                     onClick={handleGenerateDrawing}

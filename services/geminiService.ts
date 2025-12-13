@@ -376,27 +376,61 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     });
 }
 
-// FIX: Robust Memory Aid Generation with Dual Fallback
+// Nouvelle fonction pour générer une phrase mnémotechnique (Texte pur)
+export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' | 'keyConcepts'>, language: Language = 'fr'): Promise<string> => {
+    const ai = getAiClient();
+    const targetLang = getLangName(language);
+    
+    const conceptsList = capsule.keyConcepts.map(c => c.concept).join(', ');
+    
+    const prompt = `
+    Context: Learning aid.
+    Topic: "${capsule.title}"
+    Keywords: ${conceptsList}
+    Target Language: ${targetLang}
+    
+    Task: Create ONE powerful mnemonic device to help remember these keywords.
+    It can be:
+    1. A catchy sentence where each word starts with the first letter of a keyword.
+    2. An acronym.
+    3. A short, funny 1-sentence story linking the concepts.
+    
+    OUTPUT: Just the mnemonic phrase/story. Keep it short, memorable, and bold.
+    NO MARKDOWN. NO ASTERISKS. PLAIN TEXT ONLY.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+        const rawText = response.text || "Pas d'astuce disponible.";
+        
+        // CLEANUP: Remove asterisks and markdown formatting
+        return rawText.replace(/[\*#`]/g, '').trim();
+    } catch (e) {
+        return "Impossible de générer l'astuce pour le moment.";
+    }
+};
+
+// FIX: Drawing Generation updated for "White Sketchbook" and "No Text Errors"
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr'): Promise<{ imageData: string, description: string }> => {
     const ai = getAiClient();
     const targetLang = getLangName(language);
     
-    // 1. Generate text description first
+    // 1. Describe visuals
     const designPrompt = `
     Topic: "${capsule.title}"
-    Task: Design a BEAUTIFUL HAND-DRAWN SKETCHNOTE summary.
+    Task: Design a beautiful, artistic Sketchnote illustration.
     Target Language: ${targetLang}.
 
-    Step 1: Select 3 to 5 main keywords from the concept.
-    Step 2: SPELLING CHECK: Verify that every selected keyword is spelled correctly in ${targetLang}.
-    Step 3: For each keyword, invent a specific visual metaphor or doodle.
-    Step 4: Combine these into a scene description.
+    Step 1: Identify 3 MAIN visual metaphors representing the core concepts.
+    Step 2: Create a composition description.
 
     Output Format:
-    EXPLANATION: [A short sentence in ${targetLang} explaining the visual]
-    LABELS: [The list of selected keywords in ${targetLang}, comma separated.]
-    METAPHORS: [List of the doodles/icons chosen]
-    PROMPT: [A detailed English prompt describing the visual.]
+    EXPLANATION: [A short sentence in ${targetLang}]
+    METAPHORS: [Description of the visual elements]
+    PROMPT: [A concise English prompt for the image]
     `;
 
     try {
@@ -408,26 +442,31 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         const rawText = textResponse.text || '';
         
         const explMatch = rawText.match(/EXPLANATION:\s*(.+)/i);
-        const labelsMatch = rawText.match(/LABELS:\s*(.+)/i);
         const metaphorsMatch = rawText.match(/METAPHORS:\s*(.+)/i);
-        const promptMatch = rawText.match(/PROMPT:\s*(.+)/i);
         
         const explanation = explMatch ? explMatch[1].trim() : "Visualisation du concept.";
-        const labels = labelsMatch ? labelsMatch[1].trim() : "";
-        const metaphors = metaphorsMatch ? metaphorsMatch[1].trim() : "doodles and icons";
-        const baseImagePrompt = promptMatch ? promptMatch[1].trim() : `A professional infographic about ${capsule.title}`;
+        const metaphors = metaphorsMatch ? metaphorsMatch[1].trim() : "educational concepts";
 
-        const optimizedImagePrompt = `${baseImagePrompt}. 
-        Style: Hand-Drawn Sketchnote.
-        Appearance: Artistic ink lines, marker coloring (Green, Amber, Blue), white background.
-        Content: "${capsule.title}" with keywords: ${labels}.
-        Constraint: High quality, educational.`;
+        // STRATEGY: CLEAN WHITE SKETCHBOOK PAGE + STRICT "NO TEXT"
+        const optimizedImagePrompt = `
+        Subject: Educational Sketchnote Masterpiece for "${capsule.title}".
+        Visuals: ${metaphors}.
+        
+        Background: Realistic BLANK WHITE SPIRAL SKETCHBOOK PAGE (high quality paper, metal spiral binding on the left, NO lines).
+        Style: High-quality Hand-Drawn Ink Illustration with Watercolor accents (Emerald Green, Amber, Blue).
+        
+        CRITICAL TEXT RULES:
+        1. NO TEXT LABELS INSIDE THE DRAWING. Use visual symbols and icons ONLY to explain concepts.
+        2. DO NOT attempt to write explanations or words.
+        3. EXCEPTION: You MUST write ONLY the signature "Memoraid" clearly in the bottom right corner (handwritten signature style).
+        
+        Aesthetics: Clean, artistic, minimalist study notes style.
+        `;
 
-        // 2. Generate Image (Priority: Gemini Flash Image -> Fallback: Imagen 3)
+        // 2. Generate Image
         let imageBase64 = '';
         let generationError: any = null;
 
-        // Tentative 1 : Gemini 2.5 Flash Image (Rapide & Multimodal)
         try {
             console.log("Tentative génération avec gemini-2.5-flash-image...");
             const imageResponse = await ai.models.generateContent({
@@ -438,7 +477,7 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                 },
             });
 
-            if (imageResponse.candidates && imageResponse.candidates[0].content.parts) {
+            if (imageResponse.candidates?.[0]?.content?.parts) {
                 for (const part of imageResponse.candidates[0].content.parts) {
                     if (part.inlineData) {
                         imageBase64 = part.inlineData.data;
@@ -447,7 +486,6 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                 }
             }
         } catch (flashError: any) {
-            // Détection spécifique de l'erreur 429 ou Quota
             if (flashError.message?.includes('429') || flashError.message?.includes('quota') || flashError.status === 429) {
                 console.warn("Quota Gemini Flash Image dépassé (429). Bascule vers Imagen...");
             } else {
@@ -456,7 +494,6 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
             generationError = flashError;
         }
 
-        // Tentative 2 : Fallback sur Imagen 3 (Très robuste) si la première a échoué
         if (!imageBase64) {
             try {
                 console.log("Tentative génération avec imagen-3.0-generate-001...");
@@ -471,7 +508,6 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                 }
             } catch (imagenError: any) {
                 console.error("Imagen fallback échoué:", imagenError);
-                // Si les deux échouent, on combine les erreurs pour le debug
                 const msg = imagenError.message || JSON.stringify(imagenError);
                 throw new Error(`Échec Imagen: ${msg}. (Flash error: ${generationError?.message})`);
             }
@@ -493,12 +529,11 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
              if (error.message.includes("SAFETY")) {
                  throw new Error("L'image a été bloquée par le filtre de sécurité.");
              }
-             // Si c'est le 429 qui remonte jusqu'ici (double échec)
              if (error.message.includes("429") || error.message.toLowerCase().includes("quota") || error.message.toLowerCase().includes("resource exhausted")) {
                  throw new Error("⚠️ Trop de demandes. Le quota d'images est saturé. Veuillez patienter une minute.");
              }
              return {
-                 imageData: "", // On retourne vide pour ne pas crasher l'app, l'UI affichera l'erreur via le catch du composant
+                 imageData: "", 
                  description: error.message
              }
         }

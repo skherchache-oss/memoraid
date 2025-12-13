@@ -3,13 +3,17 @@ import type { Badge, BadgeId, GamificationStats, CognitiveCapsule } from '../typ
 
 // --- CONSTANTS ---
 
-const XP_PER_QUIZ = 50;
-const XP_PER_FLASHCARD_SESSION = 20;
-const XP_PER_CAPSULE_CREATION = 100;
-const XP_PER_CHALLENGE = 150;
+// Rééquilibrage pour valoriser la régularité plutôt que la création massive
+const XP_PER_QUIZ = 30; // (Était 50)
+const XP_PER_FLASHCARD_SESSION = 20; // (Était 20)
+const XP_PER_CAPSULE_CREATION = 50; // (Était 100)
+const XP_PER_CHALLENGE = 100; // (Était 150)
+const XP_PER_MANUAL_REVIEW = 20; // NOUVEAU : Récompense la révision simple
+const XP_PER_JOIN_GROUP = 50;
 
-// Niveaux : XP nécessaire = niveau * 100 (Ex: Niveau 2 = 200 XP, Niveau 10 = 1000 XP)
-const XP_TO_LEVEL_MULTIPLIER = 200;
+// Niveaux : XP nécessaire = niveau * 500 (Ex: Niveau 2 = 500 XP, Niveau 3 = 1000 XP)
+// Rend la progression plus gratifiante et moins instantanée.
+const XP_TO_LEVEL_MULTIPLIER = 500; 
 
 const BADGES_DEFINITIONS: Badge[] = [
     { id: 'first_capsule', name: 'Premier Pas', description: 'Créez votre première capsule.', icon: 'seed' },
@@ -56,7 +60,7 @@ export const getInitialGamificationStats = (): GamificationStats => ({
 
 export const processGamificationAction = (
     currentStats: GamificationStats,
-    action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge',
+    action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge' | 'manual_review',
     capsulesCount: number,
     quizScore?: number
 ): { stats: GamificationStats, newBadges: Badge[], levelUp: boolean } => {
@@ -71,12 +75,13 @@ export const processGamificationAction = (
         case 'quiz': xpGain = XP_PER_QUIZ; break;
         case 'flashcard': xpGain = XP_PER_FLASHCARD_SESSION; break;
         case 'challenge': xpGain = XP_PER_CHALLENGE; break;
-        case 'join_group': xpGain = 50; break;
+        case 'join_group': xpGain = XP_PER_JOIN_GROUP; break;
+        case 'manual_review': xpGain = XP_PER_MANUAL_REVIEW; break;
     }
     
     // Bonus for perfect quiz
     if (action === 'quiz' && quizScore === 100) {
-        xpGain += 20;
+        xpGain += 10; // Bonus réduit à 10
     }
 
     newStats.xp += xpGain;

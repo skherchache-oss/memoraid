@@ -196,6 +196,7 @@ export interface CognitiveCapsule {
   memoryAidImage?: string;
   memoryAidDescription?: string;
   visualizations?: VisualizationData[]; // Stockage des diagrammes interactifs
+  mnemonic?: string; // NOUVEAU : Phrase mnémotechnique
 
   history?: ReviewLog[];
   masteryLevel?: number;

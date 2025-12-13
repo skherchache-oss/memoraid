@@ -143,6 +143,8 @@ async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y:
     font: PDFFont;
     fontSize?: number;
     spaceAfter?: number;
+    color?: any;
+    indent?: number;
 }) {
     const { doc, cursor, fontBold, logoImage } = context;
     const { font } = options;
@@ -152,9 +154,11 @@ async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y:
     const fontSize = options.fontSize || FONT_SIZES.body;
     const lineHeight = fontSize * LINE_HEIGHT_MULTIPLIER;
     const spaceAfter = options.spaceAfter || 0;
+    const color = options.color || rgb(0.1, 0.1, 0.1);
+    const indent = options.indent || 0;
     
     // wrapText now handles sanitization
-    const lines = wrapText(text, font, fontSize, maxWidth);
+    const lines = wrapText(text, font, fontSize, maxWidth - indent);
 
     for (const line of lines) {
         if (cursor.y - lineHeight < MARGIN) {
@@ -163,11 +167,11 @@ async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y:
             cursor.y = context.page.getHeight() - MARGIN;
         }
         context.page.drawText(line, {
-            x: MARGIN,
+            x: MARGIN + indent,
             y: cursor.y - fontSize, // Adjust for baseline
             font: font,
             size: fontSize,
-            color: rgb(0.1, 0.1, 0.1),
+            color: color,
         });
         cursor.y -= lineHeight;
     }
@@ -180,6 +184,7 @@ async function drawText(context: { doc: PDFDocument, page: PDFPage, cursor: { y:
 const drawCapsuleContent = async (doc: PDFDocument, capsule: CognitiveCapsule) => {
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const fontOblique = await doc.embedFont(StandardFonts.HelveticaOblique);
     
     // Load Logo
     let logoImage: PDFImage | null = null;
@@ -250,6 +255,44 @@ const drawCapsuleContent = async (doc: PDFDocument, capsule: CognitiveCapsule) =
     await drawText(context, 'Exemples Pratiques', { font: fontBold, fontSize: FONT_SIZES.h2, spaceAfter: 10 });
     for (const e of capsule.examples) {
         await drawText(context, `• ${e}`, { font, fontSize: FONT_SIZES.body, spaceAfter: 8 });
+    }
+
+    // --- MNEMONIC SECTION ---
+    if (capsule.mnemonic) {
+        const spaceAfterMnemonic = 20;
+        await drawText(context, 'Secret de Mémorisation', { font: fontBold, fontSize: FONT_SIZES.h2, spaceAfter: 10, color: rgb(0.9, 0.4, 0) }); // Orange
+        
+        const mnemonicText = `"${capsule.mnemonic}"`;
+        const mnemonicLines = wrapText(mnemonicText, fontOblique, FONT_SIZES.h3, maxWidth - 20);
+        const mnemonicHeight = mnemonicLines.length * (FONT_SIZES.h3 * LINE_HEIGHT_MULTIPLIER);
+        
+        // Check page break
+        if (context.cursor.y - (mnemonicHeight + 30) < MARGIN) {
+            context.page = doc.addPage();
+            drawBranding(context.page, fontBold, logoImage);
+            context.cursor.y = context.page.getHeight() - MARGIN;
+        }
+
+        // Draw light orange background
+        const lightOrange = rgb(1, 0.95, 0.9);
+        context.page.drawRectangle({
+            x: MARGIN,
+            y: context.cursor.y - mnemonicHeight - 10,
+            width: maxWidth,
+            height: mnemonicHeight + 20,
+            color: lightOrange,
+            borderColor: rgb(1, 0.8, 0.6),
+            borderWidth: 1,
+        });
+        
+        context.cursor.y -= 10; // Padding top inside box
+        await drawText(context, mnemonicText, { 
+            font: fontOblique, 
+            fontSize: FONT_SIZES.h3, 
+            spaceAfter: spaceAfterMnemonic, 
+            indent: 10,
+            color: rgb(0.2, 0.2, 0.2)
+        });
     }
 };
 
