@@ -238,6 +238,11 @@ const generateContentWithFallback = async (
         } catch (error: any) {
             console.warn(`Attempt ${attempt + 1} failed:`, error);
             lastError = error;
+            // Ne pas réessayer immédiatement si c'est une erreur de quota (429)
+            if (error.status === 429 || error.message?.includes('429')) {
+                // On arrête les tentatives pour laisser le handler afficher l'erreur explicite
+                break;
+            }
             if (attempt < maxRetries - 1) {
                 await delay(1000 * (attempt + 1));
             }
@@ -330,13 +335,26 @@ export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: str
 
 const handleGeminiError = (error: any, defaultMsg: string = "Impossible de générer la capsule.") => {
     let errorMessage = defaultMsg;
+    
+    // Détection spécifique du Quota (429) ou Resource Exhausted
+    const isQuotaError = 
+        error?.status === 429 || 
+        (error?.message && (
+            error.message.includes("429") || 
+            error.message.toLowerCase().includes("quota") || 
+            error.message.toLowerCase().includes("resource exhausted")
+        ));
+
+    if (isQuotaError) {
+        return new Error("⚠️ Trop de demandes simultanées. Le quota de l'IA est temporairement saturé. Veuillez patienter une minute avant de réessayer.");
+    }
+
     if (error instanceof Error) {
         const msg = error.message.toLowerCase();
         if (msg.includes("api_key") || msg.includes("api key")) errorMessage = "Clé API manquante ou invalide. En local, vérifiez que VITE_API_KEY est défini dans .env et redémarrez.";
         else if (msg.includes("json")) errorMessage = "L'IA a généré un format invalide.";
         else if (msg.includes("safety") || msg.includes("blocked")) errorMessage = "Contenu bloqué par les filtres de sécurité.";
         else if (msg.includes("500") || msg.includes("rpc") || msg.includes("fetch")) errorMessage = "Erreur de connexion. Réessayez.";
-        else if (msg.includes("429")) errorMessage = "Quota API dépassé (Rate Limit).";
         else if (msg.includes("permission")) errorMessage = "Permission refusée pour ce modèle (Images).";
     }
     return new Error(errorMessage);
@@ -476,8 +494,8 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
                  throw new Error("L'image a été bloquée par le filtre de sécurité.");
              }
              // Si c'est le 429 qui remonte jusqu'ici (double échec)
-             if (error.message.includes("429") || error.message.includes("quota")) {
-                 throw new Error("Quota image dépassé. Réessayez plus tard.");
+             if (error.message.includes("429") || error.message.toLowerCase().includes("quota") || error.message.toLowerCase().includes("resource exhausted")) {
+                 throw new Error("⚠️ Trop de demandes. Le quota d'images est saturé. Veuillez patienter une minute.");
              }
              return {
                  imageData: "", // On retourne vide pour ne pas crasher l'app, l'UI affichera l'erreur via le catch du composant

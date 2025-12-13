@@ -34,11 +34,11 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                     {/* LOGO & TITRE (Cliquable pour retour accueil) */}
                     <button 
                         onClick={onLogoClick}
-                        className="flex items-center space-x-2 md:space-x-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
+                        className="flex items-center space-x-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
                         aria-label="Retour à l'accueil"
                     >
-                         <MemoraidLogoIcon className="h-8 w-8 md:h-9 md:w-9 text-emerald-500" />
-                        <h1 className="text-xl md:text-2xl font-bold text-emerald-700 dark:text-emerald-500 block tracking-tight">
+                         <MemoraidLogoIcon className="h-9 w-9 md:h-10 md:w-10 text-emerald-500" />
+                        <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-700 dark:text-emerald-500 block tracking-tight">
                             Memoraid
                         </h1>
                     </button>
@@ -116,7 +116,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                                     <img 
                                         src={currentUser.photoURL} 
                                         alt="Profil" 
-                                        className="hidden md:block w-8 h-8 rounded-full cursor-pointer border border-slate-200 dark:border-zinc-700 hover:ring-2 hover:ring-emerald-300 transition-all"
+                                        className="hidden md:block w-9 h-9 rounded-full cursor-pointer border border-slate-200 dark:border-zinc-700 hover:ring-2 hover:ring-emerald-300 transition-all"
                                         onClick={onOpenProfile}
                                     />
                                 ) : (

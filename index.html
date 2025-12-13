@@ -104,6 +104,53 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
+
+      /* SPLASH SCREEN STYLES */
+      #splash-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #ffffff; /* Light mode bg */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      html.dark #splash-screen {
+        background-color: #09090b; /* Dark mode bg */
+      }
+      .splash-logo {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 24px;
+        color: #059669; /* Emerald 600 */
+      }
+      .splash-title {
+        font-size: 32px;
+        font-weight: 800;
+        color: #047857; /* Emerald 700 */
+        letter-spacing: -0.02em;
+        margin-bottom: 48px;
+      }
+      html.dark .splash-title {
+        color: #10b981; /* Emerald 500 */
+      }
+      .splash-loader {
+        width: 48px;
+        height: 48px;
+        border: 4px solid #e2e8f0;
+        border-top-color: #10b981;
+        border-radius: 50%;
+        animation: spinner 1s linear infinite;
+      }
+      html.dark .splash-loader {
+        border-color: #27272a;
+        border-top-color: #10b981;
+      }
     </style>
   <script type="importmap">
 {
@@ -131,7 +178,18 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200 selection:bg-emerald-200 dark:selection:bg-emerald-900">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Splash Screen Content (Visible immediately) -->
+      <div id="splash-screen">
+        <svg class="splash-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" stroke="#f59e0b" stroke-width="1.5" fill="none" stroke-linecap="round" />
+        </svg>
+        <h1 class="splash-title">Memoraid</h1>
+        <div class="splash-loader"></div>
+      </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
