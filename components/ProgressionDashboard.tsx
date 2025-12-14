@@ -2,8 +2,7 @@
 import React from 'react';
 import { analyzeGlobalPerformance } from '../services/srsService';
 import type { CognitiveCapsule } from '../types';
-// Using SVG icons from constants directly to avoid import errors if lucide not installed
-import { LayersIcon, ClockIcon, AlertCircleIcon } from '../constants';
+import { LayersIcon, ClockIcon, AlertCircleIcon, ChevronRightIcon } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 
 // Fallback icons if constants are missing specific ones
@@ -17,9 +16,10 @@ const ActivitySVG = (props: React.SVGProps<SVGSVGElement>) => (
 
 interface ProgressionDashboardProps {
     capsules: CognitiveCapsule[];
+    onNavigateToReviews?: () => void;
 }
 
-const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules }) => {
+const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules, onNavigateToReviews }) => {
     const { t } = useLanguage();
     const stats = analyzeGlobalPerformance(capsules);
 
@@ -63,27 +63,43 @@ const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules })
 
             {/* Actionable items */}
             <div className="grid grid-cols-1 gap-3">
-                <div className="flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+                <div 
+                    onClick={onNavigateToReviews}
+                    className={`flex items-center justify-between p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl transition-all ${onNavigateToReviews ? 'cursor-pointer hover:shadow-md hover:scale-[1.02]' : ''}`}
+                >
                     <div className="flex items-center gap-3">
-                        <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        <div className="p-2 bg-amber-100 dark:bg-amber-800/50 rounded-lg">
+                            <ClockIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
                         <div>
                             <p className="font-bold text-slate-800 dark:text-zinc-200">{t('review_today')}</p>
                             <p className="text-xs text-slate-500 dark:text-zinc-400">{t('maintain_memory')}</p>
                         </div>
                     </div>
-                    <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{stats.dueCount}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-bold text-amber-600 dark:text-amber-400">{stats.dueCount}</span>
+                        {onNavigateToReviews && <ChevronRightIcon className="w-4 h-4 text-amber-400" />}
+                    </div>
                 </div>
 
                 {stats.overdueCount > 0 && (
-                    <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl">
+                    <div 
+                        onClick={onNavigateToReviews}
+                        className={`flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl transition-all ${onNavigateToReviews ? 'cursor-pointer hover:shadow-md hover:scale-[1.02]' : ''}`}
+                    >
                         <div className="flex items-center gap-3">
-                            <AlertCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+                            <div className="p-2 bg-red-100 dark:bg-red-800/50 rounded-lg">
+                                <AlertCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+                            </div>
                             <div>
                                 <p className="font-bold text-slate-800 dark:text-zinc-200">{t('overdue')}</p>
                                 <p className="text-xs text-slate-500 dark:text-zinc-400">{t('high_priority')}</p>
                             </div>
                         </div>
-                        <span className="text-xl font-bold text-red-600 dark:text-red-400">{stats.overdueCount}</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-red-600 dark:text-red-400">{stats.overdueCount}</span>
+                            {onNavigateToReviews && <ChevronRightIcon className="w-4 h-4 text-red-400" />}
+                        </div>
                     </div>
                 )}
             </div>
@@ -92,9 +108,9 @@ const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules })
             <div className="p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl">
                 <h4 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
                     <LayersIcon className="w-4 h-4" />
-                    {t('memory_state')}
+                    {t('memory_state')} & Courbe de l'oubli
                 </h4>
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <div>
                         <div className="flex justify-between text-xs mb-1">
                             <span className="text-slate-500">{t('avg_retention')}</span>
@@ -108,9 +124,60 @@ const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules })
                         </div>
                     </div>
                     
-                    <div className="pt-2 flex justify-between text-xs text-slate-400 dark:text-zinc-500">
-                         <span>{t('total_forget')}</span>
-                         <span>{t('solid_memory')}</span>
+                    {/* Visualisation Courbe de l'oubli */}
+                    <div className="pt-2">
+                        <div className="relative h-24 w-full border-b border-l border-slate-200 dark:border-zinc-700">
+                            {/* Grille de fond */}
+                            <div className="absolute bottom-0 left-0 w-full h-full opacity-10 pointer-events-none">
+                                <div className="h-full w-full grid grid-cols-4 grid-rows-4">
+                                    {[...Array(16)].map((_, i) => <div key={i} className="border-t border-r border-slate-400"></div>)}
+                                </div>
+                            </div>
+                            
+                            {/* Courbe SVG */}
+                            <svg className="absolute bottom-0 left-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                {/* Courbe d'oubli théorique (sans rappel) - Pointillés rouges */}
+                                <path 
+                                    d="M0 0 Q 30 80 100 95" 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="2" 
+                                    strokeDasharray="4 4"
+                                    className="text-red-300 dark:text-red-900/50"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                                {/* Courbe de rétention actuelle (avec rappels) - Ligne pleine verte */}
+                                <path 
+                                    d={`M0 0 Q 40 10 100 ${100 - stats.retentionAverage}`} 
+                                    fill="none" 
+                                    stroke="currentColor" 
+                                    strokeWidth="3" 
+                                    className="text-emerald-500"
+                                    vectorEffect="non-scaling-stroke"
+                                />
+                                {/* Indicateur position actuelle */}
+                                <circle 
+                                    cx="100" 
+                                    cy={100 - stats.retentionAverage} 
+                                    r="4" 
+                                    className="fill-emerald-600 stroke-white dark:stroke-zinc-900" 
+                                    strokeWidth="2"
+                                />
+                            </svg>
+                            
+                            <div className="absolute -bottom-5 left-0 text-[10px] text-slate-400">Temps</div>
+                            <div className="absolute top-0 -right-2 text-[10px] text-slate-400">Mémoire</div>
+                        </div>
+                        <div className="mt-6 flex justify-between text-xs text-slate-400 dark:text-zinc-500">
+                             <div className="flex items-center gap-1">
+                                <div className="w-3 h-1 bg-red-300 dark:bg-red-900/50 border-t border-dotted"></div> 
+                                <span>{t('total_forget')}</span>
+                             </div>
+                             <div className="flex items-center gap-1">
+                                <div className="w-3 h-1 bg-emerald-500"></div> 
+                                <span className="text-emerald-600 dark:text-emerald-400 font-medium">{t('solid_memory')}</span>
+                             </div>
+                        </div>
                     </div>
                 </div>
             </div>

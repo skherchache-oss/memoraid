@@ -1,21 +1,27 @@
 
 import React, { useState, useMemo } from 'react';
 import type { Group, CognitiveCapsule } from '../types';
-import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon } from '../constants';
+import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, PlusIcon } from '../constants';
 import { downloadBlob, generateFilename } from '../services/pdfService';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { createGroup } from '../services/cloudService';
 
 interface TeacherDashboardProps {
     onClose: () => void;
     teacherGroups: Group[];
     allGroupCapsules: CognitiveCapsule[];
     onAssignTask: (groupId: string, capsule: CognitiveCapsule) => void;
+    userId: string;
+    userName: string;
 }
 
-const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGroups, allGroupCapsules, onAssignTask }) => {
+const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGroups, allGroupCapsules, onAssignTask, userId, userName }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(teacherGroups[0]?.id || null);
     const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+    const [isCreatingClass, setIsCreatingClass] = useState(false);
+    const [newClassName, setNewClassName] = useState('');
+    const [createLoading, setCreateLoading] = useState(false);
 
     const selectedGroup = teacherGroups.find(g => g.id === selectedGroupId);
     
@@ -45,6 +51,29 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
 
         return { totalStudents, totalCapsules, averageMastery };
     }, [selectedGroup, classCapsules]);
+
+    const handleCreateClass = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newClassName.trim()) return;
+
+        if (!userId) {
+            alert("Vous devez être connecté à un compte pour créer une classe synchronisée.");
+            return;
+        }
+        
+        setCreateLoading(true);
+        try {
+            const newGroup = await createGroup(userId, userName, newClassName.trim());
+            setSelectedGroupId(newGroup.id); // Auto-select new class
+            setIsCreatingClass(false);
+            setNewClassName('');
+        } catch (error) {
+            console.error("Erreur création classe", error);
+            alert("Erreur lors de la création de la classe. Vérifiez votre connexion.");
+        } finally {
+            setCreateLoading(false);
+        }
+    };
 
     const handleExportReport = async () => {
         if (!selectedGroup) return;
@@ -153,15 +182,53 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                     <aside className="w-64 bg-emerald-50/30 dark:bg-zinc-950 border-r border-slate-100 dark:border-zinc-800 flex flex-col">
                         <div className="p-4">
                             <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-2 block">Sélectionner une classe</label>
-                            <select 
-                                className="w-full p-2 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-                                value={selectedGroupId || ''}
-                                onChange={(e) => setSelectedGroupId(e.target.value)}
-                            >
-                                {teacherGroups.length > 0 ? teacherGroups.map(g => (
-                                    <option key={g.id} value={g.id}>{g.name}</option>
-                                )) : <option value="">Aucune classe</option>}
-                            </select>
+                            
+                            {!isCreatingClass ? (
+                                <>
+                                    <select 
+                                        className="w-full p-2 rounded-lg bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm focus:ring-2 focus:ring-emerald-500 outline-none mb-2"
+                                        value={selectedGroupId || ''}
+                                        onChange={(e) => setSelectedGroupId(e.target.value)}
+                                    >
+                                        {teacherGroups.length > 0 ? teacherGroups.map(g => (
+                                            <option key={g.id} value={g.id}>{g.name}</option>
+                                        )) : <option value="">Aucune classe</option>}
+                                    </select>
+                                    <button 
+                                        onClick={() => setIsCreatingClass(true)}
+                                        className="w-full flex items-center justify-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 bg-emerald-100/50 dark:bg-emerald-900/20 py-2 rounded-lg transition-colors"
+                                    >
+                                        <PlusIcon className="w-3 h-3" /> Nouvelle Classe
+                                    </button>
+                                </>
+                            ) : (
+                                <form onSubmit={handleCreateClass} className="space-y-2 animate-fade-in-fast">
+                                    <input 
+                                        type="text" 
+                                        autoFocus
+                                        placeholder="Nom de la classe"
+                                        value={newClassName}
+                                        onChange={(e) => setNewClassName(e.target.value)}
+                                        className="w-full p-2 text-sm border border-emerald-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white dark:bg-zinc-800 dark:border-zinc-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500"
+                                    />
+                                    <div className="flex gap-1">
+                                        <button 
+                                            type="submit" 
+                                            disabled={!newClassName.trim() || createLoading}
+                                            className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded font-bold hover:bg-emerald-700 disabled:opacity-50"
+                                        >
+                                            {createLoading ? '...' : 'Créer'}
+                                        </button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setIsCreatingClass(false)}
+                                            className="flex-1 bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300 text-xs py-1.5 rounded font-bold hover:bg-slate-300"
+                                        >
+                                            Annuler
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
                         </div>
                         <nav className="flex-grow p-2 space-y-1">
                             <button 
@@ -191,13 +258,25 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                             <div className="flex flex-col items-center justify-center h-full text-slate-400">
                                 <SchoolIcon className="w-16 h-16 mb-4 opacity-20" />
                                 <p>Sélectionnez ou créez une classe pour commencer.</p>
-                                {teacherGroups.length === 0 && <p className="text-sm mt-2 text-center">Créez un groupe dans votre Profil ou la section "Groupes" pour l'utiliser comme classe.</p>}
+                                {teacherGroups.length === 0 && (
+                                    <button 
+                                        onClick={() => setIsCreatingClass(true)}
+                                        className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors"
+                                    >
+                                        Créer ma première classe
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <>
                                 {activeTab === 'overview' && (
                                     <div className="space-y-6">
-                                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Tableau de bord : {selectedGroup.name}</h3>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Tableau de bord : {selectedGroup.name}</h3>
+                                            <div className="bg-slate-100 dark:bg-zinc-800 px-3 py-1 rounded text-sm text-slate-500 font-mono">
+                                                Code: <span className="font-bold text-slate-800 dark:text-white select-all">{selectedGroup.inviteCode}</span>
+                                            </div>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                             <div className="p-6 bg-white dark:bg-zinc-800 rounded-2xl border border-slate-100 dark:border-zinc-700 shadow-sm">
                                                 <p className="text-sm text-slate-500 dark:text-zinc-400 font-semibold uppercase">Étudiants</p>

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType } from '../types';
+import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType, LearningStyle } from '../types';
 import type { Language } from '../i18n/translations';
 
 // Helper pour obtenir le client IA uniquement quand on en a besoin
@@ -34,6 +34,21 @@ const getAiClient = () => {
 
 // Helper pour obtenir le nom de la langue en toutes lettres pour le prompt
 const getLangName = (lang: Language) => lang === 'fr' ? 'FRANÇAIS' : 'ENGLISH';
+
+// Helper pour obtenir l'instruction pédagogique selon le style
+const getPedagogyInstruction = (style: LearningStyle = 'textual'): string => {
+    switch (style) {
+        case 'visual':
+            return `PEDAGOGY (VISUAL LEARNER): Use vivid metaphors, spatial descriptions, and analogies. Focus on "what it looks like".`;
+        case 'auditory':
+            return `PEDAGOGY (AUDITORY LEARNER): Use a conversational, rhythmic, and narrative tone. Write as if telling a story or a podcast script.`;
+        case 'kinesthetic':
+            return `PEDAGOGY (KINESTHETIC LEARNER): Focus on mechanisms, concrete applications, "how it works", and real-world utility.`;
+        case 'textual':
+        default:
+            return `PEDAGOGY (TEXTUAL LEARNER): Use precise definitions, structured lists, logical hierarchy, and clear academic syntax.`;
+    }
+};
 
 const flashcardSchema = (lang: Language) => ({
     type: Type.ARRAY,
@@ -252,7 +267,7 @@ const generateContentWithFallback = async (
 };
 
 
-export const generateCognitiveCapsule = async (inputText: string, explicitSourceType?: SourceType, language: Language = 'fr'): Promise<Omit<CognitiveCapsule, 'id' | 'createdAt' | 'lastReviewed' | 'reviewStage'>> => {
+export const generateCognitiveCapsule = async (inputText: string, explicitSourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual'): Promise<Omit<CognitiveCapsule, 'id' | 'createdAt' | 'lastReviewed' | 'reviewStage'>> => {
   let sourceType: SourceType = 'text';
   if (explicitSourceType) {
       sourceType = explicitSourceType;
@@ -261,12 +276,14 @@ export const generateCognitiveCapsule = async (inputText: string, explicitSource
       sourceType = isUrl ? 'web' : 'text';
   }
   const strategy = getPromptStrategy(sourceType, language);
+  const pedagogy = getPedagogyInstruction(learningStyle);
   const targetLang = getLangName(language);
 
   const prompt = `
     Role: Educational Expert.
     Task: Create a "Cognitive Capsule" (JSON) from the user input.
     ${strategy}
+    ${pedagogy}
     USER INPUT: "${inputText}"
     STRICT OUTPUT FORMAT: Return ONLY a raw JSON object.
     Required fields: 
@@ -293,7 +310,7 @@ export const generateCognitiveCapsule = async (inputText: string, explicitSource
   }
 };
 
-export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: string, data: string }, explicitSourceType?: SourceType, language: Language = 'fr'): Promise<Omit<CognitiveCapsule, 'id' | 'createdAt' | 'lastReviewed' | 'reviewStage'>> => {
+export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: string, data: string }, explicitSourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual'): Promise<Omit<CognitiveCapsule, 'id' | 'createdAt' | 'lastReviewed' | 'reviewStage'>> => {
   let sourceType: SourceType = 'unknown';
   if (explicitSourceType) {
       sourceType = explicitSourceType;
@@ -304,11 +321,13 @@ export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: str
       else sourceType = 'text';
   }
   const strategy = getPromptStrategy(sourceType, language);
+  const pedagogy = getPedagogyInstruction(learningStyle);
   const targetLang = getLangName(language);
 
   const prompt = `
     Analyze this document/image and generate a "Cognitive Capsule" in JSON.
     ${strategy}
+    ${pedagogy}
     CRITICAL RULES:
     1. OUTPUT LANGUAGE: **${targetLang}**.
     2. If document looks empty, EXTRAPOLATE based on title.
@@ -356,6 +375,11 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
         else if (msg.includes("safety") || msg.includes("blocked")) errorMessage = "Contenu bloqué par les filtres de sécurité.";
         else if (msg.includes("500") || msg.includes("rpc") || msg.includes("fetch")) errorMessage = "Erreur de connexion. Réessayez.";
         else if (msg.includes("permission")) errorMessage = "Permission refusée pour ce modèle (Images).";
+        else {
+            // Si c'est un message d'erreur générique ou JSON brut, on le laisse tel quel pour le parsing ultérieur
+            // sauf si c'est vraiment incompréhensible
+            if (!msg.startsWith('{')) errorMessage = error.message; 
+        }
     }
     return new Error(errorMessage);
 };
@@ -363,11 +387,16 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
 export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingMode = 'standard', userProfile?: UserProfile, language: Language = 'fr'): Chat => {
     const ai = getAiClient();
     const targetLang = getLangName(language);
+    const learningStyle = userProfile?.learningStyle || 'textual';
+    const pedagogy = getPedagogyInstruction(learningStyle);
+
     let systemInstruction = `
         You are Memoraid, an intelligent learning coach.
         Topic: "${capsule.title}".
         Concepts: ${capsule.keyConcepts.map(c => c.concept).join(', ')}.
         Mode: ${mode}.
+        User Learning Style: ${learningStyle}.
+        ${pedagogy}
         GENERAL RULE: ANSWERS MUST BE IN ${targetLang}.
     `;
     return ai.chats.create({
@@ -399,18 +428,34 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
     NO MARKDOWN. NO ASTERISKS. PLAIN TEXT ONLY.
     `;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-        });
-        const rawText = response.text || "Pas d'astuce disponible.";
-        
-        // CLEANUP: Remove asterisks and markdown formatting
-        return rawText.replace(/[\*#`]/g, '').trim();
-    } catch (e) {
-        return "Impossible de générer l'astuce pour le moment.";
+    // Retry Logic for Mnemonic generation
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            const rawText = response.text || "Pas d'astuce disponible.";
+            
+            // CLEANUP: Remove asterisks and markdown formatting
+            return rawText.replace(/[\*#`]/g, '').trim();
+        } catch (e: any) {
+            console.warn(`Mnemonic generation attempt ${attempt + 1} failed:`, e);
+            // If it's the last attempt, return error message
+            if (attempt === MAX_RETRIES) {
+                return "Impossible de générer l'astuce pour le moment.";
+            }
+            // If it's a quota error (429), wait before retrying
+            if (e.message?.includes('429') || e.status === 429) {
+                await delay(2000 * (attempt + 1)); // Wait 2s, then 4s...
+            } else {
+                // Non-quota error? maybe just break
+                return "Impossible de générer l'astuce pour le moment.";
+            }
+        }
     }
+    return "Impossible de générer l'astuce pour le moment.";
 };
 
 // FIX: Drawing Generation updated for "White Sketchbook" and "ENGLISH KEYWORDS ONLY"
@@ -549,8 +594,13 @@ export const expandKeyConcept = async (title: string, concept: string, context: 
     const ai = getAiClient();
     const targetLang = getLangName(language);
     const prompt = `Topic: "${title}". Concept: "${concept}". Explain deeper in ${targetLang}. 3 sentences max.`;
-    const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
-    return response.text || "Pas d'explication disponible.";
+    
+    try {
+        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
+        return response.text || "Pas d'explication disponible.";
+    } catch (e: any) {
+        throw handleGeminiError(e, "Erreur lors de l'approfondissement.");
+    }
 };
 
 export const regenerateQuiz = async (capsule: CognitiveCapsule, language: Language = 'fr'): Promise<QuizQuestion[]> => {

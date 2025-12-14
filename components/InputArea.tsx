@@ -14,6 +14,7 @@ interface InputAreaProps {
     isLoading: boolean;
     error: string | null;
     onClearError: () => void;
+    onOpenProfile?: () => void;
 }
 
 // --- Définitions TypeScript locales pour Web Speech API ---
@@ -35,7 +36,7 @@ interface SpeechRecognition extends EventTarget {
 const MAX_DOC_SIZE_MB = 5;
 const MAX_RAW_IMAGE_SIZE_MB = 30; // Limite dure pour éviter les crashs navigateurs
 
-const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, isLoading, error, onClearError }) => {
+const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, isLoading, error, onClearError, onOpenProfile }) => {
     const { t, language } = useLanguage();
     const { addToast } = useToast();
     const [inputText, setInputText] = useState('');
@@ -554,7 +555,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
             
             {/* ENCADRÉ COMMENT ÇA MARCHE */}
             <div className="mt-6 bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 w-full relative z-10">
-                <HowItWorks />
+                <HowItWorks onOpenProfile={onOpenProfile} />
             </div>
 
             {/* ILLUSTRATION */}

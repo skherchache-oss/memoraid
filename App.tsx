@@ -175,9 +175,6 @@ const AppContent: React.FC = () => {
         setShowInstallBanner(false);
     };
 
-    // ... (Reste du code identique) ...
-    // Je remets les parties non modifiées pour garder le contexte mais abrégé car seul le useEffect d'install change vraiment.
-
     useEffect(() => {
         const currentName = profile.user.name;
         const frDefault = translations.fr.default_username;
@@ -475,7 +472,8 @@ const AppContent: React.FC = () => {
         setError(null);
         setActiveCapsule(null);
         try {
-            const capsuleData = await generateCognitiveCapsule(inputText, sourceType, language);
+            // PASSAGE DU STYLE D'APPRENTISSAGE
+            const capsuleData = await generateCognitiveCapsule(inputText, sourceType, language, profile.user.learningStyle);
             if (generationController.current.isCancelled) return;
             
             const uniqueId = `cap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -531,7 +529,8 @@ const AppContent: React.FC = () => {
             if (!mimeType) mimeType = 'application/octet-stream';
 
             const fileData = { mimeType, data: base64Data };
-            const capsuleData = await generateCognitiveCapsuleFromFile(fileData, sourceType, language);
+            // PASSAGE DU STYLE D'APPRENTISSAGE
+            const capsuleData = await generateCognitiveCapsuleFromFile(fileData, sourceType, language, profile.user.learningStyle);
             if (generationController.current.isCancelled) return;
 
             const uniqueId = `cap_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -754,6 +753,14 @@ const AppContent: React.FC = () => {
         }, 100);
     }, []);
 
+    const handleNavigateToReviews = useCallback(() => {
+        setIsProfileModalOpen(false);
+        setView('base');
+        setMobileTab('library');
+        setActiveCapsule(null);
+        window.scrollTo(0, 0);
+    }, []);
+
     useEffect(() => {
         if (notificationPermission !== 'granted') return;
         const intervalId = setInterval(() => {
@@ -837,6 +844,15 @@ const AppContent: React.FC = () => {
         setMobileTab('store');
     }, []);
 
+    // NEW: Handle direct profile opening from links
+    const handleOpenProfileFromLink = useCallback(() => {
+        if (window.innerWidth < 768) {
+            setMobileTab('profile'); // Switch to profile tab on mobile
+        } else {
+            setIsProfileModalOpen(true); // Open modal on desktop
+        }
+    }, []);
+
     const renderMobileContent = () => {
         if (mobileTab === 'create') {
             return (
@@ -868,6 +884,7 @@ const AppContent: React.FC = () => {
                             isLoading={isLoading} 
                             error={error} 
                             onClearError={handleClearError}
+                            onOpenProfile={handleOpenProfileFromLink}
                         />
                     )}
                     {!isLoading && !activeCapsule && (
@@ -981,6 +998,7 @@ const AppContent: React.FC = () => {
                         onInstall={handleInstallApp}
                         isIOS={isIOS}
                         isStandalone={isStandalone}
+                        onNavigateToReviews={handleNavigateToReviews}
                     />
                 </div>
             );
@@ -1051,6 +1069,7 @@ const AppContent: React.FC = () => {
                                             isLoading={isLoading} 
                                             error={error} 
                                             onClearError={handleClearError}
+                                            onOpenProfile={handleOpenProfileFromLink}
                                         />
                                     )}
                                 </div>
@@ -1222,6 +1241,7 @@ const AppContent: React.FC = () => {
                     onInstall={handleInstallApp}
                     isIOS={isIOS}
                     isStandalone={isStandalone}
+                    onNavigateToReviews={handleNavigateToReviews}
                 />
             )}
             {isGroupModalOpen && currentUser && (
@@ -1252,6 +1272,8 @@ const AppContent: React.FC = () => {
                     teacherGroups={userGroups.filter(g => g.ownerId === currentUser?.uid)}
                     allGroupCapsules={groupCapsules}
                     onAssignTask={handleAssignTask}
+                    userId={currentUser?.uid || ''}
+                    userName={profile.user.name}
                 />
             )}
             

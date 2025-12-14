@@ -75,8 +75,8 @@ export const translations = {
         to_review: "À réviser",
         uncategorized: "Non classé",
         how_it_works: "Comment ça marche ?",
-        how_it_works_desc1: "Memoraid utilise la **répétition espacée** pour ancrer les connaissances. L'application calcule le moment optimal pour vous présenter une capsule.",
-        how_it_works_desc2: "**1. Créez** : Écrivez, dictez ou importez un cours (PDF < 5Mo). **2. Apprenez** : Concepts clés, flashcards, quiz et croquis. **3. Planifiez** : Générez votre planning de révision jusqu'à l'échéance.",
+        how_it_works_desc1: "Memoraid utilise la science de la **répétition espacée** pour transformer l'information éphémère en connaissances solides.",
+        how_it_works_desc2: "**1. Créez** : Écrivez, dictez ou importez un cours (PDF < 5Mo).\n**2. Apprenez** : Concepts clés, flashcards, quiz et croquis.\n**3. Planifiez** : Générez votre planning de révision et activez les notifications.\n\n**Important** : Remplissez vos [[Informations Personnelles]] pour que Memoraid adapte sa pédagogie !",
         
         // Notifications & Permissions
         notifications_title: "Ne manquez pas vos révisions",
@@ -377,8 +377,8 @@ export const translations = {
         to_review: "To Review",
         uncategorized: "Uncategorized",
         how_it_works: "How it works?",
-        how_it_works_desc1: "Memoraid uses **spaced repetition** to anchor knowledge. The app calculates the optimal time to review a capsule.",
-        how_it_works_desc2: "**1. Create**: Write, dictate or import a course (PDF < 5MB). **2. Learn**: Key concepts, flashcards, quiz and sketch. **3. Plan**: Generate your revision schedule until the deadline.",
+        how_it_works_desc1: "Memoraid uses the science of **spaced repetition** to turn fleeting information into solid knowledge.",
+        how_it_works_desc2: "**1. Create**: Write, dictate or import a course (PDF < 5MB).\n**2. Learn**: Key concepts, flashcards, quizzes and sketches.\n**3. Plan**: Generate your revision schedule and enable notifications.\n\n**Important**: Fill in your [[Personal Info]] so AI adapts to your style!",
         
         // Notifications & Permissions
         notifications_title: "Don't miss your reviews",

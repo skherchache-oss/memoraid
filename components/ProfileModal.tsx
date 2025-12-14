@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole } from '../types';
-import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, Share2Icon, PlusIcon, GraduationCapIcon } from '../constants';
+import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, Share2Icon, PlusIcon, GraduationCapIcon, SparklesIcon } from '../constants';
 import { ToastType } from '../hooks/useToast';
 import ProgressionDashboard from './ProgressionDashboard';
 import { auth } from '../services/firebase';
@@ -22,9 +22,10 @@ interface ProfileModalProps {
     onInstall?: () => void;
     isIOS?: boolean;
     isStandalone?: boolean;
+    onNavigateToReviews?: () => void;
 }
 
-const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, installPrompt, onInstall, isIOS, isStandalone }) => {
+const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, installPrompt, onInstall, isIOS, isStandalone, onNavigateToReviews }) => {
     const { t } = useLanguage();
     const [name, setName] = useState(profile.user.name);
     const [email, setEmail] = useState(profile.user.email || '');
@@ -122,7 +123,7 @@ ${concepts}
                 <section className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800">
                     <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
                         <div className="relative">
-                            <div className="w-20 h-20 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                            <div className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold ${role === 'teacher' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
                                 {currentUser?.photoURL ? (
                                     <img src={currentUser.photoURL} alt="Avatar" className="w-full h-full rounded-full object-cover" />
                                 ) : (
@@ -221,50 +222,53 @@ ${concepts}
                 {/* 3. PROGRESSION */}
                 <section className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Analyses</h3>
-                    <ProgressionDashboard capsules={profile.capsules} />
+                    <ProgressionDashboard capsules={profile.capsules} onNavigateToReviews={onNavigateToReviews} />
                 </section>
 
-                {/* 4. PARAMÈTRES & DONNÉES */}
+                {/* 4. PARAMÈTRES & DONNÉES - MISE EN AVANT VISUELLE */}
                 <section className="space-y-4">
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-white px-1">{t('personal_info')}</h3>
+                    <h3 className="text-lg font-bold text-indigo-800 dark:text-indigo-300 px-1 flex items-center gap-2">
+                        <SparklesIcon className="w-5 h-5 text-indigo-500" />
+                        {t('personal_info')}
+                    </h3>
                     
-                    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+                    <div className="bg-gradient-to-br from-indigo-50/50 to-white dark:from-indigo-900/20 dark:to-zinc-900 rounded-2xl border border-indigo-200 dark:border-indigo-800/50 overflow-hidden divide-y divide-indigo-100 dark:divide-zinc-800 shadow-sm">
                         {/* Champ Nom */}
                         <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <label className="text-sm font-medium text-slate-600 dark:text-zinc-400">{t('username')}</label>
+                            <label className="text-sm font-medium text-indigo-900 dark:text-indigo-200">{t('username')}</label>
                             <input 
                                 type="text" 
                                 value={name} 
                                 onChange={(e) => setName(e.target.value)}
-                                className="bg-transparent text-slate-800 dark:text-white font-semibold text-right focus:outline-none focus:text-emerald-600 placeholder:text-slate-300"
+                                className="bg-transparent text-slate-800 dark:text-white font-semibold text-right focus:outline-none focus:text-indigo-600 placeholder:text-slate-300"
                                 placeholder="Votre nom"
                             />
                         </div>
 
                         {/* Champ Email */}
                         <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <label className="text-sm font-medium text-slate-600 dark:text-zinc-400">{t('email')}</label>
+                            <label className="text-sm font-medium text-indigo-900 dark:text-indigo-200">{t('email')}</label>
                             <input 
                                 type="email" 
                                 value={email} 
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="bg-transparent text-slate-800 dark:text-white font-semibold text-right focus:outline-none focus:text-emerald-600 placeholder:text-slate-300"
+                                className="bg-transparent text-slate-800 dark:text-white font-semibold text-right focus:outline-none focus:text-indigo-600 placeholder:text-slate-300"
                                 placeholder="email@exemple.com"
                             />
                         </div>
 
                         {/* Rôle */}
                         <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <label className="text-sm font-medium text-slate-600 dark:text-zinc-400">{t('account_type')}</label>
-                            <div className="flex bg-slate-100 dark:bg-zinc-800 rounded-lg p-1">
-                                <button onClick={() => setRole('student')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${role === 'student' ? 'bg-white dark:bg-zinc-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}>{t('role_student')}</button>
-                                <button onClick={() => setRole('teacher')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${role === 'teacher' ? 'bg-white dark:bg-zinc-600 shadow-sm text-slate-800 dark:text-white' : 'text-slate-500'}`}>{t('role_teacher')}</button>
+                            <label className="text-sm font-medium text-indigo-900 dark:text-indigo-200">{t('account_type')}</label>
+                            <div className="flex bg-white dark:bg-zinc-800 rounded-lg p-1 border border-indigo-100 dark:border-zinc-700">
+                                <button onClick={() => setRole('student')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${role === 'student' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-white shadow-sm' : 'text-slate-500'}`}>{t('role_student')}</button>
+                                <button onClick={() => setRole('teacher')} className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${role === 'teacher' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-white shadow-sm' : 'text-slate-500'}`}>{t('role_teacher')}</button>
                             </div>
                         </div>
 
                         {/* Style Apprentissage */}
                         <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <label className="text-sm font-medium text-slate-600 dark:text-zinc-400 flex items-center gap-2">
+                            <label className="text-sm font-medium text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
                                 <BrainIcon className="w-4 h-4" /> {t('learning_style')}
                             </label>
                             <select 
