@@ -487,7 +487,11 @@ const AppContent: React.FC = () => {
                                 />
                             )}
                             {view === 'store' && (
-                                <PremiumStore onUnlockPack={() => {}} unlockedPackIds={[]} isPremiumUser={!!profile.user.isPremium} />
+                                <PremiumStore 
+                                    onUnlockPack={() => {}} 
+                                    unlockedPackIds={profile.user.unlockedPackIds || []} 
+                                    isPremiumUser={!!profile.user.isPremium} 
+                                />
                             )}
                         </div>
 
@@ -577,6 +581,30 @@ const AppContent: React.FC = () => {
                                     if (cap) setActiveCapsule(cap);
                                 }}
                                 onCreateNew={() => setIsPlanningWizardOpen(true)}
+                            />
+                        )}
+                        {mobileTab === 'store' && (
+                            <PremiumStore 
+                                onUnlockPack={() => {}} 
+                                unlockedPackIds={profile.user.unlockedPackIds || []} 
+                                isPremiumUser={!!profile.user.isPremium} 
+                            />
+                        )}
+                        {mobileTab === 'profile' && (
+                            <ProfileModal 
+                                profile={profile} 
+                                onClose={() => {}} 
+                                onUpdateProfile={handleUpdateProfile}
+                                addToast={addToast}
+                                selectedCapsuleIds={selectedCapsuleIds}
+                                setSelectedCapsuleIds={setSelectedCapsuleIds}
+                                currentUser={currentUser}
+                                onOpenGroupManager={() => setIsGroupModalOpen(true)}
+                                isOpenAsPage={true}
+                                isIOS={isIOS}
+                                isStandalone={isStandalone}
+                                installPrompt={installPrompt}
+                                onInstall={() => { if(installPrompt) installPrompt.prompt(); }}
                             />
                         )}
                     </>
