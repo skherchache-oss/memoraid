@@ -269,23 +269,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     };
 
     const handleToggleSpeech = async (id: string, text: string) => {
-        // --- KEY RETRIEVAL LOGIC ---
-        let apiKey = '';
-        try {
-            // @ts-ignore
-            if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
-                // @ts-ignore
-                apiKey = import.meta.env.VITE_API_KEY;
-            }
-        } catch (e) { /* Ignore */ }
-
-        if (!apiKey) {
-            try {
-                if (process.env.API_KEY) {
-                    apiKey = process.env.API_KEY;
-                }
-            } catch (e) { /* Ignore */ }
-        }
+        // Avec la mise à jour de vite.config.ts, process.env.API_KEY est maintenant défini
+        // et pointe correctement vers la clé, peu importe si elle vient de VITE_API_KEY ou API_KEY.
+        const apiKey = process.env.API_KEY;
 
         if (!apiKey) {
             addToast("La clé API n'est pas configurée pour la synthèse vocale.", 'error');
