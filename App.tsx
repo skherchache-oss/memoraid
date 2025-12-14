@@ -362,6 +362,35 @@ const AppContent: React.FC = () => {
         if (activeCapsule?.id === capsuleToDelete.id) setActiveCapsule(null);
     };
 
+    // Gestion des catégories
+    const handleSetCategory = async (id: string, category: string) => {
+        const updatedCapsules = profile.capsules.map(c => 
+            c.id === id ? { ...c, category: category.trim() } : c
+        );
+        
+        // Update local state immediately
+        setProfile(prev => ({ ...prev, capsules: updatedCapsules }));
+        
+        // Update active capsule if it matches
+        if (activeCapsule?.id === id) {
+            setActiveCapsule(prev => prev ? { ...prev, category: category.trim() } : null);
+        }
+
+        // Save to cloud if logged in
+        if (currentUser) {
+            const cap = updatedCapsules.find(c => c.id === id);
+            if (cap) {
+                try {
+                    await saveCapsuleToCloud(currentUser.uid, cap);
+                } catch(e) {
+                    addToast("Erreur sauvegarde catégorie", "error");
+                }
+            }
+        }
+        
+        addToast(t('category_updated'), "success");
+    };
+
     // Gestion des Plans d'Étude
     const handlePlanCreated = (newPlan: StudyPlan) => {
         setProfile(prev => ({ 
@@ -446,7 +475,7 @@ const AppContent: React.FC = () => {
                             const typeMap: Record<string, 'quiz' | 'flashcard' | 'manual'> = { 'quiz': 'quiz', 'flashcard': 'flashcard', 'manual': 'manual' };
                             handleGamificationAction(type === 'quiz' ? 'quiz' : type === 'flashcard' ? 'flashcard' : 'manual_review', 1, score);
                         }}
-                        onSetCategory={(id, cat) => { /* Update */ }}
+                        onSetCategory={handleSetCategory}
                         allCategories={allCategories}
                         onSetMemoryAid={(id, img, desc) => { /* Update */ }}
                         onSetMnemonic={(id, mnem) => { /* Update */ }}
@@ -617,7 +646,7 @@ const AppContent: React.FC = () => {
                         onStartFlashcards={() => setIsFlashcardMode(true)}
                         onStartActiveLearning={() => setIsActiveLearning(true)}
                         onMarkAsReviewed={(id, score, type) => { /* ... */ }}
-                        onSetCategory={(id, cat) => { /* ... */ }}
+                        onSetCategory={handleSetCategory}
                         allCategories={allCategories}
                         onSetMemoryAid={(id, img, desc) => { /* ... */ }}
                         onSetMnemonic={(id, mnem) => { /* ... */ }}

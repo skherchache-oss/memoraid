@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole } from '../types';
-import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, Share2Icon, PlusIcon, GraduationCapIcon, SparklesIcon } from '../constants';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole, CognitiveCapsule } from '../types';
+import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, ChevronDownIcon, LogOutIcon, CheckCircleIcon, Share2Icon, PlusIcon, GraduationCapIcon, SparklesIcon } from '../constants';
 import { ToastType } from '../hooks/useToast';
 import ProgressionDashboard from './ProgressionDashboard';
 import { auth } from '../services/firebase';
@@ -101,6 +101,25 @@ ${concepts}
             prev.includes(capsuleId) ? prev.filter(id => id !== capsuleId) : [...prev, capsuleId]
         );
     };
+
+    // Group capsules by category
+    const groupedCapsules = useMemo(() => {
+        const groups: Record<string, CognitiveCapsule[]> = {};
+        profile.capsules.forEach(c => {
+            const cat = c.category || t('uncategorized');
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(c);
+        });
+        return groups;
+    }, [profile.capsules, t]);
+
+    const sortedCategories = useMemo(() => {
+        return Object.keys(groupedCapsules).sort((a, b) => {
+            if (a === t('uncategorized')) return 1;
+            if (b === t('uncategorized')) return -1;
+            return a.localeCompare(b);
+        });
+    }, [groupedCapsules, t]);
 
     const content = (
         <div className={`bg-gray-50 dark:bg-zinc-950 flex flex-col ${isOpenAsPage ? 'h-full rounded-none shadow-none bg-transparent border-none' : 'rounded-3xl shadow-2xl w-full max-w-2xl h-[90vh] max-h-[90vh] overflow-hidden'}`} onClick={e => e.stopPropagation()}>
@@ -211,21 +230,27 @@ ${concepts}
                             </div>
                         </div>
 
-                        {/* Style Apprentissage */}
-                        <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2">
-                            <label className="text-sm font-medium text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
-                                <BrainIcon className="w-4 h-4" /> {t('learning_style')}
+                        {/* Style Apprentissage - Redesigned */}
+                        <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-indigo-50/50 dark:bg-indigo-900/10">
+                            <label className="text-sm font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
+                                <BrainIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" /> 
+                                {t('learning_style')}
                             </label>
-                            <select 
-                                value={learningStyle}
-                                onChange={(e) => setLearningStyle(e.target.value as LearningStyle)}
-                                className="bg-transparent text-slate-800 dark:text-white font-semibold text-right focus:outline-none cursor-pointer text-sm"
-                            >
-                                <option value="textual">Textuel (Lecteur)</option>
-                                <option value="visual">Visuel (Images)</option>
-                                <option value="auditory">Auditif (Écoute)</option>
-                                <option value="kinesthetic">Kinesthésique (Action)</option>
-                            </select>
+                            <div className="relative group">
+                                <select 
+                                    value={learningStyle}
+                                    onChange={(e) => setLearningStyle(e.target.value as LearningStyle)}
+                                    className="appearance-none w-full md:w-auto min-w-[200px] bg-white dark:bg-zinc-800 border-2 border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-zinc-100 font-semibold py-2.5 pl-4 pr-10 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all cursor-pointer text-sm shadow-sm hover:border-indigo-200"
+                                >
+                                    <option value="textual">📚 Textuel (Lecteur)</option>
+                                    <option value="visual">🎨 Visuel (Images)</option>
+                                    <option value="auditory">🎧 Auditif (Écoute)</option>
+                                    <option value="kinesthetic">🛠️ Kinesthésique (Action)</option>
+                                </select>
+                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-indigo-400 group-hover:text-indigo-600 transition-colors">
+                                    <ChevronDownIcon className="w-4 h-4" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -246,20 +271,27 @@ ${concepts}
                     </button>
                 )}
 
-                {/* 6. EXPORT EMAIL (Seule action conservée) */}
+                {/* 6. EXPORT EMAIL (Grouped by Category) */}
                 <section className="bg-slate-100 dark:bg-zinc-900/50 rounded-2xl p-5 border border-slate-200 dark:border-zinc-800">
                     <h4 className="text-sm font-bold text-slate-600 dark:text-zinc-300 mb-3 flex items-center gap-2">
                         <MailIcon className="w-4 h-4" />
                         Partager mes révisions
                     </h4>
-                    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800 max-h-32 overflow-y-auto mb-3">
+                    <div className="bg-white dark:bg-zinc-900 rounded-lg border border-slate-200 dark:border-zinc-800 max-h-48 overflow-y-auto mb-3">
                         {profile.capsules.length > 0 ? (
-                            profile.capsules.map(capsule => (
-                                <div key={capsule.id} className="flex items-center px-3 py-2 border-b border-slate-50 dark:border-zinc-800 last:border-0 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer" onClick={() => handleCapsuleSelectionChange(capsule.id)}>
-                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center mr-3 ${selectedCapsuleIds.includes(capsule.id) ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-zinc-600'}`}>
-                                        {selectedCapsuleIds.includes(capsule.id) && <CheckCircleIcon className="w-3 h-3 text-white" />}
+                            sortedCategories.map(cat => (
+                                <div key={cat}>
+                                    <div className="px-3 py-1 bg-slate-50 dark:bg-zinc-800/80 text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide sticky top-0 z-10 border-b border-slate-100 dark:border-zinc-800">
+                                        {cat}
                                     </div>
-                                    <span className="text-sm text-slate-700 dark:text-zinc-300 truncate">{capsule.title}</span>
+                                    {groupedCapsules[cat].map(capsule => (
+                                        <div key={capsule.id} className="flex items-center px-3 py-2 border-b border-slate-50 dark:border-zinc-800 last:border-0 hover:bg-slate-50 dark:hover:bg-zinc-800/50 cursor-pointer" onClick={() => handleCapsuleSelectionChange(capsule.id)}>
+                                            <div className={`w-4 h-4 rounded-full border flex items-center justify-center mr-3 flex-shrink-0 ${selectedCapsuleIds.includes(capsule.id) ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300 dark:border-zinc-600'}`}>
+                                                {selectedCapsuleIds.includes(capsule.id) && <CheckCircleIcon className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <span className="text-sm text-slate-700 dark:text-zinc-300 truncate">{capsule.title}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             ))
                         ) : (

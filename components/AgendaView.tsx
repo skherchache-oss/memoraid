@@ -30,7 +30,7 @@ const AgendaView: React.FC<AgendaViewProps> = ({ plans, activePlanId, onSetActiv
 
     const getStatusColor = (session: DailySession) => {
         if (session.tasks.every(t => t.status === 'completed')) return 'border-l-emerald-500';
-        if (session.date === today) return 'border-l-indigo-500';
+        if (session.date === today) return 'border-l-emerald-500'; // Today is now emerald
         if (session.date < today) return 'border-l-red-400'; // Retard
         return 'border-l-slate-300 dark:border-l-zinc-600';
     };
@@ -43,7 +43,7 @@ const AgendaView: React.FC<AgendaViewProps> = ({ plans, activePlanId, onSetActiv
                 <p className="text-slate-500 dark:text-zinc-400 mb-6 max-w-xs">{t('create_program')}</p>
                 <button 
                     onClick={onCreateNew}
-                    className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-md flex items-center gap-2"
+                    className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md flex items-center gap-2"
                 >
                     <PlusIcon className="w-5 h-5" />
                     {t('create_planning_btn')}
@@ -77,7 +77,7 @@ const AgendaView: React.FC<AgendaViewProps> = ({ plans, activePlanId, onSetActiv
                 <div className="flex gap-2">
                     <button 
                         onClick={onCreateNew}
-                        className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold"
+                        className="p-2 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 rounded-lg transition-colors flex items-center gap-2 text-sm font-bold"
                     >
                         <PlusIcon className="w-4 h-4" />
                         <span className="hidden md:inline">Nouveau</span>
@@ -101,7 +101,7 @@ const AgendaView: React.FC<AgendaViewProps> = ({ plans, activePlanId, onSetActiv
                     return (
                         <div key={session.date} className={`pl-4 border-l-4 ${getStatusColor(session)} py-1`}>
                             <div className="flex items-center justify-between mb-2">
-                                <h3 className={`font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-zinc-300'}`}>
+                                <h3 className={`font-bold ${isToday ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-zinc-300'}`}>
                                     {isToday ? t('today') : new Date(session.date).toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'short' })}
                                 </h3>
                                 <span className="text-xs font-medium px-2 py-1 bg-slate-100 dark:bg-zinc-800 rounded-full text-slate-500">
@@ -118,7 +118,7 @@ const AgendaView: React.FC<AgendaViewProps> = ({ plans, activePlanId, onSetActiv
                                             <div className="flex items-center gap-3 min-w-0">
                                                 <button 
                                                     onClick={() => handleUpdateTask(session.date, task.capsuleId, task.status === 'completed' ? 'pending' : 'completed')}
-                                                    className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${task.status === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 dark:border-zinc-600 hover:border-indigo-500'}`}
+                                                    className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${task.status === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 dark:border-zinc-600 hover:border-emerald-500'}`}
                                                 >
                                                     {task.status === 'completed' && <CheckCircleIcon className="w-3 h-3" />}
                                                 </button>
@@ -130,7 +130,7 @@ const AgendaView: React.FC<AgendaViewProps> = ({ plans, activePlanId, onSetActiv
                                             </div>
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <span className="text-xs text-slate-400">{task.estimatedMinutes} min</span>
-                                                <button onClick={() => onOpenCapsule(task.capsuleId)} className="p-1 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded">
+                                                <button onClick={() => onOpenCapsule(task.capsuleId)} className="p-1 text-emerald-500 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded">
                                                     <BookOpenIcon className="w-4 h-4" />
                                                 </button>
                                             </div>
