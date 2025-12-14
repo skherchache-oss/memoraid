@@ -71,6 +71,8 @@ const AppContent: React.FC = () => {
             const savedProfile = localStorage.getItem('memoraid_profile');
             if (savedProfile) {
                 const parsedProfile = JSON.parse(savedProfile);
+                
+                // MIGRATIONS
                 if (parsedProfile.user && typeof parsedProfile.user.email === 'undefined') {
                     parsedProfile.user.email = '';
                 }
@@ -80,17 +82,24 @@ const AppContent: React.FC = () => {
                 if (!parsedProfile.user.role) {
                     parsedProfile.user.role = 'student';
                 }
+                // Migration: activePlan -> plans[]
+                if (parsedProfile.user.activePlan && !parsedProfile.user.plans) {
+                    parsedProfile.user.plans = [parsedProfile.user.activePlan];
+                    delete parsedProfile.user.activePlan;
+                } else if (!parsedProfile.user.plans) {
+                    parsedProfile.user.plans = [];
+                }
+
                 return parsedProfile;
             }
-            // Migration legacy code...
             return {
-                user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats() },
+                user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [] },
                 capsules: []
             };
         } catch (e) {
             console.error("Could not load data from localStorage", e);
             return {
-                user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats() },
+                user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [] },
                 capsules: []
             };
         }
@@ -122,10 +131,7 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
 
-    // ... (Effets PWA, Auth, Sync, Notifications restent identiques) ...
-    // Je réinsère les blocs standards pour que le fichier soit valide, 
-    // mais je me concentre sur handleGenerate plus bas.
-
+    // PWA Logic
     useEffect(() => {
         const userAgent = window.navigator.userAgent.toLowerCase();
         setIsIOS(/iphone|ipad|ipod/.test(userAgent));
@@ -141,23 +147,54 @@ const AppContent: React.FC = () => {
         return () => window.removeEventListener('beforeinstallprompt', handler);
     }, []);
 
+    // Auth & Sync Logic
     useEffect(() => {
         if (!auth) return;
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             setIsAuthInitializing(false);
             if (user) {
-                // Sync logic simplified for brevity in this response
                 let unsubscribeSync = subscribeToCapsules(user.uid, (cloudCapsules) => {
                     setProfile(prev => ({ ...prev, capsules: cloudCapsules }));
                 });
-                return () => unsubscribeSync();
+                
+                let unsubscribeGroups = subscribeToUserGroups(user.uid, (groups) => {
+                    setUserGroups(groups);
+                    groups.forEach(group => {
+                        subscribeToGroupCapsules(group.id, (gCapsules) => {
+                            setGroupCapsules(prev => {
+                                const others = prev.filter(c => c.groupId !== group.id);
+                                return [...others, ...gCapsules];
+                            });
+                        });
+                    });
+                });
+
+                return () => {
+                    unsubscribeSync();
+                    unsubscribeGroups();
+                };
             }
         });
         return () => unsubscribe();
     }, []);
 
-    // ... (Autres useEffects sync userGroups, etc.) ...
+    // Persistence Local
+    useEffect(() => {
+        localStorage.setItem('memoraid_profile', JSON.stringify(profile));
+    }, [profile]);
+
+    // Connectivity Status
+    useEffect(() => {
+        const handleOnline = () => { setIsOnline(true); addToast(t('connection_restored'), "success"); };
+        const handleOffline = () => { setIsOnline(false); addToast(t('offline_mode'), "info"); };
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [t, addToast]);
 
     // --- LOGIQUE GÉNÉRATION SÉCURISÉE ---
 
@@ -167,10 +204,8 @@ const AppContent: React.FC = () => {
             return;
         }
 
-        // 1. LOCK SYSTEM : Empêcher les doubles appels
         if (isLoading) return;
 
-        // 2. COOLDOWN SYSTEM : Vérifier si on est en période de restriction
         if (Date.now() < cooldownUntil) {
             const secondsLeft = Math.ceil((cooldownUntil - Date.now()) / 1000);
             addToast(`Quota saturé. Patientez encore ${secondsLeft} secondes.`, 'info');
@@ -210,9 +245,8 @@ const AppContent: React.FC = () => {
         } catch (e: any) {
             if (generationController.current.isCancelled) return;
             
-            // 3. GESTION ERREUR QUOTA
             if (e instanceof GeminiError && e.isQuotaError) {
-                const waitTime = 60000; // 60 secondes
+                const waitTime = 60000;
                 setCooldownUntil(Date.now() + waitTime);
                 setError(`⚠️ Quota IA atteint. Veuillez patienter 1 minute.`);
                 addToast("Quota temporairement saturé. Pause de 60s activée.", 'info');
@@ -224,9 +258,8 @@ const AppContent: React.FC = () => {
                 setIsLoading(false);
             }
         }
-    }, [addToast, currentUser, profile, isOnline, language, t, isLoading, cooldownUntil]); // Dépendances importantes
+    }, [addToast, currentUser, profile, isOnline, language, t, isLoading, cooldownUntil]);
 
-    // Logique identique pour FromFile
     const handleGenerateFromFile = useCallback(async (file: File, sourceType?: SourceType) => {
         if (!isOnline) { setError(t('file_needs_online')); return; }
         if (isLoading) return;
@@ -274,8 +307,6 @@ const AppContent: React.FC = () => {
         }
     }, [addToast, currentUser, profile, isOnline, language, t, isLoading, cooldownUntil]);
 
-    // ... (Le reste des fonctions utilitaires : handleGamificationAction, saveCapsuleData, etc. reste inchangé) ...
-    // J'inclus les dépendances minimales pour la compilation
     const saveCapsuleData = async (capsule: CognitiveCapsule) => {
         if (currentUser) {
             try { await saveCapsuleToCloud(currentUser.uid, capsule); } catch (e) { addToast(t('error_save'), "error"); }
@@ -283,14 +314,97 @@ const AppContent: React.FC = () => {
             setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules] }));
         }
     };
-    const handleGamificationAction = (action: any) => {}; 
+
+    const handleGamificationAction = (action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge' | 'manual_review', count = 1, score?: number) => {
+        const { stats, newBadges, levelUp } = processGamificationAction(profile.user.gamification || getInitialGamificationStats(), action, profile.capsules.length + count, score);
+        
+        setProfile(prev => ({ ...prev, user: { ...prev.user, gamification: stats } }));
+        
+        if (levelUp) addToast(t('level_up').replace('{level}', stats.level.toString()), "success");
+        newBadges.forEach(b => addToast(t('badge_unlocked').replace('{badge}', b.name), "success"));
+    };
+
     const handleCancelGeneration = () => { generationController.current.isCancelled = true; setIsLoading(false); };
     const handleClearError = () => setError(null);
     const handleGoHome = () => { setView('create'); setMobileTab('create'); setActiveCapsule(null); };
     const handleOpenProfileFromLink = () => setIsProfileModalOpen(true);
-    const displayCapsules = profile.capsules;
-    const allCategories: string[] = []; 
-    // ... (Reste du render inchangé) ...
+
+    const displayCapsules = useMemo(() => {
+        const all = [...profile.capsules, ...groupCapsules];
+        return Array.from(new Map(all.map(item => [item.id, item])).values())
+            .sort((a, b) => b.createdAt - a.createdAt);
+    }, [profile.capsules, groupCapsules]);
+
+    const allCategories = useMemo(() => {
+        const cats = new Set<string>();
+        displayCapsules.forEach(c => { if(c.category) cats.add(c.category); });
+        return Array.from(cats).sort();
+    }, [displayCapsules]);
+
+    const handleUpdateProfile = (newProfile: UserProfile) => {
+        setProfile(prev => ({ ...prev, user: newProfile }));
+        addToast(t('profile_updated'), "success");
+    };
+
+    const handleDeleteCapsule = (capsule: CognitiveCapsule) => {
+        setCapsuleToDelete(capsule);
+    };
+
+    const confirmDeleteCapsule = async () => {
+        if (!capsuleToDelete) return;
+        if (currentUser) {
+            try { await deleteCapsuleFromCloud(currentUser.uid, capsuleToDelete.id); } catch(e) { addToast(t('delete_error'), 'error'); }
+        } else {
+            setProfile(prev => ({ ...prev, capsules: prev.capsules.filter(c => c.id !== capsuleToDelete.id) }));
+        }
+        addToast(`"${capsuleToDelete.title}" ${t('capsule_deleted')}`, 'info');
+        setCapsuleToDelete(null);
+        if (activeCapsule?.id === capsuleToDelete.id) setActiveCapsule(null);
+    };
+
+    // Gestion des Plans d'Étude
+    const handlePlanCreated = (newPlan: StudyPlan) => {
+        setProfile(prev => ({ 
+            ...prev, 
+            user: { 
+                ...prev.user, 
+                plans: [...(prev.user.plans || []), newPlan],
+                activePlanId: newPlan.id 
+            } 
+        }));
+        setIsPlanningWizardOpen(false);
+        setView('agenda');
+        addToast(t('plan_generated'), "success");
+    };
+
+    const handlePlanDeleted = (planId: string) => {
+        setProfile(prev => {
+            const newPlans = (prev.user.plans || []).filter(p => p.id !== planId);
+            return {
+                ...prev,
+                user: {
+                    ...prev.user,
+                    plans: newPlans,
+                    activePlanId: prev.user.activePlanId === planId 
+                        ? (newPlans.length > 0 ? newPlans[0].id : undefined) 
+                        : prev.user.activePlanId
+                }
+            };
+        });
+        addToast(t('plan_deleted'), "info");
+    };
+
+    const handlePlanUpdate = (updatedPlan: StudyPlan) => {
+        setProfile(prev => ({
+            ...prev,
+            user: {
+                ...prev.user,
+                plans: (prev.user.plans || []).map(p => p.id === updatedPlan.id ? updatedPlan : p)
+            }
+        }));
+    };
+
+    const handleClearNewCapsule = () => setNewlyAddedCapsuleId(null);
 
     const loadingIndicator = (
         <div className="w-full h-96 flex flex-col items-center justify-center bg-white dark:bg-zinc-900 rounded-2xl shadow-lg border border-emerald-100 dark:border-zinc-800 animate-fade-in-fast">
@@ -303,7 +417,6 @@ const AppContent: React.FC = () => {
         </div>
     );
 
-    // RENDER (Version simplifiée pour le contexte, identique à l'original sauf passage des props)
     return (
         <div className="relative min-h-screen bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200">
             <div className="sticky top-0 z-40">
@@ -312,40 +425,258 @@ const AppContent: React.FC = () => {
                     onLogin={() => setIsAuthModalOpen(true)}
                     currentUser={currentUser}
                     isOnline={isOnline}
+                    gamification={profile.user.gamification}
                     addToast={addToast}
                     onLogoClick={handleGoHome}
                     currentTheme={theme}
                     onToggleTheme={toggleTheme}
                 />
             </div>
-            <main className="container mx-auto max-w-screen-2xl p-4 md:p-8 md:block hidden">
-                 {/* ... (Desktop Layout inchangé) ... */}
-                 {view === 'create' && !activeCapsule && (
-                    <InputArea 
-                        onGenerate={handleGenerate} 
-                        onGenerateFromFile={handleGenerateFromFile} 
-                        isLoading={isLoading} 
-                        error={error} 
-                        onClearError={handleClearError}
-                        onOpenProfile={handleOpenProfileFromLink}
+
+            <main ref={mainContentRef} className="container mx-auto max-w-screen-2xl p-4 md:p-8 md:block hidden min-h-[calc(100vh-80px)]">
+                {activeCapsule ? (
+                    <CapsuleView 
+                        capsule={activeCapsule}
+                        allCapsules={displayCapsules}
+                        selectedCapsuleIds={selectedCapsuleIds}
+                        onStartCoaching={() => setIsCoaching(true)}
+                        onStartFlashcards={() => setIsFlashcardMode(true)}
+                        onStartActiveLearning={() => setIsActiveLearning(true)}
+                        onMarkAsReviewed={(id, score, type) => {
+                            const typeMap: Record<string, 'quiz' | 'flashcard' | 'manual'> = { 'quiz': 'quiz', 'flashcard': 'flashcard', 'manual': 'manual' };
+                            handleGamificationAction(type === 'quiz' ? 'quiz' : type === 'flashcard' ? 'flashcard' : 'manual_review', 1, score);
+                        }}
+                        onSetCategory={(id, cat) => { /* Update */ }}
+                        allCategories={allCategories}
+                        onSetMemoryAid={(id, img, desc) => { /* Update */ }}
+                        onSetMnemonic={(id, mnem) => { /* Update */ }}
+                        onUpdateQuiz={(id, q) => { /* Update */ }}
+                        onBackToList={() => setActiveCapsule(null)}
+                        addToast={addToast}
+                        userGroups={userGroups}
+                        onShareCapsule={(g, c) => shareCapsuleToGroup(currentUser!.uid, g, c)}
+                        currentUserId={currentUser?.uid}
+                        currentUserName={profile.user.name}
+                        isPremium={profile.user.isPremium}
                     />
-                 )}
-                 {/* ... */}
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start h-[calc(100vh-140px)]">
+                        <div className="lg:col-span-8 space-y-6 h-full overflow-y-auto pr-2 no-scrollbar">
+                            {(view === 'create' || view === 'base') && (
+                                <InputArea 
+                                    onGenerate={handleGenerate} 
+                                    onGenerateFromFile={handleGenerateFromFile} 
+                                    isLoading={isLoading} 
+                                    error={error} 
+                                    onClearError={handleClearError}
+                                    onOpenProfile={handleOpenProfileFromLink}
+                                />
+                            )}
+                            {view === 'agenda' && (
+                                <AgendaView 
+                                    plans={profile.user.plans || []}
+                                    activePlanId={profile.user.activePlanId}
+                                    onSetActivePlan={(id) => setProfile(prev => ({...prev, user: {...prev.user, activePlanId: id}}))}
+                                    onUpdatePlan={handlePlanUpdate}
+                                    onDeletePlan={handlePlanDeleted}
+                                    onOpenCapsule={(id) => {
+                                        const cap = displayCapsules.find(c => c.id === id);
+                                        if (cap) setActiveCapsule(cap);
+                                    }}
+                                    onCreateNew={() => setIsPlanningWizardOpen(true)}
+                                />
+                            )}
+                            {view === 'store' && (
+                                <PremiumStore onUnlockPack={() => {}} unlockedPackIds={[]} isPremiumUser={!!profile.user.isPremium} />
+                            )}
+                        </div>
+
+                        <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 h-full sticky top-0">
+                             <button 
+                                onClick={() => setIsPlanningWizardOpen(true)}
+                                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white p-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between group transform hover:scale-[1.02]"
+                             >
+                                <div className="text-left">
+                                    <h3 className="font-bold text-lg flex items-center gap-2">
+                                        <CalendarIcon className="w-5 h-5" />
+                                        {t('generate_plan')}
+                                    </h3>
+                                    <p className="text-xs text-indigo-100 opacity-90 mt-1">Organisez vos révisions</p>
+                                </div>
+                                <div className="bg-white/20 p-2 rounded-full group-hover:bg-white/30 transition-colors">
+                                    <PlusIcon className="w-5 h-5" />
+                                </div>
+                             </button>
+
+                             <div className="flex-grow overflow-hidden rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800">
+                                <KnowledgeBase 
+                                    capsules={displayCapsules}
+                                    activeCapsuleId={activeCapsule?.id}
+                                    onSelectCapsule={setActiveCapsule}
+                                    onNewCapsule={() => setView('create')}
+                                    notificationPermission={notificationPermission}
+                                    onRequestNotificationPermission={() => {}}
+                                    onDeleteCapsule={handleDeleteCapsule}
+                                    newlyAddedCapsuleId={newlyAddedCapsuleId}
+                                    onClearNewCapsule={handleClearNewCapsule}
+                                    selectedCapsuleIds={selectedCapsuleIds}
+                                    setSelectedCapsuleIds={setSelectedCapsuleIds}
+                                    onOpenStore={() => setView('store')}
+                                />
+                             </div>
+                        </div>
+                    </div>
+                )}
+                {isLoading && (
+                    <div className="fixed inset-0 bg-white/80 dark:bg-zinc-950/80 z-50 flex items-center justify-center p-4">
+                        <div className="w-full max-w-lg">
+                            {loadingIndicator}
+                        </div>
+                    </div>
+                )}
             </main>
-            <div className="md:hidden p-4 min-h-[calc(100vh-64px)]">
-                {/* ... (Mobile Layout inchangé) ... */}
-                 {mobileTab === 'create' && !activeCapsule && (
-                    <InputArea 
-                        onGenerate={handleGenerate} 
-                        onGenerateFromFile={handleGenerateFromFile} 
-                        isLoading={isLoading} 
-                        error={error} 
-                        onClearError={handleClearError}
-                        onOpenProfile={handleOpenProfileFromLink}
+
+            <div className="md:hidden p-4 min-h-[calc(100vh-64px)] pb-24">
+                 {!activeCapsule ? (
+                    <>
+                        {mobileTab === 'create' && (
+                             <InputArea 
+                                onGenerate={handleGenerate} 
+                                onGenerateFromFile={handleGenerateFromFile} 
+                                isLoading={isLoading} 
+                                error={error} 
+                                onClearError={handleClearError}
+                                onOpenProfile={handleOpenProfileFromLink}
+                            />
+                        )}
+                        {mobileTab === 'library' && (
+                             <KnowledgeBase 
+                                capsules={displayCapsules}
+                                activeCapsuleId={activeCapsule?.id}
+                                onSelectCapsule={setActiveCapsule}
+                                onNewCapsule={() => setMobileTab('create')}
+                                notificationPermission={notificationPermission}
+                                onRequestNotificationPermission={() => {}}
+                                onDeleteCapsule={handleDeleteCapsule}
+                                newlyAddedCapsuleId={newlyAddedCapsuleId}
+                                onClearNewCapsule={handleClearNewCapsule}
+                                selectedCapsuleIds={selectedCapsuleIds}
+                                setSelectedCapsuleIds={setSelectedCapsuleIds}
+                                onOpenStore={() => setMobileTab('store')}
+                            />
+                        )}
+                        {mobileTab === 'agenda' && (
+                            <AgendaView 
+                                plans={profile.user.plans || []}
+                                activePlanId={profile.user.activePlanId}
+                                onSetActivePlan={(id) => setProfile(prev => ({...prev, user: {...prev.user, activePlanId: id}}))}
+                                onUpdatePlan={handlePlanUpdate}
+                                onDeletePlan={handlePlanDeleted}
+                                onOpenCapsule={(id) => {
+                                    const cap = displayCapsules.find(c => c.id === id);
+                                    if (cap) setActiveCapsule(cap);
+                                }}
+                                onCreateNew={() => setIsPlanningWizardOpen(true)}
+                            />
+                        )}
+                    </>
+                 ) : (
+                     <CapsuleView 
+                        capsule={activeCapsule}
+                        allCapsules={displayCapsules}
+                        selectedCapsuleIds={selectedCapsuleIds}
+                        onStartCoaching={() => setIsCoaching(true)}
+                        onStartFlashcards={() => setIsFlashcardMode(true)}
+                        onStartActiveLearning={() => setIsActiveLearning(true)}
+                        onMarkAsReviewed={(id, score, type) => { /* ... */ }}
+                        onSetCategory={(id, cat) => { /* ... */ }}
+                        allCategories={allCategories}
+                        onSetMemoryAid={(id, img, desc) => { /* ... */ }}
+                        onSetMnemonic={(id, mnem) => { /* ... */ }}
+                        onUpdateQuiz={(id, q) => { /* ... */ }}
+                        onBackToList={() => setActiveCapsule(null)}
+                        addToast={addToast}
+                        userGroups={userGroups}
+                        onShareCapsule={(g, c) => shareCapsuleToGroup(currentUser!.uid, g, c)}
+                        currentUserId={currentUser?.uid}
+                        currentUserName={profile.user.name}
+                        isPremium={profile.user.isPremium}
                     />
                  )}
+                 {isLoading && (
+                    <div className="fixed inset-0 bg-white/95 dark:bg-zinc-950/95 z-[60] flex items-center justify-center p-6">
+                        {loadingIndicator}
+                    </div>
+                )}
             </div>
-            {/* ... Modals ... */}
+
+            <MobileNavBar 
+                activeTab={mobileTab} 
+                onTabChange={(tab) => setMobileTab(tab as MobileTab)} 
+                hasActivePlan={!!(profile.user.plans && profile.user.plans.length > 0)}
+                userRole={profile.user.role}
+            />
+
+            {/* MODALS */}
+            {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} addToast={addToast} />}
+            
+            {activeCapsule && isCoaching && (
+                <CoachingModal capsule={activeCapsule} onClose={() => setIsCoaching(false)} userProfile={profile.user} />
+            )}
+            
+            {activeCapsule && isFlashcardMode && (
+                <FlashcardModal capsule={activeCapsule} onClose={() => setIsFlashcardMode(false)} addToast={addToast} />
+            )}
+
+            {activeCapsule && isActiveLearning && (
+                <ActiveLearningModal capsule={activeCapsule} onClose={() => setIsActiveLearning(false)} />
+            )}
+
+            {isProfileModalOpen && (
+                <ProfileModal 
+                    profile={profile} 
+                    onClose={() => setIsProfileModalOpen(false)} 
+                    onUpdateProfile={handleUpdateProfile}
+                    addToast={addToast}
+                    selectedCapsuleIds={selectedCapsuleIds}
+                    setSelectedCapsuleIds={setSelectedCapsuleIds}
+                    currentUser={currentUser}
+                    onOpenGroupManager={() => { setIsProfileModalOpen(false); setIsGroupModalOpen(true); }}
+                    isIOS={isIOS}
+                    isStandalone={isStandalone}
+                    installPrompt={installPrompt}
+                    onInstall={() => { if(installPrompt) installPrompt.prompt(); }}
+                />
+            )}
+
+            {isGroupModalOpen && currentUser && (
+                <GroupModal 
+                    onClose={() => setIsGroupModalOpen(false)}
+                    userId={currentUser.uid}
+                    userName={profile.user.name}
+                    userGroups={userGroups}
+                    addToast={addToast}
+                />
+            )}
+            
+            {isPlanningWizardOpen && (
+                <PlanningWizard 
+                    capsules={displayCapsules} 
+                    onClose={() => setIsPlanningWizardOpen(false)}
+                    onPlanCreated={handlePlanCreated}
+                />
+            )}
+
+            <ConfirmationModal
+                isOpen={!!capsuleToDelete}
+                onClose={() => setCapsuleToDelete(null)}
+                onConfirm={confirmDeleteCapsule}
+                title="Supprimer la capsule ?"
+                message={`Voulez-vous vraiment supprimer "${capsuleToDelete?.title}" ? Cette action est irréversible.`}
+                confirmText="Supprimer"
+                variant="danger"
+            />
+
             <ToastProvider><div/></ToastProvider> 
         </div>
     );

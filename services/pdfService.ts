@@ -1,4 +1,3 @@
-
 import { PDFDocument, rgb, PDFFont, StandardFonts, PDFPage, PDFImage } from 'pdf-lib';
 import type { CognitiveCapsule, FlashcardContent } from '../types';
 import { MEMORAID_LOGO_BASE64 } from './logoAsset';
@@ -259,33 +258,46 @@ const drawCapsuleContent = async (doc: PDFDocument, capsule: CognitiveCapsule) =
 
     // --- MNEMONIC SECTION ---
     if (capsule.mnemonic) {
+        const spaceAfterHeader = 10;
         const spaceAfterMnemonic = 20;
-        await drawText(context, 'Secret de Mémorisation', { font: fontBold, fontSize: FONT_SIZES.h2, spaceAfter: 10, color: rgb(0.9, 0.4, 0) }); // Orange
         
+        // Header height calculation (roughly)
+        const headerFontSize = FONT_SIZES.h2;
+        const headerHeight = headerFontSize * LINE_HEIGHT_MULTIPLIER + spaceAfterHeader;
+
         const mnemonicText = `"${capsule.mnemonic}"`;
         const mnemonicLines = wrapText(mnemonicText, fontOblique, FONT_SIZES.h3, maxWidth - 20);
-        const mnemonicHeight = mnemonicLines.length * (FONT_SIZES.h3 * LINE_HEIGHT_MULTIPLIER);
+        const mnemonicContentHeight = mnemonicLines.length * (FONT_SIZES.h3 * LINE_HEIGHT_MULTIPLIER);
+        const boxHeight = mnemonicContentHeight + 20; // 20 padding
+
+        // Total block height (Header + Box)
+        const totalBlockHeight = headerHeight + boxHeight;
         
-        // Check page break
-        if (context.cursor.y - (mnemonicHeight + 30) < MARGIN) {
+        // CRITICAL FIX: Check page break for the WHOLE block (Header + Box)
+        if (context.cursor.y - totalBlockHeight < MARGIN) {
             context.page = doc.addPage();
             drawBranding(context.page, fontBold, logoImage);
             context.cursor.y = context.page.getHeight() - MARGIN;
         }
 
-        // Draw light orange background
+        // Draw Header
+        await drawText(context, 'Secret de Mémorisation', { font: fontBold, fontSize: FONT_SIZES.h2, spaceAfter: spaceAfterHeader, color: rgb(0.9, 0.4, 0) });
+
+        // Draw light orange background box
         const lightOrange = rgb(1, 0.95, 0.9);
         context.page.drawRectangle({
             x: MARGIN,
-            y: context.cursor.y - mnemonicHeight - 10,
+            y: context.cursor.y - mnemonicContentHeight - 10,
             width: maxWidth,
-            height: mnemonicHeight + 20,
+            height: mnemonicContentHeight + 20,
             color: lightOrange,
             borderColor: rgb(1, 0.8, 0.6),
             borderWidth: 1,
         });
         
         context.cursor.y -= 10; // Padding top inside box
+        
+        // Draw Mnemonic Content
         await drawText(context, mnemonicText, { 
             font: fontOblique, 
             fontSize: FONT_SIZES.h3, 
@@ -364,7 +376,6 @@ const drawFlashcards = async (doc: PDFDocument, flashcards: FlashcardContent[]) 
             height: cardHeight,
             borderColor: rgb(0.8, 0.8, 0.8),
             borderWidth: 0.5,
-            borderLineDash: [4, 2],
         });
 
         const PADDING = 10;

@@ -164,61 +164,6 @@ ${concepts}
                     )}
                 </section>
 
-                {/* 2. ACTIONS RAPIDES (INSTALL & PREMIUM) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Logique d'affichage "Installer" */}
-                    {isStandalone ? (
-                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 flex items-center gap-3">
-                            <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
-                                <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-sm text-emerald-800 dark:text-emerald-200">Application Installée</h3>
-                                <p className="text-xs text-emerald-600 dark:text-emerald-400">Prêt pour le hors-ligne</p>
-                            </div>
-                        </div>
-                    ) : (
-                        isIOS ? (
-                            <div className="bg-slate-100 dark:bg-zinc-800 rounded-xl p-4 border border-slate-200 dark:border-zinc-700">
-                                <h3 className="font-bold text-sm text-slate-800 dark:text-white mb-2">Installer sur iPhone</h3>
-                                <div className="text-xs text-slate-600 dark:text-zinc-400 space-y-1">
-                                    <div className="flex items-center gap-1">1. Appuyez sur <Share2Icon className="w-3 h-3 text-blue-500 inline"/></div>
-                                    <div className="flex items-center gap-1">2. Puis <span className="font-bold">Sur l'écran d'accueil</span> <PlusIcon className="w-3 h-3 inline border border-current rounded-sm"/></div>
-                                </div>
-                            </div>
-                        ) : (
-                            installPrompt && (
-                                <button 
-                                    onClick={onInstall}
-                                    className="bg-blue-600 text-white rounded-xl p-4 flex items-center justify-between shadow-md hover:bg-blue-700 transition-colors text-left"
-                                >
-                                    <div>
-                                        <h3 className="font-bold text-sm">Installer l'app</h3>
-                                        <p className="text-xs text-blue-100 mt-0.5">Accès hors-ligne & rapide</p>
-                                    </div>
-                                    <ChevronRightIcon className="w-5 h-5 text-white/80" />
-                                </button>
-                            )
-                        )
-                    )}
-                    
-                    <div className={`rounded-xl p-4 flex items-center justify-between border transition-colors ${isPremium ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'}`}>
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-full ${isPremium ? 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-200' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
-                                <CrownIcon className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-sm text-slate-800 dark:text-white">Memoraid Premium</h3>
-                                <p className="text-xs text-slate-500 dark:text-zinc-400">{isPremium ? 'Actif' : 'Débloquer les fonctions'}</p>
-                            </div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} />
-                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
-                        </label>
-                    </div>
-                </div>
-
                 {/* 3. PROGRESSION */}
                 <section className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-zinc-800">
                     <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Analyses</h3>
@@ -329,6 +274,61 @@ ${concepts}
                         Envoyer le résumé par email
                     </button>
                 </section>
+
+                {/* 2. ACTIONS RAPIDES (INSTALL & PREMIUM) - DÉPLACÉ EN BAS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Logique d'affichage "Installer" */}
+                    {isStandalone ? (
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 flex items-center gap-3">
+                            <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
+                                <CheckCircleIcon className="w-5 h-5 text-emerald-600 dark:text-emerald-300" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-sm text-emerald-800 dark:text-emerald-200">Application Installée</h3>
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400">Prêt pour le hors-ligne</p>
+                            </div>
+                        </div>
+                    ) : (
+                        isIOS ? (
+                            <div className="bg-slate-100 dark:bg-zinc-800 rounded-xl p-4 border border-slate-200 dark:border-zinc-700">
+                                <h3 className="font-bold text-sm text-slate-800 dark:text-white mb-2">Installer sur iPhone</h3>
+                                <div className="text-xs text-slate-600 dark:text-zinc-400 space-y-1">
+                                    <div className="flex items-center gap-1">1. Appuyez sur <Share2Icon className="w-3 h-3 text-blue-500 inline"/></div>
+                                    <div className="flex items-center gap-1">2. Puis <span className="font-bold">Sur l'écran d'accueil</span> <PlusIcon className="w-3 h-3 inline border border-current rounded-sm"/></div>
+                                </div>
+                            </div>
+                        ) : (
+                            installPrompt && (
+                                <button 
+                                    onClick={onInstall}
+                                    className="bg-blue-600 text-white rounded-xl p-4 flex items-center justify-between shadow-md hover:bg-blue-700 transition-colors text-left"
+                                >
+                                    <div>
+                                        <h3 className="font-bold text-sm">Installer l'app</h3>
+                                        <p className="text-xs text-blue-100 mt-0.5">Accès hors-ligne & rapide</p>
+                                    </div>
+                                    <ChevronRightIcon className="w-5 h-5 text-white/80" />
+                                </button>
+                            )
+                        )
+                    )}
+                    
+                    <div className={`rounded-xl p-4 flex items-center justify-between border transition-colors ${isPremium ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30' : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'}`}>
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${isPremium ? 'bg-amber-100 dark:bg-amber-800 text-amber-600 dark:text-amber-200' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                                <CrownIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-sm text-slate-800 dark:text-white">Memoraid Premium</h3>
+                                <p className="text-xs text-slate-500 dark:text-zinc-400">{isPremium ? 'Actif' : 'Débloquer les fonctions'}</p>
+                            </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={isPremium} onChange={(e) => setIsPremium(e.target.checked)} />
+                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                </div>
 
                 {/* 7. DÉCONNEXION */}
                 {currentUser && (

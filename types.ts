@@ -237,7 +237,8 @@ export interface UserProfile {
   role: UserRole; // Added role
   level?: UserLevel;
   learningStyle?: LearningStyle;
-  activePlan?: StudyPlan; // Le planning actif de l'utilisateur
+  plans?: StudyPlan[]; // MODIFIÉ : Support de plusieurs plans
+  activePlanId?: string; // Pour se souvenir du dernier plan ouvert
   isPremium?: boolean; // Statut Premium
   unlockedPackIds?: string[]; // IDs des packs achetés
   gamification?: GamificationStats; // Stats de jeu

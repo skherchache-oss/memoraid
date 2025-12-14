@@ -43,7 +43,6 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey: apiKey });
 };
 
-// ... (Le reste des helpers : getLangName, getPedagogyInstruction, schemas... reste inchangé) ...
 // Helper pour obtenir le nom de la langue en toutes lettres pour le prompt
 const getLangName = (lang: Language) => lang === 'fr' ? 'FRANÇAIS' : 'ENGLISH';
 
@@ -182,6 +181,7 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
     let errorMessage = defaultMsg;
     
     // 1. Détection Quota / Rate Limit (429)
+    // Google peut renvoyer 429 ou "Resource exhausted" dans le message
     const isQuotaError = 
         error?.status === 429 || 
         (error?.message && (
@@ -315,10 +315,6 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     return ai.chats.create({ model: 'gemini-2.5-flash', config: { systemInstruction } });
 };
 
-// ... (generateMnemonic, generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz restent identiques mais utilisent getAiClient et handleGeminiError si besoin) ...
-// Pour alléger la réponse, je conserve la logique existante pour les autres fonctions, 
-// mais elles bénéficieront de la correction de getAiClient.
-
 export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' | 'keyConcepts'>, language: Language = 'fr'): Promise<string> => {
     const ai = getAiClient();
     const prompt = `Topic: "${capsule.title}". Create a mnemonic in ${getLangName(language)}. Plain text only.`;
@@ -332,7 +328,6 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
 
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr') => {
     const ai = getAiClient();
-    // ... Logique existante simplifiée pour l'exemple ...
     const prompt = `Sketchnote style illustration for "${capsule.title}". White background.`;
     try {
         const response = await ai.models.generateImages({
