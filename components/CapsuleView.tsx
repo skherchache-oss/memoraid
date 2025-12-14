@@ -269,10 +269,29 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     };
 
     const handleToggleSpeech = async (id: string, text: string) => {
-        if (!process.env.API_KEY) {
+        // --- KEY RETRIEVAL LOGIC ---
+        let apiKey = '';
+        try {
+            // @ts-ignore
+            if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
+                // @ts-ignore
+                apiKey = import.meta.env.VITE_API_KEY;
+            }
+        } catch (e) { /* Ignore */ }
+
+        if (!apiKey) {
+            try {
+                if (process.env.API_KEY) {
+                    apiKey = process.env.API_KEY;
+                }
+            } catch (e) { /* Ignore */ }
+        }
+
+        if (!apiKey) {
             addToast("La clé API n'est pas configurée pour la synthèse vocale.", 'error');
             return;
         }
+        
         if (!audioContextRef.current) {
             addToast("L'API Audio n'est pas supportée par votre navigateur.", 'error');
             return;
@@ -292,7 +311,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setIsBuffering(id);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: apiKey });
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
                 contents: [{ parts: [{ text: text }] }],
