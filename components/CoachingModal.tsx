@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CognitiveCapsule, ChatMessage, CoachingMode, UserProfile } from '../types';
-import { createCoachingSession } from '../services/geminiService';
+import { createCoachingSession, getAiClient } from '../services/geminiService';
 import { XIcon, SendIcon, SparklesIcon, MicrophoneIcon, ImageIcon, Volume2Icon } from '../constants';
 import type { Chat, GenerateContentResponse } from '@google/genai';
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -153,7 +153,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
         } catch (error) {
             console.error("Failed to initialize coaching session:", error);
-            setMessages([{ role: 'model', content: language === 'fr' ? "Désolé, une erreur est survenue lors du démarrage du coaching." : "Sorry, an error occurred while starting the coaching session." }]);
+            const errMsg = language === 'fr' ? "Erreur de connexion au coach. Vérifiez votre clé API ou connexion." : "Connection error with coach. Check API key or network.";
+            setMessages([{ role: 'model', content: errMsg }]);
         } finally {
             setIsLoading(false);
         }
@@ -167,9 +168,10 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     }, [initializeChat]);
 
     const playTTS = async (text: string) => {
-        if (!process.env.API_KEY || !audioContextRef.current) return;
+        if (!audioContextRef.current) return;
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            // Utiliser le helper sécurisé pour récupérer le client
+            const ai = getAiClient();
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
                 contents: [{ parts: [{ text: text }] }],

@@ -154,6 +154,30 @@ const AppContent: React.FC = () => {
             setCurrentUser(user);
             setIsAuthInitializing(false);
             if (user) {
+                // SYNCHRONISATION DU PROFIL AVEC LES DONNÉES GOOGLE/AUTH
+                setProfile(prev => {
+                    const isDefaultName = prev.user.name === translations.fr.default_username || prev.user.name === translations.en.default_username || prev.user.name === 'Apprenant' || prev.user.name === 'Learner';
+                    
+                    // On ne remplace le nom que s'il est par défaut ou vide, et que user.displayName existe.
+                    const newName = (isDefaultName && user.displayName) ? user.displayName : (prev.user.name || user.displayName || prev.user.name);
+                    
+                    // On synchronise toujours l'email s'il est disponible via Auth
+                    const newEmail = user.email || prev.user.email || '';
+
+                    // On ne déclenche une mise à jour que si ça change vraiment
+                    if (newName !== prev.user.name || newEmail !== prev.user.email) {
+                        return {
+                            ...prev,
+                            user: {
+                                ...prev.user,
+                                name: newName,
+                                email: newEmail
+                            }
+                        };
+                    }
+                    return prev;
+                });
+
                 let unsubscribeSync = subscribeToCapsules(user.uid, (cloudCapsules) => {
                     setProfile(prev => ({ ...prev, capsules: cloudCapsules }));
                 });
@@ -315,6 +339,57 @@ const AppContent: React.FC = () => {
         }
     };
 
+    // --- GESTION DU PACK PREMIUM ---
+    const handleUnlockPack = (pack: PremiumPack) => {
+        if (profile.user.unlockedPackIds?.includes(pack.id)) {
+            addToast("Vous possédez déjà ce pack.", 'info');
+            return;
+        }
+
+        // 1. Transformer les capsules du pack pour l'utilisateur
+        const newCapsules = pack.capsules.map(c => ({
+            ...c,
+            // Générer un ID unique pour éviter les conflits si le pack est acheté par plusieurs users ou réimporté
+            id: `pack_${pack.id}_${c.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`, 
+            // La catégorie devient le TITRE DU PACK pour un classement automatique
+            category: pack.title, 
+            createdAt: Date.now(),
+            lastReviewed: null,
+            reviewStage: 0,
+            history: [],
+            isPremiumContent: true,
+            originalPackId: pack.id
+        }));
+
+        // 2. Mettre à jour le profil (Local)
+        const updatedUser = {
+            ...profile.user,
+            unlockedPackIds: [...(profile.user.unlockedPackIds || []), pack.id]
+        };
+
+        const updatedCapsules = [...profile.capsules, ...newCapsules];
+
+        setProfile(prev => ({
+            user: updatedUser,
+            capsules: updatedCapsules
+        }));
+
+        // 3. Sauvegarde Cloud (Si connecté)
+        if (currentUser) {
+            // Sauvegarder chaque nouvelle capsule
+            newCapsules.forEach(cap => {
+                saveCapsuleToCloud(currentUser.uid, cap).catch(e => console.error("Erreur save pack capsule", e));
+            });
+            // Note: Idéalement, on sauvegarde aussi updatedUser.unlockedPackIds dans Firestore
+        }
+
+        // 4. Feedback et Navigation
+        addToast(t('pack_added'), 'success');
+        setView('base');
+        setMobileTab('library');
+        setNewlyAddedCapsuleId(newCapsules[0]?.id || null);
+    };
+
     const handleGamificationAction = (action: 'create' | 'quiz' | 'flashcard' | 'join_group' | 'challenge' | 'manual_review', count = 1, score?: number) => {
         const { stats, newBadges, levelUp } = processGamificationAction(profile.user.gamification || getInitialGamificationStats(), action, profile.capsules.length + count, score);
         
@@ -344,6 +419,13 @@ const AppContent: React.FC = () => {
     const handleUpdateProfile = (newProfile: UserProfile) => {
         setProfile(prev => ({ ...prev, user: newProfile }));
         addToast(t('profile_updated'), "success");
+    };
+
+    const handleNavigateToReviews = () => {
+        setIsProfileModalOpen(false);
+        setActiveCapsule(null); // IMPORTANT: Fermer la capsule active pour voir la liste
+        setView('base');
+        setMobileTab('library');
     };
 
     const handleDeleteCapsule = (capsule: CognitiveCapsule) => {
@@ -389,6 +471,43 @@ const AppContent: React.FC = () => {
         }
         
         addToast(t('category_updated'), "success");
+    };
+
+    // --- MISE À JOUR DES ENRICHISSEMENTS (MNÉMOTECHNIQUE / IMAGE) ---
+    // Ces fonctions sont appelées quand l'utilisateur génère un contenu dans la vue capsule
+    // Elles assurent que les données sont persistées dans l'état global et le cloud.
+
+    const handleSetMnemonic = async (id: string, mnemonic: string) => {
+        const updatedCapsules = profile.capsules.map(c => 
+            c.id === id ? { ...c, mnemonic: mnemonic } : c
+        );
+        setProfile(prev => ({ ...prev, capsules: updatedCapsules }));
+        
+        if (activeCapsule?.id === id) {
+            setActiveCapsule(prev => prev ? { ...prev, mnemonic: mnemonic } : null);
+        }
+
+        if (currentUser) {
+            const cap = updatedCapsules.find(c => c.id === id);
+            if (cap) await saveCapsuleToCloud(currentUser.uid, cap);
+        }
+        addToast(t('mnemonic_generated_by'), "success");
+    };
+
+    const handleSetMemoryAid = async (id: string, imageData: string | null, description: string | null) => {
+        const updatedCapsules = profile.capsules.map(c => 
+            c.id === id ? { ...c, memoryAidImage: imageData || undefined, memoryAidDescription: description || undefined } : c
+        );
+        setProfile(prev => ({ ...prev, capsules: updatedCapsules }));
+        
+        if (activeCapsule?.id === id) {
+            setActiveCapsule(prev => prev ? { ...prev, memoryAidImage: imageData || undefined, memoryAidDescription: description || undefined } : null);
+        }
+
+        if (currentUser) {
+            const cap = updatedCapsules.find(c => c.id === id);
+            if (cap) await saveCapsuleToCloud(currentUser.uid, cap);
+        }
     };
 
     // Gestion des Plans d'Étude
@@ -477,8 +596,8 @@ const AppContent: React.FC = () => {
                         }}
                         onSetCategory={handleSetCategory}
                         allCategories={allCategories}
-                        onSetMemoryAid={(id, img, desc) => { /* Update */ }}
-                        onSetMnemonic={(id, mnem) => { /* Update */ }}
+                        onSetMemoryAid={handleSetMemoryAid}
+                        onSetMnemonic={handleSetMnemonic}
                         onUpdateQuiz={(id, q) => { /* Update */ }}
                         onBackToList={() => setActiveCapsule(null)}
                         addToast={addToast}
@@ -517,7 +636,7 @@ const AppContent: React.FC = () => {
                             )}
                             {view === 'store' && (
                                 <PremiumStore 
-                                    onUnlockPack={() => {}} 
+                                    onUnlockPack={handleUnlockPack} 
                                     unlockedPackIds={profile.user.unlockedPackIds || []} 
                                     isPremiumUser={!!profile.user.isPremium} 
                                 />
@@ -614,7 +733,7 @@ const AppContent: React.FC = () => {
                         )}
                         {mobileTab === 'store' && (
                             <PremiumStore 
-                                onUnlockPack={() => {}} 
+                                onUnlockPack={handleUnlockPack} 
                                 unlockedPackIds={profile.user.unlockedPackIds || []} 
                                 isPremiumUser={!!profile.user.isPremium} 
                             />
@@ -634,6 +753,7 @@ const AppContent: React.FC = () => {
                                 isStandalone={isStandalone}
                                 installPrompt={installPrompt}
                                 onInstall={() => { if(installPrompt) installPrompt.prompt(); }}
+                                onNavigateToReviews={handleNavigateToReviews}
                             />
                         )}
                     </>
@@ -648,8 +768,8 @@ const AppContent: React.FC = () => {
                         onMarkAsReviewed={(id, score, type) => { /* ... */ }}
                         onSetCategory={handleSetCategory}
                         allCategories={allCategories}
-                        onSetMemoryAid={(id, img, desc) => { /* ... */ }}
-                        onSetMnemonic={(id, mnem) => { /* ... */ }}
+                        onSetMemoryAid={handleSetMemoryAid}
+                        onSetMnemonic={handleSetMnemonic}
                         onUpdateQuiz={(id, q) => { /* ... */ }}
                         onBackToList={() => setActiveCapsule(null)}
                         addToast={addToast}
@@ -669,7 +789,16 @@ const AppContent: React.FC = () => {
 
             <MobileNavBar 
                 activeTab={mobileTab} 
-                onTabChange={(tab) => setMobileTab(tab as MobileTab)} 
+                onTabChange={(tab) => {
+                    setMobileTab(tab as MobileTab);
+                    setActiveCapsule(null); // Important : Fermer la capsule active pour afficher l'onglet
+                    
+                    // Synchro vue desktop (optionnel mais propre)
+                    if (tab === 'create') setView('create');
+                    else if (tab === 'agenda') setView('agenda');
+                    else if (tab === 'store') setView('store');
+                    else if (tab === 'library') setView('base');
+                }}
                 hasActivePlan={!!(profile.user.plans && profile.user.plans.length > 0)}
                 userRole={profile.user.role}
             />
@@ -703,6 +832,7 @@ const AppContent: React.FC = () => {
                     isStandalone={isStandalone}
                     installPrompt={installPrompt}
                     onInstall={() => { if(installPrompt) installPrompt.prompt(); }}
+                    onNavigateToReviews={handleNavigateToReviews}
                 />
             )}
 

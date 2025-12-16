@@ -5,14 +5,14 @@ import type { CognitiveCapsule, QuizQuestion, Group, Comment, CollaborativeTask 
 import Quiz from './Quiz';
 import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
-import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic } from '../services/geminiService';
+import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic, cleanMarkdown } from '../services/geminiService';
 import { downloadFlashcardsPdf, downloadCapsulePdf, generateFilename, downloadQuizPdf } from '../services/pdfService';
 import { exportToPPTX, exportToEPUB } from '../services/exportService';
 import { ToastType } from '../hooks/useToast';
 import { addCommentToCapsule, saveCapsuleToCloud, assignTaskToMember, updateTaskStatus } from '../services/cloudService';
 import FocusMode from './FocusMode';
 import { useLanguage } from '../contexts/LanguageContext';
-import { canGenerateCroquis, registerCroquis, getRemainingQuota } from '../services/quotaManager';
+import { checkImageQuota, incrementImageQuota, getQuotaStats } from '../services/quotaManager';
 
 
 // Helper functions for audio decoding (truncated for brevity, keep existing implementation)
@@ -83,7 +83,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [memoryAidDescription, setMemoryAidDescription] = useState<string | null>(null);
     const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
     const [imageError, setImageError] = useState<string | null>(null);
-    const [remainingQuota, setRemainingQuota] = useState(getRemainingQuota());
+    
+    // Initial Quota State
+    const [quotaStats, setQuotaStats] = useState(getQuotaStats(capsule.id, !!isPremium));
     
     const [mnemonic, setMnemonic] = useState<string | null>(capsule.mnemonic || null);
     const [isGeneratingMnemonic, setIsGeneratingMnemonic] = useState(false);
@@ -120,7 +122,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setShowShareMenu(false);
         setIsFocusMode(false);
         setNewTaskDesc('');
-        setRemainingQuota(getRemainingQuota()); // Update quota on capsule change
+        setQuotaStats(getQuotaStats(capsule.id, !!isPremium)); // Update quota on capsule change
         
         return () => {
             if (audioSourceRef.current) {
@@ -131,7 +133,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             setSpeakingId(null);
             setIsBuffering(null);
         };
-    }, [capsule]);
+    }, [capsule, isPremium]);
 
     // Quiz regeneration for due capsules
     useEffect(() => {
@@ -177,15 +179,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     }, []);
 
     const handleGenerateDrawing = async () => {
-        // 1. Vérification du Quota
-        if (!canGenerateCroquis()) {
-            setImageError("⚠️ Trop de demandes. Veuillez patienter une minute.");
+        // 1. Vérification du Quota AVANT appel API
+        const quotaCheck = checkImageQuota(capsule.id, !!isPremium);
+        if (!quotaCheck.allowed) {
+            setImageError(`⚠️ ${quotaCheck.reason}`);
             return;
         }
-
-        // 2. Enregistrement de l'utilisation et mise à jour UI
-        registerCroquis();
-        setRemainingQuota(getRemainingQuota());
 
         setIsGeneratingImage(true);
         setImageError(null);
@@ -202,6 +201,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             setMemoryAidImage(fullImageSrc);
             setMemoryAidDescription(result.description);
             onSetMemoryAid(capsule.id, fullImageSrc, result.description);
+            
+            // 2. Incrémentation UNIQUEMENT si succès
+            incrementImageQuota(capsule.id);
+            setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
+
         } catch (err) {
             setImageError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
         } finally {
@@ -216,10 +220,16 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 title: capsule.title,
                 keyConcepts: capsule.keyConcepts
             }, language);
+            
+            if (result.includes("Impossible") && result.length < 50) {
+                 addToast("IA saturée, réessayez dans quelques secondes.", 'info');
+                 return;
+            }
+
             setMnemonic(result);
             onSetMnemonic(capsule.id, result); // Sauvegarde persistante
         } catch (e) {
-            addToast("Erreur génération mnémotechnique", 'error');
+            addToast("Erreur génération mnémotechnique (Quota).", 'error');
         } finally {
             setIsGeneratingMnemonic(false);
         }
@@ -248,9 +258,30 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     
         try {
             const explanation = await expandKeyConcept(capsule.title, concept, originalExplanation, language);
-            setExpandedConcepts(prev => ({ ...prev, [concept]: explanation }));
+            // On nettoie le texte avant de l'afficher
+            setExpandedConcepts(prev => ({ ...prev, [concept]: cleanMarkdown(explanation) }));
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : "Une erreur est survenue.";
+            let errorMessage = "Une erreur est survenue.";
+            
+            if (err instanceof Error) {
+                // Parse potential JSON error message from Google API (Quota)
+                if (err.message.trim().startsWith('{')) {
+                    try {
+                        const errorObj = JSON.parse(err.message);
+                        if (errorObj.error?.code === 429 || errorObj.error?.status === 'RESOURCE_EXHAUSTED') {
+                            errorMessage = "⚠️ Quota IA dépassé (429). Veuillez patienter 30s avant de réessayer.";
+                        } else {
+                            errorMessage = errorObj.error?.message || err.message;
+                        }
+                    } catch (e) {
+                        errorMessage = err.message;
+                    }
+                } else if (err.message.includes('429') || err.message.includes('Quota')) {
+                    errorMessage = "⚠️ Quota IA dépassé. Veuillez patienter un instant.";
+                } else {
+                    errorMessage = err.message;
+                }
+            }
             setErrorConcepts(prev => ({ ...prev, [concept]: errorMessage }));
         } finally {
             setLoadingConcepts(prev => ({ ...prev, [concept]: false }));
@@ -269,8 +300,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     };
 
     const handleToggleSpeech = async (id: string, text: string) => {
-        // Avec la mise à jour de vite.config.ts, process.env.API_KEY est maintenant défini
-        // et pointe correctement vers la clé, peu importe si elle vient de VITE_API_KEY ou API_KEY.
         const apiKey = process.env.API_KEY;
 
         if (!apiKey) {
@@ -343,7 +372,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const handleShareToGroup = (group: Group) => {
         onShareCapsule(group, capsule);
         setShowShareMenu(false);
-        addToast(`Partagée avec le groupe "${group.name}"`, 'success');
+        addToast(`${t('share_success')} ("${group.name}")`, 'success');
     };
 
     const handlePostComment = async (e: React.FormEvent) => {
@@ -637,7 +666,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                     onClick={() => handleToggleConcept(item.concept, item.explanation)}
                                                     className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold mt-2 hover:underline"
                                                 >
-                                                    Masquer
+                                                    {t('hide')}
                                                 </button>
                                             </div>
                                         ) : (
@@ -651,7 +680,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                             </button>
                                         )}
                                         {errorConcepts[item.concept] && (
-                                            <p className="text-red-500 text-xs mt-1">{errorConcepts[item.concept]}</p>
+                                            <p className="text-red-500 text-xs mt-1 bg-red-50 dark:bg-red-900/20 p-2 rounded">{errorConcepts[item.concept]}</p>
                                         )}
                                     </div>
                                 </li>
@@ -715,23 +744,19 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         )}
 
                         {mnemonic && !isGeneratingMnemonic && (
-                            <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl border border-orange-200 dark:border-orange-800 shadow-sm animate-fade-in relative group">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-2 bg-white dark:bg-zinc-800 rounded-full shadow-sm">
-                                        <ZapIcon className="w-6 h-6 text-orange-500" />
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-bold uppercase tracking-widest text-orange-600/70 dark:text-orange-300/70 mb-1 block">
-                                            {t('mnemonic_label')}
-                                        </span>
-                                        <p className="text-lg font-bold text-slate-800 dark:text-zinc-100 italic leading-relaxed">
-                                            "{mnemonic}"
-                                        </p>
-                                        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-2 font-medium uppercase tracking-wide">
-                                            {t('mnemonic_generated_by')}
-                                        </p>
-                                    </div>
+                            <div className="p-8 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-2xl border border-orange-200 dark:border-orange-800 shadow-sm animate-fade-in relative group text-center">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-zinc-800 p-2 rounded-full border border-orange-200 dark:border-orange-800 shadow-sm">
+                                    <ZapIcon className="w-6 h-6 text-orange-500" />
                                 </div>
+                                
+                                <blockquote className="text-2xl md:text-3xl font-serif font-medium text-slate-800 dark:text-zinc-100 italic leading-relaxed pt-4 px-2 break-words">
+                                    &ldquo;{mnemonic}&rdquo;
+                                </blockquote>
+                                
+                                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-4 font-bold uppercase tracking-wide opacity-70">
+                                    {t('mnemonic_generated_by')}
+                                </p>
+                                
                                 <button 
                                     onClick={handleGenerateMnemonic}
                                     className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-zinc-800/80 rounded-full text-orange-500 hover:bg-orange-100 dark:hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -750,9 +775,16 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                 <ImageIcon className="w-6 h-6 mr-3 text-violet-500" />
                                 <span>{t('memory_aid_sketch')}</span>
                             </h3>
-                            <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                                Quota: {remainingQuota}/5
-                            </span>
+                            <div className="flex flex-col items-end">
+                                <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                    Images: {quotaStats.capsuleUsed}/{quotaStats.capsuleLimit}
+                                </span>
+                                {quotaStats.capsuleUsed >= quotaStats.capsuleLimit && !isPremium && (
+                                    <span className="text-[10px] text-amber-500 font-bold mt-1">
+                                        Max atteint (Passer Premium)
+                                    </span>
+                                )}
+                            </div>
                         </div>
                         
                         {!memoryAidImage && !isGeneratingImage && !imageError && (
@@ -876,14 +908,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                                         {/* Assignation Tâches */}
                                         <div className="mb-6">
-                                            <h5 className="text-xs font-semibold text-slate-500 mb-2">Assigner une tâche</h5>
+                                            <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('assign_task')}</h5>
                                             <form onSubmit={handleAssignTask} className="space-y-2">
                                                 <select 
                                                     className="w-full p-2 text-sm rounded bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700"
                                                     value={selectedAssignee}
                                                     onChange={e => setSelectedAssignee(e.target.value)}
                                                 >
-                                                    <option value="">Choisir un membre...</option>
+                                                    <option value="">{t('choose_member')}</option>
                                                     {activeGroup?.members.map(m => (
                                                         <option key={m.userId} value={m.userId}>{m.name}</option>
                                                     ))}
@@ -891,7 +923,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                 <div className="flex gap-2">
                                                     <input 
                                                         type="text" 
-                                                        placeholder="Ex: Relire la section 1"
+                                                        placeholder={t('task_placeholder')}
                                                         value={newTaskDesc}
                                                         onChange={e => setNewTaskDesc(e.target.value)}
                                                         className="flex-grow p-2 text-sm rounded bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700"
@@ -906,7 +938,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                         {/* Liste Tâches */}
                                         {capsule.collaborativeTasks && capsule.collaborativeTasks.length > 0 && (
                                             <div className="mb-6">
-                                                <h5 className="text-xs font-semibold text-slate-500 mb-2">Tâches en cours</h5>
+                                                <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('current_tasks')}</h5>
                                                 <div className="space-y-2">
                                                     {capsule.collaborativeTasks.map(task => (
                                                         <div key={task.id} className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-2 rounded border border-slate-200 dark:border-zinc-700">
@@ -928,7 +960,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                                         {/* Progression Groupe */}
                                         <div>
-                                            <h5 className="text-xs font-semibold text-slate-500 mb-2">Progression du groupe</h5>
+                                            <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('group_progress')}</h5>
                                             {capsule.groupProgress && capsule.groupProgress.length > 0 ? (
                                                 <div className="space-y-2">
                                                     {capsule.groupProgress.map(prog => (
@@ -942,19 +974,19 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                     ))}
                                                 </div>
                                             ) : (
-                                                <p className="text-xs text-slate-400 italic">Aucune donnée de progression.</p>
+                                                <p className="text-xs text-slate-400 italic">{t('no_progression_data')}</p>
                                             )}
                                         </div>
                                      </div>
                                 ) : (
                                     <div className="bg-slate-100 dark:bg-zinc-800 p-6 rounded-lg flex flex-col items-center justify-center text-center">
                                         <CrownIcon className="w-8 h-8 text-slate-400 mb-2" />
-                                        <h4 className="font-bold text-slate-600 dark:text-zinc-400">Fonctionnalités Premium</h4>
+                                        <h4 className="font-bold text-slate-600 dark:text-zinc-400">{t('premium_features')}</h4>
                                         <p className="text-xs text-slate-500 dark:text-zinc-500 mt-1 mb-3">
-                                            Débloquez la gestion de tâches, le suivi de progression d'équipe et plus.
+                                            {t('premium_features_desc')}
                                         </p>
                                         <button disabled className="px-3 py-1 bg-slate-200 dark:bg-zinc-700 text-slate-500 rounded text-sm cursor-not-allowed">
-                                            Passer Premium (Profil)
+                                            {t('go_premium')}
                                         </button>
                                     </div>
                                 )}

@@ -97,11 +97,15 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
     );
 
     const groupedCapsules = useMemo(() => {
-        const otherCapsules = filteredCapsules.filter(c => !isCapsuleDue(c));
+        // MODIFICATION : On ne garde ici que les capsules qui ne sont PAS dues.
+        // Les capsules "à réviser" seront affichées uniquement dans la section "À réviser" en haut.
+        // Cela supprime l'effet de doublon.
+        const capsulesToShow = filteredCapsules.filter(c => !isCapsuleDue(c)); 
+        
         const groups: { [key: string]: CognitiveCapsule[] } = {};
         const uncategorized: CognitiveCapsule[] = [];
 
-        otherCapsules.forEach(c => {
+        capsulesToShow.forEach(c => {
             if (c.category) {
                 if (!groups[c.category]) groups[c.category] = [];
                 groups[c.category].push(c);
@@ -242,6 +246,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                     </div>
                 ) : (
                     <>
+                        {/* Section À réviser - Toujours en premier */}
                         <details open className="group">
                             <summary className="list-none flex items-center justify-between cursor-pointer px-2 py-2 rounded hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
                                 <span className="text-sm font-bold text-amber-600 dark:text-amber-400 tracking-wide flex items-center uppercase">
@@ -262,7 +267,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                             isDue={true} 
                                             onToggleExpand={() => handleToggleExpand(capsule)}
                                             onToggleSelection={() => handleToggleSelection(capsule.id)}
-                                            onRequestDelete={onDeleteCapsule} // Pass function directly
+                                            onRequestDelete={onDeleteCapsule} 
                                             newlyAddedCapsuleId={newlyAddedCapsuleId}
                                             onClearNewCapsule={onClearNewCapsule}
                                         />
@@ -273,10 +278,14 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                             </div>
                         </details>
 
+                        {/* Catégories (Contient uniquement ce qui N'EST PAS à réviser) */}
                         {groupedCapsules.sortedCategories.map(category => (
                             <details key={category} open className="group mt-4">
                                 <summary className="list-none flex items-center justify-between cursor-pointer px-2 py-2 rounded hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                    <span className="text-sm font-bold text-slate-600 dark:text-zinc-300 tracking-wide uppercase">{category}</span>
+                                    <span className="text-sm font-bold text-slate-600 dark:text-zinc-300 tracking-wide uppercase flex items-center gap-2">
+                                        {category}
+                                        <span className="text-xs bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400 px-1.5 py-0.5 rounded-md">{groupedCapsules.groups[category].length}</span>
+                                    </span>
                                     <ChevronRightIcon className="w-5 h-5 text-zinc-500 transform group-open:rotate-90 transition-transform"/>
                                 </summary>
                                 <div className="space-y-3 mt-2 pl-1">
@@ -290,7 +299,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                             isDue={false} 
                                             onToggleExpand={() => handleToggleExpand(capsule)}
                                             onToggleSelection={() => handleToggleSelection(capsule.id)}
-                                            onRequestDelete={onDeleteCapsule} // Pass function directly
+                                            onRequestDelete={onDeleteCapsule} 
                                             newlyAddedCapsuleId={newlyAddedCapsuleId}
                                             onClearNewCapsule={onClearNewCapsule}
                                         />
@@ -316,7 +325,7 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ capsules, activeCapsuleId
                                             isDue={false} 
                                             onToggleExpand={() => handleToggleExpand(capsule)}
                                             onToggleSelection={() => handleToggleSelection(capsule.id)}
-                                            onRequestDelete={onDeleteCapsule} // Pass function directly
+                                            onRequestDelete={onDeleteCapsule} 
                                             newlyAddedCapsuleId={newlyAddedCapsuleId}
                                             onClearNewCapsule={onClearNewCapsule}
                                         />

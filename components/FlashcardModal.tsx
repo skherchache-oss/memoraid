@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import type { CognitiveCapsule } from '../types';
 import { XIcon, LayersIcon, ChevronLeftIcon, ChevronRightIcon } from '../constants';
 import { ToastType } from '../hooks/useToast';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface FlashcardModalProps {
     capsule: CognitiveCapsule;
@@ -11,6 +12,7 @@ interface FlashcardModalProps {
 }
 
 const FlashcardModal: React.FC<FlashcardModalProps> = ({ capsule, onClose }) => {
+    const { t } = useLanguage();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     
@@ -55,18 +57,18 @@ const FlashcardModal: React.FC<FlashcardModalProps> = ({ capsule, onClose }) => 
                     className="absolute w-full h-full p-6 md:p-8 rounded-3xl bg-white dark:bg-zinc-800 flex flex-col justify-center items-center text-center shadow-2xl border border-slate-100 dark:border-zinc-700"
                     style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                 >
-                    <span className="absolute top-6 left-6 text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">Recto</span>
+                    <span className="absolute top-6 left-6 text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">{t('front')}</span>
                     <p className="text-xl md:text-3xl font-bold text-slate-800 dark:text-zinc-100 leading-snug">{currentCard.front}</p>
                     <div className="absolute bottom-8 text-xs text-slate-400 dark:text-zinc-500 font-medium uppercase tracking-wide animate-pulse">
-                       Cliquer pour retourner
+                       {t('click_to_flip')}
                     </div>
                 </div>
                 {/* Verso */}
                 <div className="absolute w-full h-full p-6 md:p-8 rounded-3xl bg-emerald-50 dark:bg-zinc-800 shadow-2xl border border-emerald-100 dark:border-zinc-700 flex flex-col justify-center items-center text-center" style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                    <span className="absolute top-6 left-6 text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">Verso</span>
+                    <span className="absolute top-6 left-6 text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300">{t('back_card')}</span>
                     <p className="text-lg md:text-2xl font-medium text-emerald-900 dark:text-emerald-100 whitespace-pre-wrap leading-relaxed">{currentCard.back}</p>
                     <div className="absolute bottom-8 text-xs text-emerald-600/50 dark:text-emerald-400/50 font-medium uppercase tracking-wide">
-                       Cliquer pour revenir
+                       {t('click_to_return')}
                     </div>
                 </div>
             </div>
@@ -82,7 +84,7 @@ const FlashcardModal: React.FC<FlashcardModalProps> = ({ capsule, onClose }) => 
                             <LayersIcon className="w-6 h-6 text-emerald-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold">Flashcards</h2>
+                            <h2 className="text-xl font-bold">{t('mode_flashcards')}</h2>
                             <p className="text-sm text-zinc-400">{capsule.title}</p>
                         </div>
                     </div>

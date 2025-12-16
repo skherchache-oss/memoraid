@@ -21,7 +21,7 @@ const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChange, has
         { id: 'library', label: t('nav_library'), icon: LayoutGridIcon },
         // Conditionnel : Agenda (Élève) vs Classes (Prof)
         userRole === 'teacher' 
-            ? { id: 'classes', label: t('manage_class'), icon: SchoolIcon }
+            ? { id: 'classes', label: t('my_classes'), icon: SchoolIcon }
             : { id: 'agenda', label: t('nav_agenda'), icon: CalendarIcon },
         { id: 'store', label: t('nav_store'), icon: ShoppingBagIcon },
         { id: 'profile', label: t('nav_profile'), icon: UserIcon },

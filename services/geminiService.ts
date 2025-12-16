@@ -14,8 +14,21 @@ export class GeminiError extends Error {
     }
 }
 
+// Helper pour nettoyer le Markdown (Gras, Italique, Titres)
+export const cleanMarkdown = (text: string): string => {
+    if (!text) return "";
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '$1') // Gras **texte** -> texte
+        .replace(/\*(.*?)\*/g, '$1')     // Italique *texte* -> texte
+        .replace(/__(.*?)__/g, '$1')     // Gras __texte__ -> texte
+        .replace(/_(.*?)_/g, '$1')       // Italique _texte_ -> texte
+        .replace(/^#+\s/gm, '')          // Titres # Titre -> Titre
+        .replace(/`/g, '')               // Code `code` -> code
+        .trim();
+};
+
 // Helper pour obtenir le client IA de manière sécurisée et Lazy
-const getAiClient = () => {
+export const getAiClient = () => {
     let apiKey = '';
 
     // 1. Méthode Vite (Local / Vercel Client-Side)
@@ -81,12 +94,12 @@ const capsuleSchema = (lang: Language) => ({
     summary: { type: Type.STRING, description: `Summary of 2-3 sentences in ${getLangName(lang)}.` },
     keyConcepts: {
       type: Type.ARRAY,
-      description: `List of at least 3 key concepts in ${getLangName(lang)}.`,
+      description: `List of at least 4 detailed key concepts in ${getLangName(lang)}. MUST BE COMPREHENSIVE.`,
       items: {
         type: Type.OBJECT,
         properties: {
             concept: { type: Type.STRING, description: `Name of the concept in ${getLangName(lang)}.` },
-            explanation: { type: Type.STRING, description: `Simple explanation in ${getLangName(lang)}.` },
+            explanation: { type: Type.STRING, description: `Detailed explanation in ${getLangName(lang)} (approx 2 sentences).` },
         },
         required: ['concept', 'explanation']
     }
@@ -94,7 +107,7 @@ const capsuleSchema = (lang: Language) => ({
     examples: { type: Type.ARRAY, items: { type: Type.STRING } },
     quiz: {
       type: Type.ARRAY,
-      description: `Mini-quiz of 3 questions in ${getLangName(lang)}.`,
+      description: `Mini-quiz of at least 4 questions in ${getLangName(lang)}.`,
       items: {
         type: Type.OBJECT,
         properties: {
@@ -139,11 +152,11 @@ const repairCapsuleData = (data: any, sourceType: SourceType): any => {
     const rawConcepts = data.keyConcepts || data.key_concepts || [];
     if (Array.isArray(rawConcepts)) {
         fixedConcepts = rawConcepts.map((item: any) => {
-            if (typeof item === 'string') return { concept: item, explanation: "" };
+            if (typeof item === 'string') return { concept: cleanMarkdown(item), explanation: "" };
             if (typeof item === 'object' && item !== null) {
                 return {
-                    concept: item.concept || item.title || item.name || "Concept",
-                    explanation: item.explanation || item.description || item.content || "..."
+                    concept: cleanMarkdown(item.concept || item.title || item.name || "Concept"),
+                    explanation: cleanMarkdown(item.explanation || item.description || item.content || "...")
                 };
             }
             return null;
@@ -151,10 +164,10 @@ const repairCapsuleData = (data: any, sourceType: SourceType): any => {
     }
 
     return {
-        title: data.title || "Sans Titre",
-        summary: data.summary || "Résumé non disponible.",
+        title: cleanMarkdown(data.title || "Sans Titre"),
+        summary: cleanMarkdown(data.summary || "Résumé non disponible."),
         keyConcepts: fixedConcepts,
-        examples: Array.isArray(data.examples) ? data.examples.filter((e: any) => typeof e === 'string') : [],
+        examples: Array.isArray(data.examples) ? data.examples.filter((e: any) => typeof e === 'string').map(cleanMarkdown) : [],
         quiz: Array.isArray(data.quiz) ? data.quiz : [],
         flashcards: Array.isArray(data.flashcards) ? data.flashcards : [],
         sourceType: sourceType
@@ -271,7 +284,7 @@ export const generateCognitiveCapsule = async (inputText: string, explicitSource
     ${strategy} ${pedagogy}
     USER INPUT: "${inputText}"
     STRICT OUTPUT FORMAT: RAW JSON.
-    Required: title, summary, keyConcepts, examples, quiz, flashcards.
+    Required: title, summary, at least 4 detailed keyConcepts, examples, at least 4 quiz questions, flashcards.
     Output in ${targetLang}.
   `;
 
@@ -293,7 +306,7 @@ export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: str
   const pedagogy = getPedagogyInstruction(learningStyle);
   const targetLang = getLangName(language);
 
-  const prompt = `Analyze document/image. Generate "Cognitive Capsule" JSON. ${strategy} ${pedagogy} OUTPUT: **${targetLang}**.`;
+  const prompt = `Analyze document/image. Generate "Cognitive Capsule" JSON with at least 4 detailed key concepts and 4 quiz questions. ${strategy} ${pedagogy} OUTPUT: **${targetLang}**.`;
 
   try {
       return await generateContentWithFallback(
@@ -311,16 +324,16 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     const ai = getAiClient();
     const targetLang = getLangName(language);
     const learningStyle = userProfile?.learningStyle || 'textual';
-    let systemInstruction = `You are Memoraid Coach. Topic: "${capsule.title}". Mode: ${mode}. Style: ${learningStyle}. Language: ${targetLang}.`;
+    let systemInstruction = `You are Memoraid Coach. Topic: "${capsule.title}". Mode: ${mode}. Style: ${learningStyle}. Language: ${targetLang}. Keep responses short and concise. Do NOT use markdown bolding (asterisks).`;
     return ai.chats.create({ model: 'gemini-2.5-flash', config: { systemInstruction } });
 };
 
 export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' | 'keyConcepts'>, language: Language = 'fr'): Promise<string> => {
     const ai = getAiClient();
-    const prompt = `Topic: "${capsule.title}". Create a mnemonic in ${getLangName(language)}. Plain text only.`;
+    const prompt = `Topic: "${capsule.title}". Create a short, catchy mnemonic in ${getLangName(language)}. Plain text only, no asterisks, no formatting.`;
     try {
         const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-        return (response.text || "").replace(/[\*#`]/g, '').trim();
+        return cleanMarkdown((response.text || "").trim());
     } catch (e) {
         return "Indisponible.";
     }
@@ -328,25 +341,44 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
 
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr') => {
     const ai = getAiClient();
-    const prompt = `Sketchnote style illustration for "${capsule.title}". White background.`;
+    const langName = getLangName(language);
+    const prompt = `Create a simple, educational sketchnote illustration about "${capsule.title}". Style: clean black ink on white background, diagram-like, clear visual metaphor. Target Language for any text: ${langName}. Ensure text is minimal, legible, and correctly spelled in ${langName}. Use the appropriate script (alphabet) for ${langName}.`;
+    
     try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-3.0-generate-001',
-            prompt: prompt,
-            config: { numberOfImages: 1, outputMimeType: 'image/jpeg' }
+        // Utilisation du modèle Flash Image qui est plus stable et rapide
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts: [{ text: prompt }] },
         });
-        if(response.generatedImages?.[0]) return { imageData: response.generatedImages[0].image.imageBytes, description: "Illustration générée" };
-        throw new Error("No image");
+
+        // Extraction de l'image de la réponse
+        if (response.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return { 
+                        imageData: part.inlineData.data, 
+                        description: "Illustration générée par IA" 
+                    };
+                }
+            }
+        }
+        
+        throw new Error("Aucune image générée dans la réponse.");
+
     } catch (e: any) {
-        throw handleGeminiError(e, "Erreur image.");
+        console.error("Erreur image generation:", e);
+        throw handleGeminiError(e, "Le service de dessin est momentanément indisponible.");
     }
 };
 
 export const expandKeyConcept = async (title: string, concept: string, context: string, language: Language = 'fr') => {
     const ai = getAiClient();
     try {
-        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: `Explain "${concept}" in context of "${title}". Lang: ${getLangName(language)}.` });
-        return response.text || "";
+        const response = await ai.models.generateContent({ 
+            model: "gemini-2.5-flash", 
+            contents: `Explain "${concept}" in context of "${title}". Lang: ${getLangName(language)}. Concise. No markdown formatting (no bold/italics).` 
+        });
+        return cleanMarkdown(response.text || "");
     } catch (e) { throw handleGeminiError(e); }
 };
 
@@ -355,7 +387,7 @@ export const regenerateQuiz = async (capsule: CognitiveCapsule, language: Langua
     try {
         const response = await ai.models.generateContent({ 
             model: "gemini-2.5-flash", 
-            contents: `Generate quiz for "${capsule.title}". Lang: ${getLangName(language)}. JSON Array.`,
+            contents: `Generate quiz for "${capsule.title}". Lang: ${getLangName(language)}. Create at least 4 questions. JSON Array.`,
             config: { responseMimeType: "application/json" }
         });
         return JSON.parse(cleanJsonResponse(response.text || ''));

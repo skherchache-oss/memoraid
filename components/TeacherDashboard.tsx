@@ -5,6 +5,7 @@ import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, Download
 import { downloadBlob, generateFilename } from '../services/pdfService';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { createGroup } from '../services/cloudService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface TeacherDashboardProps {
     onClose: () => void;
@@ -16,6 +17,7 @@ interface TeacherDashboardProps {
 }
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGroups, allGroupCapsules, onAssignTask, userId, userName }) => {
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(teacherGroups[0]?.id || null);
     const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -167,8 +169,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                             <SchoolIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-800 dark:text-white">Espace Enseignant</h2>
-                            <p className="text-sm text-slate-500 dark:text-zinc-400">Gestion de classe & Suivi</p>
+                            <h2 className="text-xl font-bold text-slate-800 dark:text-white">{t('teacher_space')}</h2>
+                            <p className="text-sm text-slate-500 dark:text-zinc-400">{t('class_management')}</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
@@ -181,7 +183,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                     {/* Sidebar */}
                     <aside className="w-64 bg-emerald-50/30 dark:bg-zinc-950 border-r border-slate-100 dark:border-zinc-800 flex flex-col">
                         <div className="p-4">
-                            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-2 block">Sélectionner une classe</label>
+                            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-2 block">{t('select_class')}</label>
                             
                             {!isCreatingClass ? (
                                 <>
@@ -192,13 +194,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                     >
                                         {teacherGroups.length > 0 ? teacherGroups.map(g => (
                                             <option key={g.id} value={g.id}>{g.name}</option>
-                                        )) : <option value="">Aucune classe</option>}
+                                        )) : <option value="">{t('no_class')}</option>}
                                     </select>
                                     <button 
                                         onClick={() => setIsCreatingClass(true)}
                                         className="w-full flex items-center justify-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 bg-emerald-100/50 dark:bg-emerald-900/20 py-2 rounded-lg transition-colors"
                                     >
-                                        <PlusIcon className="w-3 h-3" /> Nouvelle Classe
+                                        <PlusIcon className="w-3 h-3" /> {t('new_class')}
                                     </button>
                                 </>
                             ) : (
@@ -206,7 +208,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                     <input 
                                         type="text" 
                                         autoFocus
-                                        placeholder="Nom de la classe"
+                                        placeholder={t('class_name')}
                                         value={newClassName}
                                         onChange={(e) => setNewClassName(e.target.value)}
                                         className="w-full p-2 text-sm border border-emerald-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white dark:bg-zinc-800 dark:border-zinc-600 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500"
@@ -217,14 +219,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                             disabled={!newClassName.trim() || createLoading}
                                             className="flex-1 bg-emerald-600 text-white text-xs py-1.5 rounded font-bold hover:bg-emerald-700 disabled:opacity-50"
                                         >
-                                            {createLoading ? '...' : 'Créer'}
+                                            {createLoading ? '...' : t('create')}
                                         </button>
                                         <button 
                                             type="button" 
                                             onClick={() => setIsCreatingClass(false)}
                                             className="flex-1 bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-300 text-xs py-1.5 rounded font-bold hover:bg-slate-300"
                                         >
-                                            Annuler
+                                            {t('cancel')}
                                         </button>
                                     </div>
                                 </form>
@@ -235,19 +237,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                 onClick={() => setActiveTab('overview')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors ${activeTab === 'overview' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm hover:shadow'}`}
                             >
-                                <SchoolIcon className="w-5 h-5" /> Vue d'ensemble
+                                <SchoolIcon className="w-5 h-5" /> {t('overview')}
                             </button>
                             <button 
                                 onClick={() => setActiveTab('classes')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors ${activeTab === 'classes' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm hover:shadow'}`}
                             >
-                                <UsersIcon className="w-5 h-5" /> Étudiants
+                                <UsersIcon className="w-5 h-5" /> {t('students')}
                             </button>
                             <button 
                                 onClick={() => setActiveTab('assignments')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-colors ${activeTab === 'assignments' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 shadow-sm hover:shadow'}`}
                             >
-                                <ClipboardListIcon className="w-5 h-5" /> Devoirs & Capsules
+                                <ClipboardListIcon className="w-5 h-5" /> {t('assignments')}
                             </button>
                         </nav>
                     </aside>
@@ -263,7 +265,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                         onClick={() => setIsCreatingClass(true)}
                                         className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors"
                                     >
-                                        Créer ma première classe
+                                        {t('create_first_class')}
                                     </button>
                                 )}
                             </div>
@@ -272,28 +274,28 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                 {activeTab === 'overview' && (
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center mb-6">
-                                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Tableau de bord : {selectedGroup.name}</h3>
+                                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{t('dashboard')} : {selectedGroup.name}</h3>
                                             <div className="bg-slate-100 dark:bg-zinc-800 px-3 py-1 rounded text-sm text-slate-500 font-mono">
                                                 Code: <span className="font-bold text-slate-800 dark:text-white select-all">{selectedGroup.inviteCode}</span>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                             <div className="p-6 bg-white dark:bg-zinc-800 rounded-2xl border border-slate-100 dark:border-zinc-700 shadow-sm">
-                                                <p className="text-sm text-slate-500 dark:text-zinc-400 font-semibold uppercase">Étudiants</p>
+                                                <p className="text-sm text-slate-500 dark:text-zinc-400 font-semibold uppercase">{t('students')}</p>
                                                 <div className="flex items-end justify-between mt-2">
                                                     <p className="text-4xl font-bold text-slate-800 dark:text-white">{stats?.totalStudents}</p>
                                                     <UsersIcon className="w-8 h-8 text-blue-200 dark:text-blue-900" />
                                                 </div>
                                             </div>
                                             <div className="p-6 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl border border-emerald-100 dark:border-emerald-800 shadow-sm">
-                                                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold uppercase">Moyenne Classe</p>
+                                                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold uppercase">{t('class_average')}</p>
                                                 <div className="flex items-end justify-between mt-2">
                                                     <p className="text-4xl font-bold text-emerald-700 dark:text-emerald-400">{stats?.averageMastery}%</p>
                                                     <SchoolIcon className="w-8 h-8 text-emerald-200 dark:text-emerald-900" />
                                                 </div>
                                             </div>
                                             <div className="p-6 bg-white dark:bg-zinc-800 rounded-2xl border border-slate-100 dark:border-zinc-700 shadow-sm">
-                                                <p className="text-sm text-slate-500 dark:text-zinc-400 font-semibold uppercase">Capsules Partagées</p>
+                                                <p className="text-sm text-slate-500 dark:text-zinc-400 font-semibold uppercase">{t('shared_capsules')}</p>
                                                 <div className="flex items-end justify-between mt-2">
                                                     <p className="text-4xl font-bold text-slate-800 dark:text-white">{stats?.totalCapsules}</p>
                                                     <BookOpenIcon className="w-8 h-8 text-purple-200 dark:text-purple-900" />
@@ -320,10 +322,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                 ) : (
                                                     <DownloadIcon className="w-5 h-5" />
                                                 )}
-                                                {exportStatus === 'loading' ? 'Génération...' :
-                                                 exportStatus === 'success' ? 'Rapport Téléchargé' :
-                                                 exportStatus === 'error' ? 'Erreur Export' :
-                                                 'Exporter le rapport PDF'}
+                                                {exportStatus === 'loading' ? '...' :
+                                                 exportStatus === 'success' ? t('report_downloaded') :
+                                                 exportStatus === 'error' ? 'Erreur' :
+                                                 t('export_report')}
                                             </button>
                                         </div>
                                     </div>
@@ -331,14 +333,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
 
                                 {activeTab === 'classes' && (
                                     <div>
-                                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Liste des étudiants</h3>
+                                        <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">{t('student_list')}</h3>
                                         <div className="bg-white dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 rounded-2xl overflow-hidden shadow-sm">
                                             <table className="w-full text-left">
                                                 <thead className="bg-slate-50 dark:bg-zinc-900/50 text-slate-500 dark:text-zinc-400 text-xs uppercase font-bold tracking-wider">
                                                     <tr>
-                                                        <th className="p-5">Nom</th>
-                                                        <th className="p-5">Rôle</th>
-                                                        <th className="p-5 text-right">Progression</th>
+                                                        <th className="p-5">{t('username')}</th>
+                                                        <th className="p-5">{t('role')}</th>
+                                                        <th className="p-5 text-right">{t('progression')}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50 dark:divide-zinc-700">
@@ -352,7 +354,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                             </td>
                                                             <td className="p-5 text-sm text-slate-500">
                                                                 <span className={`px-3 py-1 rounded-full text-xs font-bold ${member.role === 'owner' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-slate-100 text-slate-600 dark:bg-zinc-700 dark:text-zinc-300'}`}>
-                                                                    {member.role === 'owner' ? 'Enseignant' : 'Étudiant'}
+                                                                    {member.role === 'owner' ? t('role_teacher') : t('role_student')}
                                                                 </span>
                                                             </td>
                                                             <td className="p-5 text-right text-sm text-slate-600 dark:text-zinc-300">
@@ -361,7 +363,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                         </tr>
                                                     )) : (
                                                         <tr>
-                                                            <td colSpan={3} className="p-8 text-center text-slate-400 italic">Aucun étudiant dans cette classe.</td>
+                                                            <td colSpan={3} className="p-8 text-center text-slate-400 italic">{t('no_students')}</td>
                                                         </tr>
                                                     )}
                                                 </tbody>
@@ -373,7 +375,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                 {activeTab === 'assignments' && (
                                     <div>
                                         <div className="flex justify-between items-center mb-6">
-                                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Capsules de cours</h3>
+                                            <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Capsules</h3>
                                         </div>
                                         <div className="space-y-4">
                                             {classCapsules.length > 0 ? (
@@ -390,7 +392,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                         </div>
                                                         <div className="flex items-center gap-6">
                                                             <div className="text-right">
-                                                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">Taux de complétion</p>
+                                                                <p className="text-xs text-slate-400 uppercase font-bold mb-1">{t('completion_rate')}</p>
                                                                 <div className="flex items-center justify-end gap-2">
                                                                     <div className="w-24 h-2 bg-slate-100 dark:bg-zinc-700 rounded-full overflow-hidden">
                                                                         <div 

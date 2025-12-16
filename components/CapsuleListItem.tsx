@@ -85,7 +85,14 @@ const CapsuleListItem: React.FC<CapsuleListItemProps> = ({ capsule, isActive, is
                     </div>
                     <div className="flex-grow min-w-0">
                          <div className="flex justify-between items-start">
-                             <p className={titleClassName}>{capsule.title}</p>
+                             <div className="flex flex-col">
+                                {capsule.category && (
+                                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 dark:text-zinc-500 mb-0.5">
+                                        {capsule.category}
+                                    </span>
+                                )}
+                                <p className={titleClassName}>{capsule.title}</p>
+                             </div>
                              {/* Badge Prochaine Révision */}
                              <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 ${
                                  isDue 
