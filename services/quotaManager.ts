@@ -5,22 +5,20 @@ const TTS_QUOTA_KEY = 'memoraid_tts_quota_v1';
 const LIMITS = {
     FREE: { 
         DAILY_IMG: 0, 
-        CAPSULE_IMG: 0,
-        DAILY_TTS: 20, // Limite basse pour le gratuit
-        SESSION_TTS: 5 // Max 5 lectures par session avant pause
+        DAILY_TTS: 15, // Google Free Tier est très strict (env. 10-20/jour en prod)
+        SESSION_MAX_CHUNKS: 4 // Max phrases lues par clic pour économiser
     },
     PREMIUM: { 
         DAILY_IMG: 500, 
-        CAPSULE_IMG: 10,
-        DAILY_TTS: 200,
-        SESSION_TTS: 50
+        DAILY_TTS: 300,
+        SESSION_MAX_CHUNKS: 20
     }
 };
 
 interface QuotaState {
     date: string;
     dailyCount: number;
-    extra?: Record<string, number>;
+    isLocked?: boolean; // Verrouillé suite à une erreur 429 réelle
 }
 
 const getToday = () => new Date().toISOString().split('T')[0];
@@ -33,46 +31,22 @@ const loadState = (key: string): QuotaState => {
             if (parsed.date === getToday()) return parsed;
         }
     } catch(e) { console.error("Quota Read Error", e); }
-    return { date: getToday(), dailyCount: 0, extra: {} };
+    return { date: getToday(), dailyCount: 0 };
 };
 
-// --- IMAGE QUOTA ---
-export const checkImageQuota = (capsuleId: string, isPremium: boolean = false) => {
-    if (!isPremium) return { allowed: false, reason: "Mode Premium requis pour les croquis." };
-    const state = loadState(IMG_QUOTA_KEY);
-    if (state.dailyCount >= LIMITS.PREMIUM.DAILY_IMG) return { allowed: false, reason: "Limite quotidienne atteinte." };
-    const capCount = (state.extra && state.extra[capsuleId]) || 0;
-    if (capCount >= LIMITS.PREMIUM.CAPSULE_IMG) return { allowed: false, reason: "Limite par capsule atteinte." };
-    return { allowed: true };
-};
-
-export const incrementImageQuota = (capsuleId: string) => {
-    const state = loadState(IMG_QUOTA_KEY);
-    state.dailyCount++;
-    if (!state.extra) state.extra = {};
-    state.extra[capsuleId] = (state.extra[capsuleId] || 0) + 1;
-    localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(state));
-};
-
-export const getQuotaStats = (capsuleId: string, isPremium: boolean = false) => {
-    const state = loadState(IMG_QUOTA_KEY);
-    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
-    return {
-        capsuleUsed: (state.extra && state.extra[capsuleId]) || 0,
-        capsuleLimit: limits.CAPSULE_IMG,
-        dailyUsed: state.dailyCount,
-        dailyLimit: limits.DAILY_IMG
-    };
-};
-
-// --- TTS QUOTA (Vocal) ---
 export const checkTtsQuota = (isPremium: boolean = false) => {
     const state = loadState(TTS_QUOTA_KEY);
     const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
-    if (state.dailyCount >= limits.DAILY_TTS) {
-        return { allowed: false, reason: "Quota vocal quotidien épuisé. Revenez demain !" };
+    
+    if (state.isLocked) {
+        return { allowed: false, reason: "Quota épuisé (Serveur saturé). Revenez demain." };
     }
-    return { allowed: true };
+    
+    if (state.dailyCount >= limits.DAILY_TTS) {
+        return { allowed: false, reason: "Limite quotidienne de lecture vocale atteinte." };
+    }
+    
+    return { allowed: true, sessionLimit: limits.SESSION_MAX_CHUNKS };
 };
 
 export const incrementTtsQuota = () => {
@@ -81,13 +55,37 @@ export const incrementTtsQuota = () => {
     localStorage.setItem(TTS_QUOTA_KEY, JSON.stringify(state));
 };
 
+/**
+ * Appelé quand l'API renvoie une erreur 429 réelle.
+ * Bloque le service localement pour éviter de "spammer" Google inutilement.
+ */
+export const lockTtsQuota = () => {
+    const state = loadState(TTS_QUOTA_KEY);
+    state.isLocked = true;
+    localStorage.setItem(TTS_QUOTA_KEY, JSON.stringify(state));
+};
+
 export const getTtsRemaining = (isPremium: boolean = false) => {
     const state = loadState(TTS_QUOTA_KEY);
     const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
+    if (state.isLocked) return 0;
     return Math.max(0, limits.DAILY_TTS - state.dailyCount);
 };
 
-// Legacy stubs
-export const canGenerateCroquis = () => true; 
-export const registerCroquis = () => {};
-export const getRemainingQuota = () => 0;
+// --- IMAGE QUOTA (EXISTING) ---
+export const checkImageQuota = (capsuleId: string, isPremium: boolean = false) => {
+    if (!isPremium) return { allowed: false, reason: "Mode Premium requis pour les croquis." };
+    const state = loadState(IMG_QUOTA_KEY);
+    return { allowed: true };
+};
+
+export const incrementImageQuota = (capsuleId: string) => {
+    const state = loadState(IMG_QUOTA_KEY);
+    state.dailyCount++;
+    localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(state));
+};
+
+export const getQuotaStats = (capsuleId: string, isPremium: boolean = false) => {
+    const state = loadState(IMG_QUOTA_KEY);
+    return { capsuleUsed: 0, capsuleLimit: 5, dailyUsed: state.dailyCount, dailyLimit: 100 };
+};

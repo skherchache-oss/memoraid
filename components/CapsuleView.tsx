@@ -12,7 +12,7 @@ import { ToastType } from '../hooks/useToast';
 import { addCommentToCapsule, saveCapsuleToCloud, assignTaskToMember, updateTaskStatus } from '../services/cloudService';
 import FocusMode from './FocusMode';
 import { useLanguage } from '../contexts/LanguageContext';
-import { checkImageQuota, incrementImageQuota, getQuotaStats, checkTtsQuota, incrementTtsQuota } from '../services/quotaManager';
+import { checkImageQuota, incrementImageQuota, getQuotaStats, checkTtsQuota, incrementTtsQuota, lockTtsQuota } from '../services/quotaManager';
 
 
 // Helper functions for audio decoding
@@ -104,7 +104,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [selectedAssignee, setSelectedAssignee] = useState('');
     const [isFocusMode, setIsFocusMode] = useState(false);
 
-    // État local pour le quota vocal
     const [isTtsLimitReached, setIsTtsLimitReached] = useState(!checkTtsQuota(!!isPremium).allowed);
 
     useEffect(() => {
@@ -289,7 +288,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         document.body.removeChild(link);
     };
 
-    // --- OPTIMISATION : LECTURE VOCALE AVEC GESTION DE QUOTA ROBUSTE ---
     const handleToggleSpeech = async (id: string, text: string) => {
         if (speakingId === id || isBuffering === id) {
             stopAudio();
@@ -301,7 +299,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         
         if (!audioContextRef.current) return;
 
-        // 1. Check local quota first
+        // 1. VÉRIFICATION DU QUOTA LOCAL
         const quotaCheck = checkTtsQuota(!!isPremium);
         if (!quotaCheck.allowed) {
             addToast(quotaCheck.reason!, 'info');
@@ -309,18 +307,13 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             return;
         }
 
-        // 2. Reactivate AudioContext
         if (audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
         }
 
         const apiKey = process.env.API_KEY;
-        if (!apiKey) {
-            addToast("Service indisponible.", 'error');
-            return;
-        }
+        if (!apiKey) return;
 
-        // 3. Metadata
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: capsule.title,
@@ -332,8 +325,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
-        // 4. Split by sentences to avoid 413 (Too large) but watch for 429
-        const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
+        // 2. DÉCOUPAGE ET LIMITE DE SESSION (Burst Control)
+        const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
+        const sessionLimit = quotaCheck.sessionLimit || 5;
+        const chunks = allChunks.slice(0, sessionLimit); // Limiter la lecture pour économiser le quota
+
         if (chunks.length === 0) return;
 
         setSpeakingId(null);
@@ -385,7 +381,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                 setIsBuffering(null);
                 setSpeakingId(id);
-                incrementTtsQuota(); // Track success
+                incrementTtsQuota(); // Marquer le succès localement
                 
                 source.start();
                 audioSourceRef.current = source;
@@ -395,9 +391,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 const isRateLimit = error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED');
                 
                 if (isRateLimit) {
-                    addToast("Serveur vocal saturé. Réessayez dans une minute.", 'info');
+                    lockTtsQuota(); // APPRENTISSAGE : Verrouiller localement
+                    setIsTtsLimitReached(true);
+                    addToast("Serveur vocal saturé. Lecture désactivée pour aujourd'hui.", 'error');
                 } else if (index === 0) {
-                    addToast("La lecture vocale a échoué.", 'error');
+                    addToast("Erreur lecture vocale.", 'error');
                 }
                 stopAudio();
             }

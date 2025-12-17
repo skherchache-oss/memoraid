@@ -7,7 +7,7 @@ import type { Chat, GenerateContentResponse } from '@google/genai';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
-import { checkTtsQuota, incrementTtsQuota } from '../services/quotaManager';
+import { checkTtsQuota, incrementTtsQuota, lockTtsQuota } from '../services/quotaManager';
 
 // Interfaces for Web Speech API
 interface SpeechRecognitionAlternative {
@@ -140,7 +140,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
-            if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended') {
+            // On ne lit l'intro que si le quota permet au moins un fragment
+            const quota = checkTtsQuota(!!userProfile.isPremium);
+            if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended' && quota.allowed) {
                 playTTS(text);
             }
         } catch (error) {
@@ -175,10 +177,10 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
-        // Local Quota Check
-        const quotaCheck = checkTtsQuota(!!userProfile.isPremium);
-        if (!quotaCheck.allowed) {
-            addToast("Quota vocal atteint.", "info");
+        // 1. VÉRIFICATION QUOTA
+        const quota = checkTtsQuota(!!userProfile.isPremium);
+        if (!quota.allowed) {
+            addToast(quota.reason!, "info");
             return;
         }
 
@@ -200,7 +202,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
         }
 
-        const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
+        // 2. BURST CONTROL
+        const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
+        const limit = quota.sessionLimit || 4;
+        const chunks = allChunks.slice(0, limit);
+
         if (chunks.length === 0) return;
 
         const apiKey = process.env.API_KEY;
@@ -253,7 +259,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             } catch (e: any) {
                 console.error("TTS Error", e);
                 if (e?.message?.includes('429')) {
-                    addToast("Vocal saturé. Pause d'une minute.", "info");
+                    lockTtsQuota(); // APPRENTISSAGE : Verrouillage réel
+                    addToast("Vocal saturé (Quota atteint). Désactivé jusqu'à demain.", "error");
                 }
                 stopAudio();
             }
@@ -350,7 +357,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             } as any);
             const responseText = response.text;
             setMessages(prev => [...prev, { role: 'model', content: responseText }]);
-            if (selectedMode === 'oral') playTTS(responseText);
+            
+            // Check quota before auto-playing
+            if (selectedMode === 'oral' && checkTtsQuota(!!userProfile.isPremium).allowed) {
+                playTTS(responseText);
+            }
         } catch (error) {
             setMessages(prev => [...prev, { role: 'model', content: "Erreur de traitement." }]);
         } finally {
@@ -407,7 +418,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                                 {msg.role === 'model' && (
                                     <button 
                                         onClick={() => playTTS(msg.content)} 
-                                        className="mt-2 text-blue-500 hover:text-blue-600 flex items-center gap-1 text-xs font-bold"
+                                        className={`mt-2 flex items-center gap-1 text-xs font-bold transition-opacity ${!checkTtsQuota(!!userProfile.isPremium).allowed ? 'text-slate-400 cursor-not-allowed' : 'text-blue-500 hover:text-blue-600'}`}
+                                        disabled={!checkTtsQuota(!!userProfile.isPremium).allowed}
                                     >
                                         <Volume2Icon className="w-3 h-3" /> Réécouter
                                     </button>
