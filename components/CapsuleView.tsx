@@ -26,13 +26,26 @@ function decode(base64: string) {
   return bytes;
 }
 
+/**
+ * Décode les données PCM brutes renvoyées par Gemini TTS.
+ * Correction : Utilisation d'un DataView ou d'un décalage explicite pour éviter les erreurs d'alignement Int16.
+ */
 async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
+  // S'assurer que la longueur est paire pour le Int16
+  const length = Math.floor(data.byteLength / 2);
+  const dataInt16 = new Int16Array(length);
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  
+  for (let i = 0; i < length; i++) {
+    // Gemini renvoie du Little Endian
+    dataInt16[i] = view.getInt16(i * 2, true);
+  }
+
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
 
@@ -281,14 +294,13 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         document.body.removeChild(link);
     };
 
-    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS AVEC AUDIO FOCUS ---
+    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS AVEC AUDIO FOCUS ET DÉCODAGE FIABILISÉ ---
     const handleToggleSpeech = async (id: string, text: string) => {
         if (speakingId === id || isBuffering === id) {
             stopAudio();
             return;
         }
 
-        // 1. ARRÊT TOTAL de toute lecture précédente (évite les doublons)
         stopAudio(); 
         stopRequestRef.current = false;
         
@@ -298,8 +310,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             return;
         }
 
-        // 2. ACTIVATION AUDIO FOCUS (MEDIA SESSION API)
-        // Indique au système que Memoraid prend le contrôle de l'audio
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: capsule.title,
@@ -307,21 +317,21 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 album: t('create_capsule'),
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
-            // Définit les actions pour les boutons du téléphone (écran verrouillé)
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
-        const chunks = text.split(/(?<=[.!?])\s+/).filter(c => c.trim().length > 0);
+        // Découpage sécurisé par phrases (regex universelle sans lookbehind complexe)
+        const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
         setSpeakingId(null);
         setIsBuffering(id);
 
-        const ai = new GoogleGenAI({ apiKey: apiKey });
+        // Instance unique par session
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const playChunk = async (index: number) => {
-            // Sécurité : arrêt si demandé ou si fin de texte
             if (index >= chunks.length || stopRequestRef.current) {
                 setSpeakingId(null);
                 setIsBuffering(null);
@@ -330,12 +340,10 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             }
 
             try {
-                // Mobile : l'AudioContext peut être suspendu par défaut
                 if (audioContextRef.current?.state === 'suspended') {
                     await audioContextRef.current.resume();
                 }
 
-                // Génération asynchrone du chunk
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],
@@ -347,12 +355,21 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     },
                 });
 
-                const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-                if (!base64Audio) throw new Error("Audio vide");
+                // Recherche robuste de la partie audio dans les candidats
+                let base64Audio = '';
+                if (response.candidates?.[0]?.content?.parts) {
+                    for (const part of response.candidates[0].content.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            base64Audio = part.inlineData.data;
+                            break;
+                        }
+                    }
+                }
+
+                if (!base64Audio) throw new Error("Aucune donnée audio reçue.");
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
                 
-                // Double vérification si l'utilisateur a cliqué sur Stop entre temps
                 if (stopRequestRef.current) return;
 
                 const source = audioContextRef.current!.createBufferSource();
@@ -360,14 +377,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 source.connect(audioContextRef.current!.destination);
                 
                 source.onended = () => {
-                    // On ne passe à la suite que si on n'a pas arrêté
                     if (!stopRequestRef.current) playChunk(index + 1);
                 };
 
                 setIsBuffering(null);
                 setSpeakingId(id);
 
-                // Signaler au système que la lecture commence (Met Spotify en pause)
                 if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
                 
                 source.start();
@@ -375,7 +390,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
             } catch (error) {
                 console.error("TTS Error:", error);
-                if (index === 0) addToast("Erreur de lecture.", 'error');
+                if (index === 0) addToast("Erreur de lecture vocale.", 'error');
                 stopAudio();
             }
         };
