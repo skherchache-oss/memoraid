@@ -78,15 +78,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [isBuffering, setIsBuffering] = useState<string | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const stopRequestRef = useRef<boolean>(false);
 
     const [memoryAidImage, setMemoryAidImage] = useState<string | null>(null);
     const [memoryAidDescription, setMemoryAidDescription] = useState<string | null>(null);
     const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
     const [imageError, setImageError] = useState<string | null>(null);
     
-    // Initial Quota State
     const [quotaStats, setQuotaStats] = useState(getQuotaStats(capsule.id, !!isPremium));
-    
     const [mnemonic, setMnemonic] = useState<string | null>(capsule.mnemonic || null);
     const [isGeneratingMnemonic, setIsGeneratingMnemonic] = useState(false);
 
@@ -95,29 +94,22 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [errorConcepts, setErrorConcepts] = useState<Record<string, string | null>>({});
 
     const [isRegeneratingQuiz, setIsRegeneratingQuiz] = useState(false);
-    
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [newComment, setNewComment] = useState('');
-    
-    // Task assignment state
     const [newTaskDesc, setNewTaskDesc] = useState('');
     const [selectedAssignee, setSelectedAssignee] = useState('');
-
-    // Focus Mode State
     const [isFocusMode, setIsFocusMode] = useState(false);
 
-    // Scroll to top when opening a capsule
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [capsule.id]);
 
-    // Stop audio playback when capsule changes or component unmounts
     useEffect(() => {
         setCategoryInput(capsule.category || '');
         setIsEditingCategory(false);
         setMemoryAidImage(capsule.memoryAidImage || null);
         setMemoryAidDescription(capsule.memoryAidDescription || null);
-        setMnemonic(capsule.mnemonic || null); // Reset mnemonic state
+        setMnemonic(capsule.mnemonic || null);
         setIsGeneratingImage(false);
         setIsGeneratingMnemonic(false);
         setImageError(null);
@@ -127,7 +119,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setShowShareMenu(false);
         setIsFocusMode(false);
         setNewTaskDesc('');
-        setQuotaStats(getQuotaStats(capsule.id, !!isPremium)); // Update quota on capsule change
+        setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
         
         return () => {
             stopAudio();
@@ -135,6 +127,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     }, [capsule, isPremium]);
 
     const stopAudio = useCallback(() => {
+        stopRequestRef.current = true;
         if (audioSourceRef.current) {
             try {
                 audioSourceRef.current.stop();
@@ -149,20 +142,13 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setIsBuffering(null);
     }, []);
 
-    // Quiz regeneration for due capsules
     useEffect(() => {
         const regenerate = async () => {
             if (isDue && !isRegeneratingQuiz && !capsule.isShared) {
                 const alreadyRegeneratedKey = `quiz_regen_${capsule.id}_${capsule.lastReviewed}`;
-                
-                if (sessionStorage.getItem(alreadyRegeneratedKey)) {
-                    return;
-                }
-                
+                if (sessionStorage.getItem(alreadyRegeneratedKey)) return;
                 sessionStorage.setItem(alreadyRegeneratedKey, 'attempted');
-                
                 setIsRegeneratingQuiz(true);
-                
                 try {
                     const newQuiz = await regenerateQuiz(capsule, language);
                     if (newQuiz && newQuiz.length > 0) {
@@ -176,12 +162,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 }
             }
         };
-
         regenerate();
-        // Fix line 181: Removed undefined 'i18n' from dependency array
     }, [capsule, isDue, onUpdateQuiz, addToast, isRegeneratingQuiz, language, t]);
 
-    // Initialize AudioContext
     useEffect(() => {
         if (!audioContextRef.current) {
             try {
@@ -194,13 +177,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     }, []);
 
     const handleGenerateDrawing = async () => {
-        // 1. Vérification du Quota AVANT appel API
         const quotaCheck = checkImageQuota(capsule.id, !!isPremium);
         if (!quotaCheck.allowed) {
             setImageError(`⚠️ ${quotaCheck.reason}`);
             return;
         }
-
         setIsGeneratingImage(true);
         setImageError(null);
         setMemoryAidImage(null);
@@ -211,16 +192,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 summary: capsule.summary,
                 keyConcepts: capsule.keyConcepts,
             }, language);
-            
             const fullImageSrc = `data:image/png;base64,${result.imageData}`;
             setMemoryAidImage(fullImageSrc);
             setMemoryAidDescription(result.description);
             onSetMemoryAid(capsule.id, fullImageSrc, result.description);
-            
-            // 2. Incrémentation UNIQUEMENT si succès
             incrementImageQuota(capsule.id);
             setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
-
         } catch (err) {
             setImageError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
         } finally {
@@ -235,14 +212,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 title: capsule.title,
                 keyConcepts: capsule.keyConcepts
             }, language);
-            
             if (result.includes("Impossible") && result.length < 50) {
                  addToast("IA saturée, réessayez dans quelques secondes.", 'info');
                  return;
             }
-
             setMnemonic(result);
-            onSetMnemonic(capsule.id, result); // Sauvegarde persistante
+            onSetMnemonic(capsule.id, result);
         } catch (e) {
             addToast("Erreur génération mnémotechnique (Quota).", 'error');
         } finally {
@@ -264,18 +239,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             setExpandedConcepts(newExpanded);
             return;
         }
-    
         if (loadingConcepts[concept]) return;
-    
         setLoadingConcepts(prev => ({ ...prev, [concept]: true }));
         setErrorConcepts(prev => ({ ...prev, [concept]: null }));
-    
         try {
             const explanation = await expandKeyConcept(capsule.title, concept, originalExplanation, language);
             setExpandedConcepts(prev => ({ ...prev, [concept]: cleanMarkdown(explanation) }));
         } catch (err) {
             let errorMessage = "Une erreur est survenue.";
-            
             if (err instanceof Error) {
                 if (err.message.trim().startsWith('{')) {
                     try {
@@ -310,9 +281,19 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         document.body.removeChild(link);
     };
 
+    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS ---
     const handleToggleSpeech = async (id: string, text: string) => {
-        if (!audioContextRef.current) {
-            addToast("L'API Audio n'est pas supportée par votre navigateur.", 'error');
+        if (speakingId === id || isBuffering === id) {
+            stopAudio();
+            return;
+        }
+
+        stopAudio(); // Nettoyage de toute lecture en cours
+        stopRequestRef.current = false;
+        
+        const apiKey = process.env.API_KEY;
+        if (!apiKey || !audioContextRef.current) {
+            addToast("Service audio indisponible.", 'error');
             return;
         }
 
@@ -321,81 +302,78 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 title: capsule.title,
                 artist: "Memoraid",
                 album: t('create_capsule'),
-                artwork: [
-                    { src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }
-                ]
+                artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
-
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
-        if (speakingId === id || isBuffering === id) {
-            stopAudio();
-            return;
-        }
-        
-        if (audioSourceRef.current) {
-            try { audioSourceRef.current.stop(); } catch(e) {}
-            audioSourceRef.current.disconnect();
-            audioSourceRef.current = null;
-        }
+        // 1. Découpage en phrases (Chunks) pour réduire la latence initiale
+        // On sépare par les points, points d'interrogation et d'exclamation suivis d'un espace.
+        const chunks = text.split(/(?<=[.!?])\s+/).filter(c => c.trim().length > 0);
+        if (chunks.length === 0) return;
 
         setSpeakingId(null);
         setIsBuffering(id);
 
-        try {
-            if (audioContextRef.current.state === 'suspended') {
-                await audioContextRef.current.resume();
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+
+        const playChunk = async (index: number) => {
+            if (index >= chunks.length || stopRequestRef.current) {
+                setSpeakingId(null);
+                setIsBuffering(null);
+                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'none';
+                return;
             }
 
-            // Fix: Initialization always uses process.env.API_KEY directly as a named parameter
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-tts",
-                contents: [{ parts: [{ text: text }] }],
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-                    },
-                },
-            });
-            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-            if (!base64Audio) throw new Error("Aucune donnée audio reçue.");
-
-            const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current, 24000, 1);
-            const source = audioContextRef.current.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContextRef.current.destination);
-            
-            source.onended = () => {
-                if (audioSourceRef.current === source) {
-                    setSpeakingId(null);
-                    audioSourceRef.current = null;
-                    if ("mediaSession" in navigator) {
-                        navigator.mediaSession.playbackState = 'none';
-                    }
+            try {
+                if (audioContextRef.current?.state === 'suspended') {
+                    await audioContextRef.current.resume();
                 }
-            };
 
-            if ("mediaSession" in navigator) {
-                navigator.mediaSession.playbackState = 'playing';
-            }
+                // Génération de l'audio pour ce chunk spécifique
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash-preview-tts",
+                    contents: [{ parts: [{ text: chunks[index] }] }],
+                    config: {
+                        responseModalities: [Modality.AUDIO],
+                        speechConfig: {
+                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+                        },
+                    },
+                });
 
-            source.start();
-            audioSourceRef.current = source;
-            setSpeakingId(id);
-        } catch (error) {
-            console.error("Erreur de synthèse vocale Gemini:", error);
-            addToast("Impossible de générer l'audio. Veuillez réessayer.", 'error');
-            setSpeakingId(null);
-            if ("mediaSession" in navigator) {
-                navigator.mediaSession.playbackState = 'none';
+                const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (!base64Audio) throw new Error("Audio vide");
+
+                const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
+                
+                if (stopRequestRef.current) return;
+
+                const source = audioContextRef.current!.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContextRef.current!.destination);
+                
+                source.onended = () => {
+                    if (!stopRequestRef.current) playChunk(index + 1);
+                };
+
+                setIsBuffering(null);
+                setSpeakingId(id);
+                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
+                
+                source.start();
+                audioSourceRef.current = source;
+
+            } catch (error) {
+                console.error("TTS Error:", error);
+                if (index === 0) addToast("Erreur de lecture.", 'error');
+                stopAudio();
             }
-        } finally {
-            setIsBuffering(null);
-        }
+        };
+
+        // Lancer la lecture de la première phrase
+        playChunk(0);
     };
 
     const handleCategorySubmit = (e: React.FormEvent) => {
@@ -434,10 +412,8 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const handleAssignTask = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newTaskDesc.trim() || !selectedAssignee || !capsule.groupId) return;
-        
         const group = userGroups.find(g => g.id === capsule.groupId);
         const member = group?.members.find(m => m.userId === selectedAssignee);
-        
         const newTask: CollaborativeTask = {
             id: `task_${Date.now()}`,
             capsuleId: capsule.id,
@@ -448,7 +424,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             createdAt: Date.now(),
             createdBy: currentUserId || ''
         };
-
         try {
             await assignTaskToMember(capsule.groupId, capsule.id, newTask);
             setNewTaskDesc('');
@@ -527,7 +502,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
     return (
         <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 overflow-hidden animate-fade-in">
-            {/* Back button for mobile view */}
             <button 
                 onClick={onBackToList}
                 className="md:hidden flex items-center gap-1 p-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50 w-full border-b border-slate-100 dark:border-zinc-800"
@@ -536,7 +510,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 {t('back_list')}
             </button>
             <div className="p-6 md:p-10">
-                {/* En-tête Collaboratif */}
                 {capsule.isShared && (
                     <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg mb-6 flex items-center gap-3 border border-purple-100 dark:border-purple-800/50">
                         <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
@@ -604,11 +577,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                     </div>
                                 </div>
                             )}
-                            {showShareMenu && userGroups.length === 0 && (
-                                 <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-slate-200 dark:border-zinc-700 z-20 p-3">
-                                    <p className="text-sm text-slate-500 dark:text-zinc-400">{t('no_group_msg')}</p>
-                                 </div>
-                            )}
                         </div>
                     </div>
 
@@ -627,7 +595,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     </div>
                 </div>
 
-                
                 <div className="flex items-center gap-2 mb-8 text-sm">
                     <TagIcon className="w-5 h-5 text-slate-400 dark:text-zinc-500 flex-shrink-0" />
                     {!isEditingCategory ? (
@@ -658,11 +625,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                 autoFocus
                                 list="category-suggestions"
                             />
-                            <datalist id="category-suggestions">
-                                {allCategories.map(cat => (
-                                    <option key={cat} value={cat} />
-                                ))}
-                            </datalist>
                             <button type="submit" className="px-3 py-1 text-xs font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700">
                                 {t('validate')}
                             </button>
@@ -674,13 +636,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 </div>
 
                 <div className="space-y-12">
-                    {/* Key Concepts */}
                     <div>
                         <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4">
                             <LightbulbIcon className="w-6 h-6 mr-3 text-amber-500" />
                             <span>{t('key_concepts')}</span>
                             <button
-                                onClick={() => handleToggleSpeech('concepts-all', capsule.keyConcepts.map(c => `${c.concept}. ${c.explanation}`).join('\n\n'))}
+                                onClick={() => handleToggleSpeech('concepts-all', capsule.keyConcepts.map(c => `${c.concept}. ${c.explanation}`).join(' ')) }
                                 className="ml-auto p-1 rounded-full text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
                                 aria-label={speakingId === 'concepts-all' ? "Arrêter la lecture" : "Lire tous les concepts clés"}
                                 disabled={isBuffering === 'concepts-all'}
@@ -716,22 +677,18 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                 <span>{loadingConcepts[item.concept] ? t('generating') : t('expand')}</span>
                                             </button>
                                         )}
-                                        {errorConcepts[item.concept] && (
-                                            <p className="text-red-500 text-xs mt-1 bg-red-50 dark:bg-red-900/20 p-2 rounded">{errorConcepts[item.concept]}</p>
-                                        )}
                                     </div>
                                 </li>
                             ))}
                         </ul>
                     </div>
                     
-                    {/* Examples */}
                     <div>
                         <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4">
                             <ListChecksIcon className="w-6 h-6 mr-3 text-sky-500" />
                             <span>{t('examples')}</span>
                              <button
-                                onClick={() => handleToggleSpeech('examples-all', capsule.examples.join('\n\n'))}
+                                onClick={() => handleToggleSpeech('examples-all', capsule.examples.join(' ')) }
                                 className="ml-auto p-1 rounded-full text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
                                 aria-label={speakingId === 'examples-all' ? "Arrêter la lecture" : "Lire tous les exemples"}
                                 disabled={isBuffering === 'examples-all'}
@@ -749,7 +706,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         </ul>
                     </div>
 
-                    {/* NEW: ASTUCE MNÉMOTECHNIQUE */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100">
@@ -785,15 +741,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-zinc-800 p-2 rounded-full border border-orange-200 dark:border-orange-800 shadow-sm">
                                     <ZapIcon className="w-6 h-6 text-orange-500" />
                                 </div>
-                                
                                 <blockquote className="text-2xl md:text-3xl font-serif font-medium text-slate-800 dark:text-zinc-100 italic leading-relaxed pt-4 px-2 break-words">
                                     &ldquo;{mnemonic}&rdquo;
                                 </blockquote>
-                                
                                 <p className="text-xs text-slate-500 dark:text-zinc-400 mt-4 font-bold uppercase tracking-wide opacity-70">
                                     {t('mnemonic_generated_by')}
                                 </p>
-                                
                                 <button 
                                     onClick={handleGenerateMnemonic}
                                     className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-zinc-800/80 rounded-full text-orange-500 hover:bg-orange-100 dark:hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -805,7 +758,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         )}
                     </div>
 
-                    {/* Dessin Aide-Mémoire */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100">
@@ -822,7 +774,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         </div>
                         
                         {!isPremium ? (
-                            /* ÉTAT VERROUILLÉ POUR LES UTILISATEURS GRATUITS */
                             <div className="p-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-zinc-900 dark:to-zinc-800 rounded-xl border border-amber-200 dark:border-zinc-700 text-center relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                     <CrownIcon className="w-24 h-24 text-amber-500" />
@@ -836,7 +787,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                         {t('sketch_premium_only')}
                                     </p>
                                     <button 
-                                        onClick={onBackToList} /* Simple redirection ou on pourrait ouvrir le profil */
+                                        onClick={onBackToList}
                                         className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-bold shadow-md transition-all transform hover:scale-105 active:scale-95"
                                     >
                                         <CrownIcon className="w-4 h-4" />
@@ -845,7 +796,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                 </div>
                             </div>
                         ) : (
-                            /* ÉTAT NORMAL POUR LES UTILISATEURS PREMIUM */
                             <>
                                 {!memoryAidImage && !isGeneratingImage && !imageError && (
                                     <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
@@ -912,16 +862,13 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         )}
                     </div>
                     
-                    {/* Section Commentaires & Collaboration */}
                     {capsule.isShared && (
                         <div>
                             <h3 className="flex items-center text-xl font-semibold text-slate-800 dark:text-zinc-100 mb-3">
                                 <MessageSquareIcon className="w-6 h-6 mr-3 text-pink-500" />
                                 <span>{t('collaborative_space')}</span>
                             </h3>
-                            
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* COMMENTAIRES */}
                                 <div className="bg-slate-50 dark:bg-zinc-900/30 border border-slate-200 dark:border-zinc-800 rounded-lg p-4">
                                     <h4 className="font-bold text-slate-700 dark:text-zinc-200 mb-3 text-sm uppercase tracking-wide">{t('discussion')}</h4>
                                     <div className="space-y-4 mb-4 max-h-60 overflow-y-auto">
@@ -958,7 +905,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                     </form>
                                 </div>
 
-                                {/* GESTION PREMIUM */}
                                 {isPremium ? (
                                      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-4">
                                         <div className="flex items-center justify-between mb-4">
@@ -967,8 +913,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                 {t('team_management')}
                                             </h4>
                                         </div>
-
-                                        {/* Assignation Tâches */}
                                         <div className="mb-6">
                                             <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('assign_task')}</h5>
                                             <form onSubmit={handleAssignTask} className="space-y-2">
@@ -996,8 +940,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                 </div>
                                             </form>
                                         </div>
-
-                                        {/* Liste Tâches */}
                                         {capsule.collaborativeTasks && capsule.collaborativeTasks.length > 0 && (
                                             <div className="mb-6">
                                                 <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('current_tasks')}</h5>
@@ -1019,26 +961,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                                 </div>
                                             </div>
                                         )}
-
-                                        {/* Progression Groupe */}
-                                        <div>
-                                            <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('group_progress')}</h5>
-                                            {capsule.groupProgress && capsule.groupProgress.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {capsule.groupProgress.map(prog => (
-                                                        <div key={prog.userId} className="flex items-center justify-between text-sm bg-white dark:bg-zinc-900 p-2 rounded border border-slate-200 dark:border-zinc-700">
-                                                            <span className="font-medium text-slate-700 dark:text-zinc-300">{prog.userName}</span>
-                                                            <div className="text-right">
-                                                                <div className="text-xs font-bold text-blue-600">{prog.masteryScore}% Maîtrise</div>
-                                                                <div className="text-[10px] text-slate-400">Vu le {new Date(prog.lastReviewed).toLocaleDateString()}</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-slate-400 italic">{t('no_progression_data')}</p>
-                                            )}
-                                        </div>
                                      </div>
                                 ) : (
                                     <div className="bg-slate-100 dark:bg-zinc-800 p-6 rounded-lg flex flex-col items-center justify-center text-center">
@@ -1056,7 +978,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         </div>
                     )}
                     
-                    {/* CTAs */}
                     <div className="!mt-12 space-y-10 no-export">
                         <div>
                             <h4 className="text-lg font-bold text-slate-800 dark:text-zinc-200 mb-4">{t('learning_modes')}</h4>
@@ -1120,15 +1041,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                     <span>{t('export_cards')}</span>
                                  </button>
                             </div>
-                            <div className="mt-3 text-right">
-                                <button onClick={handleDownloadQuiz} className="text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 hover:underline flex items-center justify-end gap-1 w-full font-medium">
-                                    <ListChecksIcon className="w-3 h-3"/> {t('download_quiz')}
-                                </button>
-                            </div>
                         </div>
                     </div>
 
-                    {/* Quiz */}
                     <div className="relative">
                         {isRegeneratingQuiz && (
                             <div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 z-10 flex flex-col items-center justify-center rounded-lg">
@@ -1138,7 +1053,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         )}
                         <Quiz questions={capsule.quiz} onComplete={handleQuizComplete} />
                     </div>
-
                 </div>
             </div>
         </div>

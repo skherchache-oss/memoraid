@@ -8,35 +8,30 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 
-// Interfaces for Web Speech API (inchangées)
+// Interfaces for Web Speech API
 interface SpeechRecognitionAlternative {
     readonly transcript: string;
     readonly confidence: number;
 }
-
 interface SpeechRecognitionResult {
     readonly isFinal: boolean;
     readonly length: number;
     item(index: number): SpeechRecognitionAlternative;
     [index: number]: SpeechRecognitionAlternative;
 }
-
 interface SpeechRecognitionResultList {
     readonly length: number;
     item(index: number): SpeechRecognitionResult;
     [index: number]: SpeechRecognitionResult;
 }
-
 interface SpeechRecognitionEvent extends Event {
     readonly resultIndex: number;
     readonly results: SpeechRecognitionResultList;
 }
-
 interface SpeechRecognitionErrorEvent extends Event {
     readonly error: string;
     readonly message: string;
 }
-
 interface SpeechRecognition extends EventTarget {
     continuous: boolean;
     interimResults: boolean;
@@ -49,7 +44,6 @@ interface SpeechRecognition extends EventTarget {
     stop(): void;
     abort(): void;
 }
-
 
 interface CoachingModalProps {
     capsule: CognitiveCapsule;
@@ -79,7 +73,6 @@ async function decodeAudioData(
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
     for (let i = 0; i < frameCount; i++) {
@@ -95,19 +88,17 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const [chatSession, setChatSession] = useState<Chat | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [userInput, setUserInput] = useState('');
-    // SPLIT STATE for Coach
     const [tempSpeech, setTempSpeech] = useState('');
-    
     const [isLoading, setIsLoading] = useState(true);
     const [recognitionState, setRecognitionState] = useState<RecognitionState>('idle');
     const [selectedMode, setSelectedMode] = useState<CoachingMode>('standard');
-    const [selectedImage, setSelectedImage] = useState<string | null>(null); // Base64 image for solver
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-    // Refs for managing speech recognition lifecycle
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const stopRequestRef = useRef<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const wasLastInputFromSpeech = useRef<boolean>(false);
@@ -118,7 +109,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     useEffect(scrollToBottom, [messages]);
 
-    // Initialize AudioContext for TTS in Oral Mode
     useEffect(() => {
         if (!audioContextRef.current) {
             try {
@@ -130,31 +120,27 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         }
     }, []);
 
-    // Initialize Chat Session
     const initializeChat = useCallback(async () => {
         setIsLoading(true);
-        setMessages([]); // Clear history on mode switch
+        setMessages([]);
         try {
             const session = createCoachingSession(capsule, selectedMode, userProfile, language);
             setChatSession(session);
             
-            // Initial prompt message depends on mode
             let introMsg = "";
             if (selectedMode === 'solver') introMsg = language === 'fr' ? "Bonjour. Quel exercice ou problème souhaitez-vous résoudre aujourd'hui ? Vous pouvez envoyer une photo." : "Hello. What exercise or problem would you like to solve today? You can upload a photo.";
-            else introMsg = ""; // Standard modes prompt AI to start
+            else introMsg = "";
 
             const initialResponse: GenerateContentResponse = await session.sendMessage({ message: introMsg });
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
-            // Auto-speak in Oral Mode
             if (selectedMode === 'oral') {
                 playTTS(text);
             }
-
         } catch (error) {
             console.error("Failed to initialize coaching session:", error);
-            const errMsg = language === 'fr' ? "Erreur de connexion au coach. Vérifiez votre clé API ou connexion." : "Connection error with coach. Check API key or network.";
+            const errMsg = language === 'fr' ? "Erreur de connexion au coach." : "Connection error with coach.";
             setMessages([{ role: 'model', content: errMsg }]);
         } finally {
             setIsLoading(false);
@@ -170,6 +156,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     }, [initializeChat]);
 
     const stopAudio = useCallback(() => {
+        stopRequestRef.current = true;
         if (audioSourceRef.current) {
             try { audioSourceRef.current.stop(); } catch(e) {}
             audioSourceRef.current.disconnect();
@@ -183,7 +170,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
-        // Audio Focus via Media Session
+        stopAudio();
+        stopRequestRef.current = false;
+
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: "Coach Memoraid",
@@ -195,56 +184,57 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
         }
 
-        try {
-            // S'assurer que le contexte audio est réveillé
-            if (audioContextRef.current.state === 'suspended') {
-                await audioContextRef.current.resume();
+        // Chunking optimization
+        const chunks = text.split(/(?<=[.!?])\s+/).filter(c => c.trim().length > 0);
+        if (chunks.length === 0) return;
+
+        const ai = getAiClient();
+
+        const playChunkSequence = async (index: number) => {
+            if (index >= chunks.length || stopRequestRef.current) {
+                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'none';
+                return;
             }
 
-            const ai = getAiClient();
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-tts",
-                contents: [{ parts: [{ text: text }] }],
-                config: {
-                    responseModalities: [Modality.AUDIO],
-                    speechConfig: {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-                    },
-                },
-            });
-            const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-            if (base64Audio) {
-                if (audioSourceRef.current) {
-                    try { audioSourceRef.current.stop(); } catch(e) {}
+            try {
+                if (audioContextRef.current?.state === 'suspended') {
+                    await audioContextRef.current.resume();
                 }
 
-                const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current, 24000, 1);
-                const source = audioContextRef.current.createBufferSource();
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash-preview-tts",
+                    contents: [{ parts: [{ text: chunks[index] }] }],
+                    config: {
+                        responseModalities: [Modality.AUDIO],
+                        speechConfig: {
+                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+                        },
+                    },
+                });
+
+                const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (!base64Audio || stopRequestRef.current) return;
+
+                const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
+                const source = audioContextRef.current!.createBufferSource();
                 source.buffer = audioBuffer;
-                source.connect(audioContextRef.current.destination);
+                source.connect(audioContextRef.current!.destination);
                 
                 source.onended = () => {
-                    if (audioSourceRef.current === source) {
-                        audioSourceRef.current = null;
-                        if ("mediaSession" in navigator) {
-                            navigator.mediaSession.playbackState = 'none';
-                        }
-                    }
+                    if (!stopRequestRef.current) playChunkSequence(index + 1);
                 };
 
-                if ("mediaSession" in navigator) {
-                    navigator.mediaSession.playbackState = 'playing';
-                }
-
+                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
                 source.start();
                 audioSourceRef.current = source;
+
+            } catch (e) {
+                console.error("TTS Error", e);
+                stopAudio();
             }
-        } catch (e) {
-            console.error("TTS Error", e);
-            if ("mediaSession" in navigator) {
-                navigator.mediaSession.playbackState = 'none';
-            }
-        }
+        };
+
+        playChunkSequence(0);
     };
 
     const cleanTranscription = (text: string): string => {
@@ -259,159 +249,95 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const startRecording = useCallback(() => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
-            addToast("Ce navigateur ne supporte pas la dictée vocale. Utilisez Google Chrome ou Edge.", "error");
+            addToast("Microphone non supporté.", "error");
             return;
         }
         if (recognitionRef.current) recognitionRef.current.abort();
-
         const recognition = new SpeechRecognitionAPI();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
-
         if (textareaRef.current) textareaRef.current.blur();
-
         setTempSpeech('');
         wasLastInputFromSpeech.current = true; 
-        
         setRecognitionState('recording');
-
-        recognition.onstart = () => { };
         recognition.onresult = (event: SpeechRecognitionEvent) => {
             let transcript = '';
             for (let i = 0; i < event.results.length; ++i) {
                 transcript += event.results[i][0].transcript;
             }
-            const cleaned = cleanTranscription(transcript);
-            setTempSpeech(cleaned);
+            setTempSpeech(cleanTranscription(transcript));
         };
-        recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-            if (event.error === 'not-allowed' || event.error === 'permission-denied') {
-                addToast("Accès au micro refusé.", "error");
-            }
-            if (event.error !== 'no-speech') {
-                stopRecording();
-                setRecognitionState('error');
-            }
-        };
-        recognition.onend = () => {
-            if (recognitionState === 'recording') {
-                stopRecording();
-            }
-        };
-
-        recognitionRef.current = recognition;
-        try { 
-            recognition.start(); 
-        } catch (e) { 
+        recognition.onerror = () => {
+            stopRecording();
             setRecognitionState('error');
-            addToast("Erreur micro.", "error");
-        }
+        };
+        recognition.onend = () => { if (recognitionState === 'recording') stopRecording(); };
+        recognitionRef.current = recognition;
+        try { recognition.start(); } catch (e) { setRecognitionState('error'); }
     }, [language, addToast, recognitionState]);
 
     const stopRecording = useCallback(() => {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-        }
+        if (recognitionRef.current) recognitionRef.current.stop();
         setRecognitionState('idle');
-        
         if (tempSpeech) {
             setUserInput(prev => {
                 const prefix = prev.trim();
                 const suffix = tempSpeech.trim();
-                if (!prefix) return suffix;
-                return prefix + " " + suffix;
+                return prefix ? prefix + " " + suffix : suffix;
             });
             setTempSpeech('');
         }
     }, [tempSpeech]);
 
-    const handleToggleRecording = () => {
-        recognitionState === 'recording' ? stopRecording() : startRecording();
-    };
+    const handleToggleRecording = () => recognitionState === 'recording' ? stopRecording() : startRecording();
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64String = reader.result as string;
-                setSelectedImage(base64String); 
-            };
+            reader.onloadend = () => setSelectedImage(reader.result as string);
             reader.readAsDataURL(file);
         }
     };
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        if (recognitionState === 'recording') {
-            stopRecording();
-        }
-
+        if (recognitionState === 'recording') stopRecording();
         const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
-
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
-        
-        const userMessage: ChatMessage = { 
-            role: 'user', 
-            content: finalInput,
-            image: selectedImage || undefined
-        };
-        
+        const userMessage: ChatMessage = { role: 'user', content: finalInput, image: selectedImage || undefined };
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         setTempSpeech('');
         setSelectedImage(null);
         setIsLoading(true);
-
         try {
             let messageParts: any[] = [];
-            
             if (userMessage.image) {
-                const base64Data = userMessage.image.split(',')[1];
-                messageParts.push({
-                    inlineData: {
-                        mimeType: "image/jpeg",
-                        data: base64Data
-                    }
-                });
+                messageParts.push({ inlineData: { mimeType: "image/jpeg", data: userMessage.image.split(',')[1] } });
             }
-            
-            if (userMessage.content) {
-                messageParts.push({ text: userMessage.content });
-            }
-
+            if (userMessage.content) messageParts.push({ text: userMessage.content });
             const response = await chatSession.sendMessage({ 
                 message: messageParts.length === 1 && messageParts[0].text ? messageParts[0].text : { parts: messageParts }
             } as any);
-
             const responseText = response.text;
-            const modelMessage: ChatMessage = { role: 'model', content: responseText };
-            setMessages(prev => [...prev, modelMessage]);
-
-            if (selectedMode === 'oral') {
-                playTTS(responseText);
-            }
-
+            setMessages(prev => [...prev, { role: 'model', content: responseText }]);
+            if (selectedMode === 'oral') playTTS(responseText);
         } catch (error) {
-            console.error("Error sending message:", error);
-            setMessages(prev => [...prev, { role: 'model', content: language === 'fr' ? "Oups, je n'ai pas pu traiter votre message. Réessayons." : "Oops, I couldn't process your message. Let's try again." }]);
+            setMessages(prev => [...prev, { role: 'model', content: "Erreur de traitement." }]);
         } finally {
             setIsLoading(false);
         }
     };
 
     const isRecording = recognitionState === 'recording';
-    const displayValue = isRecording 
-        ? (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech)
-        : userInput;
-
+    const displayValue = isRecording ? (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech) : userInput;
     const modes: { id: CoachingMode, label: string, icon: any }[] = [
-        { id: 'standard', label: language === 'fr' ? 'Coach' : 'Coach', icon: SparklesIcon },
-        { id: 'oral', label: language === 'fr' ? 'Entraînement Oral' : 'Oral Training', icon: MicrophoneIcon },
-        { id: 'exam', label: language === 'fr' ? 'Examen Blanc' : 'Mock Exam', icon: SendIcon },
-        { id: 'solver', label: language === 'fr' ? 'Résolveur' : 'Solver', icon: ImageIcon },
+        { id: 'standard', label: 'Coach', icon: SparklesIcon },
+        { id: 'oral', label: 'Oral', icon: MicrophoneIcon },
+        { id: 'exam', label: 'Examen', icon: SendIcon },
+        { id: 'solver', label: 'Résolveur', icon: ImageIcon },
     ];
 
     return (
@@ -427,16 +353,13 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                             <XIcon className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
                         </button>
                     </div>
-                    
                     <div className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
                         {modes.map(mode => (
                             <button
                                 key={mode.id}
                                 onClick={() => setSelectedMode(mode.id)}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors ${
-                                    selectedMode === mode.id 
-                                    ? 'bg-blue-600 text-white shadow-md' 
-                                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'
+                                    selectedMode === mode.id ? 'bg-blue-600 text-white' : 'bg-slate-100 dark:bg-zinc-800'
                                 }`}
                             >
                                 <mode.icon className="w-3 h-3" />
@@ -445,107 +368,42 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                         ))}
                     </div>
                 </header>
-
                 <div className="flex-grow p-4 overflow-y-auto space-y-4 bg-slate-50 dark:bg-zinc-950/30">
                     {messages.map((msg, index) => (
                         <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                              {msg.role === 'model' && <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-1"><SparklesIcon className="w-4 h-4 text-white"/></div>}
                             <div className={`max-w-[85%] p-3 rounded-2xl shadow-sm ${
-                                msg.role === 'user' 
-                                    ? 'bg-blue-600 text-white rounded-br-none' 
-                                    : 'bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 rounded-bl-none border border-slate-100 dark:border-zinc-700'
+                                msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white dark:bg-zinc-800'
                             }`}>
-                                {msg.image && (
-                                    <img src={msg.image} alt="Upload" className="max-w-full h-auto rounded-lg mb-2 border border-white/20" />
-                                )}
+                                {msg.image && <img src={msg.image} alt="Upload" className="max-w-full h-auto rounded-lg mb-2" />}
                                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                             </div>
                         </div>
                     ))}
-                    {isLoading && (
-                        <div className="flex items-start gap-3">
-                             <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0"><SparklesIcon className="w-4 h-4 text-white"/></div>
-                             <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700">
-                                <div className="flex items-center space-x-1.5">
-                                    <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-zinc-500 rounded-full animate-bounce"></div>
-                                    <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-zinc-500 rounded-full animate-bounce delay-75"></div>
-                                    <div className="w-1.5 h-1.5 bg-slate-400 dark:bg-zinc-500 rounded-full animate-bounce delay-150"></div>
-                                </div>
-                             </div>
-                        </div>
-                    )}
+                    {isLoading && <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800 inline-block">...</div>}
                     <div ref={messagesEndRef} />
                 </div>
-                
-                <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 flex-shrink-0 bg-white dark:bg-zinc-900">
-                    {selectedImage && (
-                        <div className="mb-2 flex items-center gap-2 bg-slate-100 dark:bg-zinc-800 p-2 rounded-lg inline-block">
-                            <img src={selectedImage} alt="Preview" className="h-12 w-12 object-cover rounded" />
-                            <button onClick={() => setSelectedImage(null)} className="p-1 rounded-full bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300">
-                                <XIcon className="w-3 h-3" />
-                            </button>
-                        </div>
-                    )}
-
+                <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <form onSubmit={handleSendMessage} className="flex items-end gap-2">
                         {selectedMode === 'solver' && (
                             <>
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    className="hidden" 
-                                    ref={fileInputRef} 
-                                    onChange={handleImageUpload} 
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="p-3 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
-                                    title="Ajouter une image"
-                                >
-                                    <ImageIcon className="w-5 h-5" />
-                                </button>
+                                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
+                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 bg-slate-100 dark:bg-zinc-800 rounded-xl"><ImageIcon className="w-5 h-5" /></button>
                             </>
                         )}
-                        
                         <div className="flex-grow relative">
                              <textarea
                                 ref={textareaRef}
                                 value={displayValue}
-                                onChange={(e) => {
-                                    if (isRecording) return;
-                                    setUserInput(e.target.value);
-                                    wasLastInputFromSpeech.current = false;
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
-                                        e.preventDefault();
-                                        handleSendMessage(e);
-                                    }
-                                }}
-                                readOnly={isRecording} 
-                                placeholder={isRecording ? (language === 'fr' ? "Je vous écoute..." : "I'm listening...") : (language === 'fr' ? "Message..." : "Message...")}
-                                className={`w-full pl-4 pr-10 py-3 bg-slate-100 dark:bg-zinc-800 rounded-xl focus:outline-none focus:ring-2 transition-colors resize-none max-h-32 min-h-[48px] ${isRecording ? 'ring-2 ring-red-500 bg-red-50 dark:bg-zinc-900' : 'focus:ring-blue-500'}`}
-                                disabled={isLoading}
+                                onChange={(e) => !isRecording && setUserInput(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage(e))}
+                                placeholder={isRecording ? "Écoute..." : "Message..."}
+                                className="w-full pl-4 pr-10 py-3 bg-slate-100 dark:bg-zinc-800 rounded-xl resize-none"
                                 rows={1}
                             />
-                             <button
-                                type="button"
-                                onClick={handleToggleRecording}
-                                disabled={isLoading}
-                                className={`absolute right-2 bottom-2 p-1.5 rounded-full transition-all duration-200 ${
-                                    isRecording 
-                                        ? 'text-red-600 animate-pulse' 
-                                        : 'text-slate-400 hover:text-blue-500'
-                                }`}
-                            >
-                                <MicrophoneIcon className="w-5 h-5" />
-                            </button>
+                             <button type="button" onClick={handleToggleRecording} className={`absolute right-2 bottom-2 p-1.5 ${isRecording ? 'text-red-600' : 'text-slate-400'}`}><MicrophoneIcon className="w-5 h-5" /></button>
                         </div>
-
-                        <button type="submit" disabled={isLoading || (!displayValue.trim() && !selectedImage)} className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-blue-300 dark:disabled:bg-blue-800 transition-colors shadow-sm">
-                            <SendIcon className="w-5 h-5" />
-                        </button>
+                        <button type="submit" disabled={isLoading} className="p-3 bg-blue-600 text-white rounded-xl"><SendIcon className="w-5 h-5" /></button>
                     </form>
                 </footer>
             </div>
