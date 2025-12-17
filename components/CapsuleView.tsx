@@ -106,6 +106,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     // Focus Mode State
     const [isFocusMode, setIsFocusMode] = useState(false);
 
+    // Scroll to top when opening a capsule
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [capsule.id]);
+
     // Stop audio playback when capsule changes or component unmounts
     useEffect(() => {
         setCategoryInput(capsule.category || '');

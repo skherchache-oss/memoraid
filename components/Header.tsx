@@ -34,20 +34,20 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                     {/* LOGO & TITRE (Cliquable pour retour accueil) */}
                     <button 
                         onClick={onLogoClick}
-                        className="flex items-center space-x-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
+                        className="flex items-center gap-2 sm:gap-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
                         aria-label="Retour à l'accueil"
                     >
-                         <MemoraidLogoIcon className="h-9 w-9 md:h-10 md:w-10 text-emerald-500" />
-                        <h1 className="text-2xl md:text-3xl font-extrabold text-emerald-700 dark:text-emerald-500 block tracking-tight">
+                         <MemoraidLogoIcon className="h-8 w-8 md:h-10 md:w-10 text-emerald-500" />
+                        <h1 className="hidden sm:block text-2xl md:text-3xl font-extrabold text-emerald-700 dark:text-emerald-500 tracking-tight">
                             Memoraid
                         </h1>
                     </button>
                     
-                    <div className="flex items-center gap-2 md:gap-3">
+                    <div className="flex items-center gap-3 md:gap-4">
                         {/* THEME SWITCHER - MOVED FIRST FOR VISIBILITY */}
                         <button
                             onClick={onToggleTheme}
-                            className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 transition-all hover:ring-2 hover:ring-emerald-500"
+                            className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 transition-all hover:ring-2 hover:ring-emerald-500"
                             title={currentTheme === 'dark' ? "Passer en mode clair" : "Passer en mode sombre"}
                             aria-label="Changer de thème"
                         >
@@ -57,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                         {/* GAMIFICATION STATS (Compact on Mobile) */}
                         {gamification && (
                             <div 
-                                className="flex items-center gap-2 bg-emerald-50 dark:bg-zinc-800/50 rounded-full px-2 md:px-3 py-1 border border-emerald-100 dark:border-zinc-700 cursor-pointer hover:bg-emerald-100 dark:hover:bg-zinc-700 transition-colors"
+                                className="flex items-center gap-2 bg-emerald-50 dark:bg-zinc-800/50 rounded-full px-2 py-1 md:px-3 border border-emerald-100 dark:border-zinc-700 cursor-pointer hover:bg-emerald-100 dark:hover:bg-zinc-700 transition-colors"
                                 onClick={handleXpClick}
                                 title="Cliquez pour voir les détails"
                             >
@@ -73,10 +73,10 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                                 {/* Level / XP - Compact Mode for Mobile */}
                                 <div className="flex items-center gap-2">
                                     <div className="flex flex-col items-end w-full">
-                                        {/* Mobile: Just "Niv. X" Badge style */}
-                                        <div className="md:hidden flex items-center gap-1">
-                                            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-200 dark:bg-emerald-900/30 px-2 py-0.5 rounded">
-                                                Niv. {gamification.level}
+                                        {/* Mobile: Compact Badge style */}
+                                        <div className="md:hidden flex items-center">
+                                            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
+                                                Lvl {gamification.level}
                                             </span>
                                         </div>
 
