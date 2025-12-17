@@ -180,6 +180,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         stopAudio();
         stopRequestRef.current = false;
 
+        // Réveil immédiat de l'AudioContext pour Mobile
+        if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+        }
+
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: "Coach Memoraid",
@@ -203,10 +208,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             }
 
             try {
-                if (audioContextRef.current?.state === 'suspended') {
-                    await audioContextRef.current.resume();
-                }
-
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],

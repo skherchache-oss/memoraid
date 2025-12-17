@@ -28,7 +28,7 @@ function decode(base64: string) {
 
 /**
  * Décode les données PCM brutes renvoyées par Gemini TTS.
- * Correction : Utilisation d'un DataView ou d'un décalage explicite pour éviter les erreurs d'alignement Int16.
+ * Sécurisé pour les déploiements de production.
  */
 async function decodeAudioData(
   data: Uint8Array,
@@ -36,13 +36,14 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  // S'assurer que la longueur est paire pour le Int16
+  // S'assurer que nous avons un nombre pair d'octets pour le Int16 (2 octets par échantillon)
+  // Si Gemini renvoie un octet traînant, on l'ignore pour éviter l'erreur "RangeError: offset is out of bounds"
   const length = Math.floor(data.byteLength / 2);
   const dataInt16 = new Int16Array(length);
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   
   for (let i = 0; i < length; i++) {
-    // Gemini renvoie du Little Endian
+    // Gemini renvoie du Little Endian PCM 16-bit
     dataInt16[i] = view.getInt16(i * 2, true);
   }
 
@@ -305,9 +306,24 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         stopRequestRef.current = false;
         
         const apiKey = process.env.API_KEY;
-        if (!apiKey || !audioContextRef.current) {
-            addToast("Service audio indisponible.", 'error');
+        if (!apiKey) {
+            addToast("Configuration API manquante. Vérifiez vos variables d'environnement.", 'error');
             return;
+        }
+
+        if (!audioContextRef.current) {
+            addToast("Service audio indisponible sur ce navigateur.", 'error');
+            return;
+        }
+
+        // CRITIQUE : Réveiller l'AudioContext IMMÉDIATEMENT au clic utilisateur
+        // Avant tout appel asynchrone, sinon Safari mobile bloque le son.
+        if (audioContextRef.current.state === 'suspended') {
+            try {
+                await audioContextRef.current.resume();
+            } catch (e) {
+                console.error("Impossible de réactiver l'audio context:", e);
+            }
         }
 
         if ("mediaSession" in navigator) {
@@ -321,15 +337,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
-        // Découpage sécurisé par phrases (regex universelle sans lookbehind complexe)
+        // Découpage sécurisé par phrases
         const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
         setSpeakingId(null);
         setIsBuffering(id);
 
-        // Instance unique par session
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const playChunk = async (index: number) => {
             if (index >= chunks.length || stopRequestRef.current) {
@@ -340,10 +355,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             }
 
             try {
-                if (audioContextRef.current?.state === 'suspended') {
-                    await audioContextRef.current.resume();
-                }
-
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],
@@ -355,7 +366,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     },
                 });
 
-                // Recherche robuste de la partie audio dans les candidats
+                // Extraction robuste
                 let base64Audio = '';
                 if (response.candidates?.[0]?.content?.parts) {
                     for (const part of response.candidates[0].content.parts) {
@@ -366,7 +377,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     }
                 }
 
-                if (!base64Audio) throw new Error("Aucune donnée audio reçue.");
+                if (!base64Audio) throw new Error("Audio vide");
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
                 
@@ -390,7 +401,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
             } catch (error) {
                 console.error("TTS Error:", error);
-                if (index === 0) addToast("Erreur de lecture vocale.", 'error');
+                if (index === 0) addToast("Erreur de lecture vocale (Vérifiez la clé API).", 'error');
                 stopAudio();
             }
         };
