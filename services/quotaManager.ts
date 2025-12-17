@@ -1,62 +1,120 @@
 
-const QUOTA_KEY = 'memoraid_sketch_quota';
-const LIMIT = 5;
-const WINDOW_MS = 60 * 1000; // 1 minute
+const QUOTA_KEY = 'memoraid_img_quota_v2';
+
+const LIMITS = {
+    FREE: { DAILY: 20, CAPSULE: 2 },
+    PREMIUM: { DAILY: 500, CAPSULE: 10 }
+};
 
 interface QuotaState {
-    count: number;
-    startTime: number;
+    date: string; // YYYY-MM-DD
+    dailyCount: number;
+    capsuleCounts: Record<string, number>;
 }
 
-const getState = (): QuotaState => {
-    let state = { count: 0, startTime: Date.now() };
+const getToday = () => new Date().toISOString().split('T')[0];
+
+const loadState = (): QuotaState => {
     try {
         const stored = localStorage.getItem(QUOTA_KEY);
         if (stored) {
-            state = JSON.parse(stored);
+            const parsed = JSON.parse(stored);
+            // Si la date stockée est aujourd'hui, on retourne l'état
+            if (parsed.date === getToday()) {
+                return parsed;
+            }
         }
-    } catch (e) {
-        console.error("Erreur lecture quota localStorage", e);
+    } catch(e) {
+        console.error("Erreur lecture quota", e);
     }
-    
-    // Vérifier si la fenêtre de temps est expirée (plus d'une minute)
-    if (Date.now() - state.startTime > WINDOW_MS) {
-        // Reset du quota
-        state = { count: 0, startTime: Date.now() };
-        saveState(state);
-    }
-    return state;
+    // Sinon (pas de données ou date différente), on reset pour la nouvelle journée
+    return { date: getToday(), dailyCount: 0, capsuleCounts: {} };
 };
 
 const saveState = (state: QuotaState) => {
     try {
         localStorage.setItem(QUOTA_KEY, JSON.stringify(state));
     } catch (e) {
-        console.error("Erreur sauvegarde quota localStorage", e);
+        console.error("Erreur sauvegarde quota", e);
     }
 };
 
 /**
- * Vérifie si l'utilisateur peut générer un nouveau croquis.
+ * Vérifie si l'utilisateur peut générer une image.
+ * Retourne un objet contenant le résultat et la raison si refusé.
  */
-export const canGenerateCroquis = (): boolean => {
-    const state = getState();
-    return state.count < LIMIT;
+export const checkImageQuota = (capsuleId: string, isPremium: boolean = false): { allowed: boolean, reason?: string } => {
+    const state = loadState();
+    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
+
+    // 1. Vérification Limite Journalière
+    if (state.dailyCount >= limits.DAILY) {
+        return { 
+            allowed: false, 
+            reason: isPremium 
+                ? "Limite journalière de sécurité atteinte (500)." 
+                : "Quota journalier atteint (20). Revenez demain ou passez Premium pour continuer." 
+        };
+    }
+
+    // 2. Vérification Limite par Capsule
+    const capsuleCount = state.capsuleCounts[capsuleId] || 0;
+    if (capsuleCount >= limits.CAPSULE) {
+        return { 
+            allowed: false, 
+            reason: isPremium 
+                ? "Limite par capsule atteinte (10)." 
+                : "Limite de 2 images par capsule atteinte. Passez Premium pour en générer plus." 
+        };
+    }
+
+    return { allowed: true };
 };
 
 /**
- * Enregistre une génération de croquis (décrémente le quota).
+ * Enregistre une génération réussie.
  */
-export const registerCroquis = (): void => {
-    const state = getState();
-    state.count++;
+export const incrementImageQuota = (capsuleId: string): void => {
+    const state = loadState();
+    // Double vérification date (au cas où l'app est restée ouverte la nuit)
+    if (state.date !== getToday()) {
+        state.date = getToday();
+        state.dailyCount = 0;
+        state.capsuleCounts = {};
+    }
+
+    state.dailyCount++;
+    state.capsuleCounts[capsuleId] = (state.capsuleCounts[capsuleId] || 0) + 1;
     saveState(state);
 };
 
 /**
- * Retourne le nombre de générations restantes pour la fenêtre actuelle.
+ * Retourne les statistiques actuelles pour l'affichage UI.
+ * Cette fonction DOIT être exportée pour CapsuleView.
  */
-export const getRemainingQuota = (): number => {
-    const state = getState();
-    return Math.max(0, LIMIT - state.count);
+export const getQuotaStats = (capsuleId: string, isPremium: boolean = false) => {
+    const state = loadState();
+    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
+    
+    // Si changement de jour détecté à la lecture
+    if (state.date !== getToday()) {
+        return {
+            capsuleUsed: 0,
+            capsuleLimit: limits.CAPSULE,
+            dailyUsed: 0,
+            dailyLimit: limits.DAILY
+        };
+    }
+
+    return {
+        capsuleUsed: state.capsuleCounts[capsuleId] || 0,
+        capsuleLimit: limits.CAPSULE,
+        dailyUsed: state.dailyCount,
+        dailyLimit: limits.DAILY
+    };
 };
+
+// Fonctions dépréciées (gardées pour compatibilité temporaire si besoin)
+export const canGenerateCroquis = () => true; 
+export const registerCroquis = () => {};
+export const getRemainingQuota = () => 0;

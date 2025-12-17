@@ -15,7 +15,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { checkImageQuota, incrementImageQuota, getQuotaStats } from '../services/quotaManager';
 
 
-// Helper functions for audio decoding (truncated for brevity, keep existing implementation)
+// Helper functions for audio decoding
 function decode(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -57,7 +57,7 @@ interface CapsuleViewProps {
     onSetCategory: (capsuleId: string, category: string) => void;
     allCategories: string[];
     onSetMemoryAid: (capsuleId: string, imageData: string | null, description: string | null) => void;
-    onSetMnemonic: (capsuleId: string, mnemonic: string) => void; // Nouvelle prop
+    onSetMnemonic: (capsuleId: string, mnemonic: string) => void; 
     onUpdateQuiz: (capsuleId: string, newQuiz: QuizQuestion[]) => void;
     onBackToList: () => void;
     addToast: (message: string, type: ToastType) => void;
