@@ -170,9 +170,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
+        // 1. ARRÊT TOTAL de toute lecture précédente (évite les doublons)
         stopAudio();
         stopRequestRef.current = false;
 
+        // 2. ACTIVATION AUDIO FOCUS (MEDIA SESSION API)
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: "Coach Memoraid",
@@ -184,7 +186,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
         }
 
-        // Chunking optimization
         const chunks = text.split(/(?<=[.!?])\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
@@ -213,9 +214,15 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 });
 
                 const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                
+                // Double vérification si stopAudio a été appelé pendant le fetch
                 if (!base64Audio || stopRequestRef.current) return;
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
+                
+                // On vérifie encore une fois avant de lancer le son
+                if (stopRequestRef.current) return;
+
                 const source = audioContextRef.current!.createBufferSource();
                 source.buffer = audioBuffer;
                 source.connect(audioContextRef.current!.destination);
@@ -224,7 +231,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                     if (!stopRequestRef.current) playChunkSequence(index + 1);
                 };
 
+                // Indiquer au système que Memoraid prend le contrôle
                 if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
+                
                 source.start();
                 audioSourceRef.current = source;
 

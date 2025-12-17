@@ -281,14 +281,15 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         document.body.removeChild(link);
     };
 
-    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS ---
+    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS AVEC AUDIO FOCUS ---
     const handleToggleSpeech = async (id: string, text: string) => {
         if (speakingId === id || isBuffering === id) {
             stopAudio();
             return;
         }
 
-        stopAudio(); // Nettoyage de toute lecture en cours
+        // 1. ARRÊT TOTAL de toute lecture précédente (évite les doublons)
+        stopAudio(); 
         stopRequestRef.current = false;
         
         const apiKey = process.env.API_KEY;
@@ -297,6 +298,8 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             return;
         }
 
+        // 2. ACTIVATION AUDIO FOCUS (MEDIA SESSION API)
+        // Indique au système que Memoraid prend le contrôle de l'audio
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: capsule.title,
@@ -304,12 +307,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 album: t('create_capsule'),
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
+            // Définit les actions pour les boutons du téléphone (écran verrouillé)
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
-        // 1. Découpage en phrases (Chunks) pour réduire la latence initiale
-        // On sépare par les points, points d'interrogation et d'exclamation suivis d'un espace.
         const chunks = text.split(/(?<=[.!?])\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
@@ -319,6 +321,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const playChunk = async (index: number) => {
+            // Sécurité : arrêt si demandé ou si fin de texte
             if (index >= chunks.length || stopRequestRef.current) {
                 setSpeakingId(null);
                 setIsBuffering(null);
@@ -327,11 +330,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             }
 
             try {
+                // Mobile : l'AudioContext peut être suspendu par défaut
                 if (audioContextRef.current?.state === 'suspended') {
                     await audioContextRef.current.resume();
                 }
 
-                // Génération de l'audio pour ce chunk spécifique
+                // Génération asynchrone du chunk
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],
@@ -348,6 +352,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
                 
+                // Double vérification si l'utilisateur a cliqué sur Stop entre temps
                 if (stopRequestRef.current) return;
 
                 const source = audioContextRef.current!.createBufferSource();
@@ -355,11 +360,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 source.connect(audioContextRef.current!.destination);
                 
                 source.onended = () => {
+                    // On ne passe à la suite que si on n'a pas arrêté
                     if (!stopRequestRef.current) playChunk(index + 1);
                 };
 
                 setIsBuffering(null);
                 setSpeakingId(id);
+
+                // Signaler au système que la lecture commence (Met Spotify en pause)
                 if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
                 
                 source.start();
@@ -372,7 +380,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             }
         };
 
-        // Lancer la lecture de la première phrase
         playChunk(0);
     };
 
