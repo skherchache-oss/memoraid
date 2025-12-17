@@ -7,6 +7,7 @@ import type { Chat, GenerateContentResponse } from '@google/genai';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
+import { checkTtsQuota, incrementTtsQuota } from '../services/quotaManager';
 
 // Interfaces for Web Speech API
 interface SpeechRecognitionAlternative {
@@ -73,11 +74,9 @@ async function decodeAudioData(
   const length = Math.floor(data.byteLength / 2);
   const dataInt16 = new Int16Array(length);
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  
   for (let i = 0; i < length; i++) {
     dataInt16[i] = view.getInt16(i * 2, true);
   }
-
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
   for (let channel = 0; channel < numChannels; channel++) {
@@ -108,7 +107,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const stopRequestRef = useRef<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const wasLastInputFromSpeech = useRef<boolean>(false);
     
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,7 +140,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
-            // Note: Oral mode autostart won't work on mobile without user gesture on the button first.
             if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended') {
                 playTTS(text);
             }
@@ -178,10 +175,16 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
+        // Local Quota Check
+        const quotaCheck = checkTtsQuota(!!userProfile.isPremium);
+        if (!quotaCheck.allowed) {
+            addToast("Quota vocal atteint.", "info");
+            return;
+        }
+
         stopAudio();
         stopRequestRef.current = false;
 
-        // Réveil immédiat de l'AudioContext pour Mobile
         if (audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
         }
@@ -190,7 +193,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: "Coach Memoraid",
                 artist: capsule.title,
-                album: t('mode_coach'),
+                album: "Coaching Vocal",
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
@@ -206,10 +209,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const playChunkSequence = async (index: number) => {
-            if (index >= chunks.length || stopRequestRef.current) {
-                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'none';
-                return;
-            }
+            if (index >= chunks.length || stopRequestRef.current) return;
 
             try {
                 const response = await ai.models.generateContent({
@@ -236,7 +236,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 if (!base64Audio || stopRequestRef.current) return;
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
-                
                 if (stopRequestRef.current) return;
 
                 const source = audioContextRef.current!.createBufferSource();
@@ -247,13 +246,15 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                     if (!stopRequestRef.current) playChunkSequence(index + 1);
                 };
 
-                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
-                
+                incrementTtsQuota();
                 source.start();
                 audioSourceRef.current = source;
 
-            } catch (e) {
+            } catch (e: any) {
                 console.error("TTS Error", e);
+                if (e?.message?.includes('429')) {
+                    addToast("Vocal saturé. Pause d'une minute.", "info");
+                }
                 stopAudio();
             }
         };
@@ -283,7 +284,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
         if (textareaRef.current) textareaRef.current.blur();
         setTempSpeech('');
-        wasLastInputFromSpeech.current = true; 
         setRecognitionState('recording');
         recognition.onresult = (event: SpeechRecognitionEvent) => {
             let transcript = '';
@@ -327,12 +327,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // REVEIL AUDIO IMMEDIAT SUR LE BOUTON SEND (Action utilisateur)
         if (audioContextRef.current?.state === 'suspended') {
             audioContextRef.current.resume();
         }
-
         if (recognitionState === 'recording') stopRecording();
         const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
@@ -407,10 +404,18 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                             }`}>
                                 {msg.image && <img src={msg.image} alt="Upload" className="max-w-full h-auto rounded-lg mb-2" />}
                                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
+                                {msg.role === 'model' && (
+                                    <button 
+                                        onClick={() => playTTS(msg.content)} 
+                                        className="mt-2 text-blue-500 hover:text-blue-600 flex items-center gap-1 text-xs font-bold"
+                                    >
+                                        <Volume2Icon className="w-3 h-3" /> Réécouter
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
-                    {isLoading && <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800 inline-block">...</div>}
+                    {isLoading && <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800 inline-block animate-pulse">...</div>}
                     <div ref={messagesEndRef} />
                 </div>
                 <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">

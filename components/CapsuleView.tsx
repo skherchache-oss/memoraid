@@ -12,7 +12,7 @@ import { ToastType } from '../hooks/useToast';
 import { addCommentToCapsule, saveCapsuleToCloud, assignTaskToMember, updateTaskStatus } from '../services/cloudService';
 import FocusMode from './FocusMode';
 import { useLanguage } from '../contexts/LanguageContext';
-import { checkImageQuota, incrementImageQuota, getQuotaStats } from '../services/quotaManager';
+import { checkImageQuota, incrementImageQuota, getQuotaStats, checkTtsQuota, incrementTtsQuota } from '../services/quotaManager';
 
 
 // Helper functions for audio decoding
@@ -26,10 +26,6 @@ function decode(base64: string) {
   return bytes;
 }
 
-/**
- * Décode les données PCM brutes renvoyées par Gemini TTS.
- * Version ultra-compatible pour déploiement web.
- */
 async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
@@ -39,14 +35,11 @@ async function decodeAudioData(
   const length = Math.floor(data.byteLength / 2);
   const dataInt16 = new Int16Array(length);
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  
   for (let i = 0; i < length; i++) {
     dataInt16[i] = view.getInt16(i * 2, true);
   }
-
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
     for (let i = 0; i < frameCount; i++) {
@@ -111,6 +104,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [selectedAssignee, setSelectedAssignee] = useState('');
     const [isFocusMode, setIsFocusMode] = useState(false);
 
+    // État local pour le quota vocal
+    const [isTtsLimitReached, setIsTtsLimitReached] = useState(!checkTtsQuota(!!isPremium).allowed);
+
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [capsule.id]);
@@ -131,6 +127,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setIsFocusMode(false);
         setNewTaskDesc('');
         setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
+        setIsTtsLimitReached(!checkTtsQuota(!!isPremium).allowed);
         
         return () => {
             stopAudio();
@@ -292,45 +289,50 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         document.body.removeChild(link);
     };
 
-    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS AVEC AUDIO FOCUS ET RÉVEIL IMMÉDIAT ---
+    // --- OPTIMISATION : LECTURE VOCALE AVEC GESTION DE QUOTA ROBUSTE ---
     const handleToggleSpeech = async (id: string, text: string) => {
         if (speakingId === id || isBuffering === id) {
             stopAudio();
             return;
         }
 
-        // 1. ARRÊT IMMÉDIAT ET RÉVEIL DU MOTEUR (Crucial pour mobile en production)
         stopAudio(); 
         stopRequestRef.current = false;
         
-        if (!audioContextRef.current) {
-            addToast("Audio indisponible.", 'error');
+        if (!audioContextRef.current) return;
+
+        // 1. Check local quota first
+        const quotaCheck = checkTtsQuota(!!isPremium);
+        if (!quotaCheck.allowed) {
+            addToast(quotaCheck.reason!, 'info');
+            setIsTtsLimitReached(true);
             return;
         }
 
-        // Action utilisateur synchrone pour lever le verrouillage mobile
+        // 2. Reactivate AudioContext
         if (audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
         }
 
         const apiKey = process.env.API_KEY;
         if (!apiKey) {
-            addToast("Clé API manquante dans la configuration de production.", 'error');
+            addToast("Service indisponible.", 'error');
             return;
         }
 
-        // DÉCLARATION SESSION MEDIA (Audio Focus)
+        // 3. Metadata
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: capsule.title,
                 artist: "Memoraid",
-                album: t('create_capsule'),
+                album: "Lecture Vocale",
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
             navigator.mediaSession.setActionHandler('stop', () => stopAudio());
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
+        // 4. Split by sentences to avoid 413 (Too large) but watch for 429
         const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
@@ -343,7 +345,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             if (index >= chunks.length || stopRequestRef.current) {
                 setSpeakingId(null);
                 setIsBuffering(null);
-                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'none';
                 return;
             }
 
@@ -372,7 +373,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 if (!base64Audio) throw new Error("Audio vide");
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
-                
                 if (stopRequestRef.current) return;
 
                 const source = audioContextRef.current!.createBufferSource();
@@ -385,15 +385,20 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                 setIsBuffering(null);
                 setSpeakingId(id);
-
-                if ("mediaSession" in navigator) navigator.mediaSession.playbackState = 'playing';
+                incrementTtsQuota(); // Track success
                 
                 source.start();
                 audioSourceRef.current = source;
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error("TTS Error:", error);
-                if (index === 0) addToast("Erreur de lecture vocale.", 'error');
+                const isRateLimit = error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED');
+                
+                if (isRateLimit) {
+                    addToast("Serveur vocal saturé. Réessayez dans une minute.", 'info');
+                } else if (index === 0) {
+                    addToast("La lecture vocale a échoué.", 'error');
+                }
                 stopAudio();
             }
         };
@@ -611,9 +616,10 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         </p>
                         <button
                             onClick={() => handleToggleSpeech('summary', capsule.summary)}
-                            className="absolute top-0 right-0 -mt-1 p-2 rounded-full text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                            className={`absolute top-0 right-0 -mt-1 p-2 rounded-full transition-colors ${isTtsLimitReached ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                             aria-label={speakingId === 'summary' ? "Arrêter la lecture" : "Lire le résumé à voix haute"}
-                            disabled={isBuffering === 'summary'}
+                            disabled={isBuffering === 'summary' || (isTtsLimitReached && speakingId !== 'summary')}
+                            title={isTtsLimitReached ? "Quota vocal atteint pour aujourd'hui" : ""}
                         >
                             {isBuffering === 'summary' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'summary' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                         </button>
@@ -667,9 +673,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                             <span>{t('key_concepts')}</span>
                             <button
                                 onClick={() => handleToggleSpeech('concepts-all', capsule.keyConcepts.map(c => `${c.concept}. ${c.explanation}`).join(' ')) }
-                                className="ml-auto p-1 rounded-full text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                                className={`ml-auto p-1 rounded-full transition-colors ${isTtsLimitReached ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                                 aria-label={speakingId === 'concepts-all' ? "Arrêter la lecture" : "Lire tous les concepts clés"}
-                                disabled={isBuffering === 'concepts-all'}
+                                disabled={isBuffering === 'concepts-all' || (isTtsLimitReached && speakingId !== 'concepts-all')}
                             >
                                 {isBuffering === 'concepts-all' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'concepts-all' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                             </button>
@@ -714,9 +720,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                             <span>{t('examples')}</span>
                              <button
                                 onClick={() => handleToggleSpeech('examples-all', capsule.examples.join(' ')) }
-                                className="ml-auto p-1 rounded-full text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                                className={`ml-auto p-1 rounded-full transition-colors ${isTtsLimitReached ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
                                 aria-label={speakingId === 'examples-all' ? "Arrêter la lecture" : "Lire tous les exemples"}
-                                disabled={isBuffering === 'examples-all'}
+                                disabled={isBuffering === 'examples-all' || (isTtsLimitReached && speakingId !== 'examples-all')}
                             >
                                 {isBuffering === 'examples-all' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'examples-all' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                             </button>
