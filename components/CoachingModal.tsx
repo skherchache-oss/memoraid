@@ -142,7 +142,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
-            if (selectedMode === 'oral') {
+            // Note: Oral mode autostart won't work on mobile without user gesture on the button first.
+            if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended') {
                 playTTS(text);
             }
         } catch (error) {
@@ -199,7 +200,10 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const apiKey = process.env.API_KEY;
+        if (!apiKey) return;
+
+        const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const playChunkSequence = async (index: number) => {
             if (index >= chunks.length || stopRequestRef.current) {
@@ -323,6 +327,12 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // REVEIL AUDIO IMMEDIAT SUR LE BOUTON SEND (Action utilisateur)
+        if (audioContextRef.current?.state === 'suspended') {
+            audioContextRef.current.resume();
+        }
+
         if (recognitionState === 'recording') stopRecording();
         const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;

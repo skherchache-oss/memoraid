@@ -28,7 +28,7 @@ function decode(base64: string) {
 
 /**
  * Décode les données PCM brutes renvoyées par Gemini TTS.
- * Sécurisé pour les déploiements de production.
+ * Version ultra-compatible pour déploiement web.
  */
 async function decodeAudioData(
   data: Uint8Array,
@@ -36,14 +36,11 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  // S'assurer que nous avons un nombre pair d'octets pour le Int16 (2 octets par échantillon)
-  // Si Gemini renvoie un octet traînant, on l'ignore pour éviter l'erreur "RangeError: offset is out of bounds"
   const length = Math.floor(data.byteLength / 2);
   const dataInt16 = new Int16Array(length);
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   
   for (let i = 0; i < length; i++) {
-    // Gemini renvoie du Little Endian PCM 16-bit
     dataInt16[i] = view.getInt16(i * 2, true);
   }
 
@@ -295,37 +292,34 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         document.body.removeChild(link);
     };
 
-    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS AVEC AUDIO FOCUS ET DÉCODAGE FIABILISÉ ---
+    // --- OPTIMISATION : LECTURE VOCALE PAR CHUNKS AVEC AUDIO FOCUS ET RÉVEIL IMMÉDIAT ---
     const handleToggleSpeech = async (id: string, text: string) => {
         if (speakingId === id || isBuffering === id) {
             stopAudio();
             return;
         }
 
+        // 1. ARRÊT IMMÉDIAT ET RÉVEIL DU MOTEUR (Crucial pour mobile en production)
         stopAudio(); 
         stopRequestRef.current = false;
         
+        if (!audioContextRef.current) {
+            addToast("Audio indisponible.", 'error');
+            return;
+        }
+
+        // Action utilisateur synchrone pour lever le verrouillage mobile
+        if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+        }
+
         const apiKey = process.env.API_KEY;
         if (!apiKey) {
-            addToast("Configuration API manquante. Vérifiez vos variables d'environnement.", 'error');
+            addToast("Clé API manquante dans la configuration de production.", 'error');
             return;
         }
 
-        if (!audioContextRef.current) {
-            addToast("Service audio indisponible sur ce navigateur.", 'error');
-            return;
-        }
-
-        // CRITIQUE : Réveiller l'AudioContext IMMÉDIATEMENT au clic utilisateur
-        // Avant tout appel asynchrone, sinon Safari mobile bloque le son.
-        if (audioContextRef.current.state === 'suspended') {
-            try {
-                await audioContextRef.current.resume();
-            } catch (e) {
-                console.error("Impossible de réactiver l'audio context:", e);
-            }
-        }
-
+        // DÉCLARATION SESSION MEDIA (Audio Focus)
         if ("mediaSession" in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: capsule.title,
@@ -337,7 +331,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
 
-        // Découpage sécurisé par phrases
         const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
         if (chunks.length === 0) return;
 
@@ -366,7 +359,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     },
                 });
 
-                // Extraction robuste
                 let base64Audio = '';
                 if (response.candidates?.[0]?.content?.parts) {
                     for (const part of response.candidates[0].content.parts) {
@@ -401,7 +393,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
             } catch (error) {
                 console.error("TTS Error:", error);
-                if (index === 0) addToast("Erreur de lecture vocale (Vérifiez la clé API).", 'error');
+                if (index === 0) addToast("Erreur de lecture vocale.", 'error');
                 stopAudio();
             }
         };
