@@ -90,7 +90,7 @@ async function decodeAudioData(
 }
 
 const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userProfile }) => {
-    const { language } = useLanguage();
+    const { language, t } = useLanguage();
     const { addToast } = useToast();
     const [chatSession, setChatSession] = useState<Chat | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -107,6 +107,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const recognitionRef = useRef<SpeechRecognition | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
+    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const wasLastInputFromSpeech = useRef<boolean>(false);
@@ -164,13 +165,42 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         initializeChat();
         return () => {
             if (recognitionRef.current) recognitionRef.current.abort();
+            stopAudio();
         };
     }, [initializeChat]);
 
+    const stopAudio = useCallback(() => {
+        if (audioSourceRef.current) {
+            try { audioSourceRef.current.stop(); } catch(e) {}
+            audioSourceRef.current.disconnect();
+            audioSourceRef.current = null;
+        }
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.playbackState = 'none';
+        }
+    }, []);
+
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
+        
+        // Audio Focus via Media Session
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: "Coach Memoraid",
+                artist: capsule.title,
+                album: t('mode_coach'),
+                artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
+            });
+            navigator.mediaSession.setActionHandler('pause', () => stopAudio());
+            navigator.mediaSession.setActionHandler('stop', () => stopAudio());
+        }
+
         try {
-            // Utiliser le helper sécurisé pour récupérer le client
+            // S'assurer que le contexte audio est réveillé
+            if (audioContextRef.current.state === 'suspended') {
+                await audioContextRef.current.resume();
+            }
+
             const ai = getAiClient();
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
@@ -184,14 +214,36 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             });
             const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
             if (base64Audio) {
+                if (audioSourceRef.current) {
+                    try { audioSourceRef.current.stop(); } catch(e) {}
+                }
+
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current, 24000, 1);
                 const source = audioContextRef.current.createBufferSource();
                 source.buffer = audioBuffer;
                 source.connect(audioContextRef.current.destination);
+                
+                source.onended = () => {
+                    if (audioSourceRef.current === source) {
+                        audioSourceRef.current = null;
+                        if ("mediaSession" in navigator) {
+                            navigator.mediaSession.playbackState = 'none';
+                        }
+                    }
+                };
+
+                if ("mediaSession" in navigator) {
+                    navigator.mediaSession.playbackState = 'playing';
+                }
+
                 source.start();
+                audioSourceRef.current = source;
             }
         } catch (e) {
             console.error("TTS Error", e);
+            if ("mediaSession" in navigator) {
+                navigator.mediaSession.playbackState = 'none';
+            }
         }
     };
 
@@ -217,16 +269,14 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
 
-        // 1. Blur
         if (textareaRef.current) textareaRef.current.blur();
 
-        // 2. Reset temp speech
         setTempSpeech('');
         wasLastInputFromSpeech.current = true; 
         
         setRecognitionState('recording');
 
-        recognition.onstart = () => { /* already handled via setRecognitionState */ };
+        recognition.onstart = () => { };
         recognition.onresult = (event: SpeechRecognitionEvent) => {
             let transcript = '';
             for (let i = 0; i < event.results.length; ++i) {
@@ -246,7 +296,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         };
         recognition.onend = () => {
             if (recognitionState === 'recording') {
-                // Auto stop (silence) - update UI
                 stopRecording();
             }
         };
@@ -266,7 +315,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         }
         setRecognitionState('idle');
         
-        // Commit temp speech to main input
         if (tempSpeech) {
             setUserInput(prev => {
                 const prefix = prev.trim();
@@ -297,13 +345,10 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // If recording, stop and commit before sending
         if (recognitionState === 'recording') {
             stopRecording();
         }
 
-        // Use a small timeout to ensure state update if recording was just stopped
-        // Or construct the final string directly
         const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
 
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
@@ -321,7 +366,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         setIsLoading(true);
 
         try {
-            // Build message content for Gemini
             let messageParts: any[] = [];
             
             if (userMessage.image) {
@@ -384,7 +428,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                         </button>
                     </div>
                     
-                    {/* Mode Selector */}
                     <div className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
                         {modes.map(mode => (
                             <button
@@ -435,7 +478,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 </div>
                 
                 <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 flex-shrink-0 bg-white dark:bg-zinc-900">
-                    {/* Image Preview */}
                     {selectedImage && (
                         <div className="mb-2 flex items-center gap-2 bg-slate-100 dark:bg-zinc-800 p-2 rounded-lg inline-block">
                             <img src={selectedImage} alt="Preview" className="h-12 w-12 object-cover rounded" />

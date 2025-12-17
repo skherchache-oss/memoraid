@@ -29,31 +29,9 @@ export const cleanMarkdown = (text: string): string => {
 
 // Helper pour obtenir le client IA de manière sécurisée et Lazy
 export const getAiClient = () => {
-    let apiKey = '';
-
-    // 1. Méthode Vite (Local / Vercel Client-Side)
-    try {
-        // @ts-ignore
-        if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
-            // @ts-ignore
-            apiKey = import.meta.env.VITE_API_KEY;
-        }
-    } catch (e) { /* Ignore */ }
-
-    // 2. Méthode Process (Node / Vercel Server-Side fallback)
-    if (!apiKey) {
-        try {
-            if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-                apiKey = process.env.API_KEY;
-            }
-        } catch (e) { /* Ignore */ }
-    }
-    
-    if (!apiKey) {
-        console.error("ERREUR CRITIQUE: Clé API manquante.");
-        throw new GeminiError("Clé API manquante. Vérifiez VITE_API_KEY.", false);
-    }
-    return new GoogleGenAI({ apiKey: apiKey });
+    // Fix: Obtained exclusively from the environment variable process.env.API_KEY.
+    // Initialization: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 // Helper pour obtenir le nom de la langue en toutes lettres pour le prompt
@@ -289,7 +267,8 @@ export const generateCognitiveCapsule = async (inputText: string, explicitSource
   `;
 
   try {
-      return await generateContentWithFallback("gemini-2.5-flash", { parts: [{ text: prompt }] }, capsuleSchema(language), sourceType);
+      // Fix: Use recommended model gemini-3-flash-preview for text tasks
+      return await generateContentWithFallback("gemini-3-flash-preview", { parts: [{ text: prompt }] }, capsuleSchema(language), sourceType);
   } catch (error) {
       throw handleGeminiError(error);
   }
@@ -309,8 +288,9 @@ export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: str
   const prompt = `Analyze document/image. Generate "Cognitive Capsule" JSON with at least 4 detailed key concepts and 4 quiz questions. ${strategy} ${pedagogy} OUTPUT: **${targetLang}**.`;
 
   try {
+      // Fix: Use recommended model gemini-3-flash-preview for multimodal content analysis
       return await generateContentWithFallback(
-          "gemini-2.5-flash",
+          "gemini-3-flash-preview",
           { parts: [{ inlineData: { mimeType: fileData.mimeType, data: fileData.data } }, { text: prompt }]},
           capsuleSchema(language),
           sourceType
@@ -325,14 +305,16 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     const targetLang = getLangName(language);
     const learningStyle = userProfile?.learningStyle || 'textual';
     let systemInstruction = `You are Memoraid Coach. Topic: "${capsule.title}". Mode: ${mode}. Style: ${learningStyle}. Language: ${targetLang}. Keep responses short and concise. Do NOT use markdown bolding (asterisks).`;
-    return ai.chats.create({ model: 'gemini-2.5-flash', config: { systemInstruction } });
+    // Fix: Use recommended model gemini-3-flash-preview for text chat
+    return ai.chats.create({ model: 'gemini-3-flash-preview', config: { systemInstruction } });
 };
 
 export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' | 'keyConcepts'>, language: Language = 'fr'): Promise<string> => {
     const ai = getAiClient();
     const prompt = `Topic: "${capsule.title}". Create a short, catchy mnemonic in ${getLangName(language)}. Plain text only, no asterisks, no formatting.`;
     try {
-        const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+        // Fix: Use recommended model gemini-3-flash-preview
+        const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
         return cleanMarkdown((response.text || "").trim());
     } catch (e) {
         return "Indisponible.";
@@ -374,8 +356,9 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
 export const expandKeyConcept = async (title: string, concept: string, context: string, language: Language = 'fr') => {
     const ai = getAiClient();
     try {
+        // Fix: Use recommended model gemini-3-flash-preview
         const response = await ai.models.generateContent({ 
-            model: "gemini-2.5-flash", 
+            model: "gemini-3-flash-preview", 
             contents: `Explain "${concept}" in context of "${title}". Lang: ${getLangName(language)}. Concise. No markdown formatting (no bold/italics).` 
         });
         return cleanMarkdown(response.text || "");
@@ -385,8 +368,9 @@ export const expandKeyConcept = async (title: string, concept: string, context: 
 export const regenerateQuiz = async (capsule: CognitiveCapsule, language: Language = 'fr') => {
     const ai = getAiClient();
     try {
+        // Fix: Use recommended model gemini-3-flash-preview
         const response = await ai.models.generateContent({ 
-            model: "gemini-2.5-flash", 
+            model: "gemini-3-flash-preview", 
             contents: `Generate quiz for "${capsule.title}". Lang: ${getLangName(language)}. Create at least 4 questions. JSON Array.`,
             config: { responseMimeType: "application/json" }
         });

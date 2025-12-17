@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group, Comment, CollaborativeTask } from '../types';
 import Quiz from './Quiz';
-import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon } from '../constants';
+import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon, LockIcon } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
 import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic, cleanMarkdown } from '../services/geminiService';
 import { downloadFlashcardsPdf, downloadCapsulePdf, generateFilename, downloadQuizPdf } from '../services/pdfService';
@@ -130,15 +130,24 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setQuotaStats(getQuotaStats(capsule.id, !!isPremium)); // Update quota on capsule change
         
         return () => {
-            if (audioSourceRef.current) {
-                audioSourceRef.current.stop();
-                audioSourceRef.current.disconnect();
-                audioSourceRef.current = null;
-            }
-            setSpeakingId(null);
-            setIsBuffering(null);
+            stopAudio();
         };
     }, [capsule, isPremium]);
+
+    const stopAudio = useCallback(() => {
+        if (audioSourceRef.current) {
+            try {
+                audioSourceRef.current.stop();
+            } catch (e) { /* ignore */ }
+            audioSourceRef.current.disconnect();
+            audioSourceRef.current = null;
+        }
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.playbackState = 'none';
+        }
+        setSpeakingId(null);
+        setIsBuffering(null);
+    }, []);
 
     // Quiz regeneration for due capsules
     useEffect(() => {
@@ -169,6 +178,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         };
 
         regenerate();
+        // Fix line 181: Removed undefined 'i18n' from dependency array
     }, [capsule, isDue, onUpdateQuiz, addToast, isRegeneratingQuiz, language, t]);
 
     // Initialize AudioContext
@@ -247,7 +257,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         onSetMemoryAid(capsule.id, null, null);
     };
     
-    // ... keep existing expansion and audio functions ...
     const handleToggleConcept = async (concept: string, originalExplanation: string) => {
         if (expandedConcepts[concept]) {
             const newExpanded = { ...expandedConcepts };
@@ -263,13 +272,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     
         try {
             const explanation = await expandKeyConcept(capsule.title, concept, originalExplanation, language);
-            // On nettoie le texte avant de l'afficher
             setExpandedConcepts(prev => ({ ...prev, [concept]: cleanMarkdown(explanation) }));
         } catch (err) {
             let errorMessage = "Une erreur est survenue.";
             
             if (err instanceof Error) {
-                // Parse potential JSON error message from Google API (Quota)
                 if (err.message.trim().startsWith('{')) {
                     try {
                         const errorObj = JSON.parse(err.message);
@@ -297,7 +304,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         if (!memoryAidImage) return;
         const link = document.createElement('a');
         link.href = memoryAidImage;
-        // CHANGE: Filename includes Memoraid
         link.download = generateFilename('Memoraid_Croquis', capsule.title || 'sans-titre', 'png');
         document.body.appendChild(link);
         link.click();
@@ -305,33 +311,46 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     };
 
     const handleToggleSpeech = async (id: string, text: string) => {
-        const apiKey = process.env.API_KEY;
-
-        if (!apiKey) {
-            addToast("La clé API n'est pas configurée pour la synthèse vocale.", 'error');
-            return;
-        }
-        
         if (!audioContextRef.current) {
             addToast("L'API Audio n'est pas supportée par votre navigateur.", 'error');
             return;
         }
-        if (audioSourceRef.current) {
-            audioSourceRef.current.stop();
-            audioSourceRef.current.disconnect();
-            audioSourceRef.current = null;
+
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: capsule.title,
+                artist: "Memoraid",
+                album: t('create_capsule'),
+                artwork: [
+                    { src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }
+                ]
+            });
+
+            navigator.mediaSession.setActionHandler('stop', () => stopAudio());
+            navigator.mediaSession.setActionHandler('pause', () => stopAudio());
         }
+
         if (speakingId === id || isBuffering === id) {
-            setSpeakingId(null);
-            setIsBuffering(null);
+            stopAudio();
             return;
         }
         
+        if (audioSourceRef.current) {
+            try { audioSourceRef.current.stop(); } catch(e) {}
+            audioSourceRef.current.disconnect();
+            audioSourceRef.current = null;
+        }
+
         setSpeakingId(null);
         setIsBuffering(id);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            if (audioContextRef.current.state === 'suspended') {
+                await audioContextRef.current.resume();
+            }
+
+            // Fix: Initialization always uses process.env.API_KEY directly as a named parameter
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
                 contents: [{ parts: [{ text: text }] }],
@@ -351,9 +370,19 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             source.connect(audioContextRef.current.destination);
             
             source.onended = () => {
-                setSpeakingId(null);
-                if (audioSourceRef.current === source) audioSourceRef.current = null;
+                if (audioSourceRef.current === source) {
+                    setSpeakingId(null);
+                    audioSourceRef.current = null;
+                    if ("mediaSession" in navigator) {
+                        navigator.mediaSession.playbackState = 'none';
+                    }
+                }
             };
+
+            if ("mediaSession" in navigator) {
+                navigator.mediaSession.playbackState = 'playing';
+            }
+
             source.start();
             audioSourceRef.current = source;
             setSpeakingId(id);
@@ -361,6 +390,9 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             console.error("Erreur de synthèse vocale Gemini:", error);
             addToast("Impossible de générer l'audio. Veuillez réessayer.", 'error');
             setSpeakingId(null);
+            if ("mediaSession" in navigator) {
+                navigator.mediaSession.playbackState = 'none';
+            }
         } finally {
             setIsBuffering(null);
         }
@@ -780,78 +812,103 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                 <ImageIcon className="w-6 h-6 mr-3 text-violet-500" />
                                 <span>{t('memory_aid_sketch')}</span>
                             </h3>
-                            <div className="flex flex-col items-end">
-                                <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                                    Images: {quotaStats.capsuleUsed}/{quotaStats.capsuleLimit}
-                                </span>
-                                {quotaStats.capsuleUsed >= quotaStats.capsuleLimit && !isPremium && (
-                                    <span className="text-[10px] text-amber-500 font-bold mt-1">
-                                        Max atteint (Passer Premium)
+                            {isPremium && (
+                                <div className="flex flex-col items-end">
+                                    <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
+                                        Images: {quotaStats.capsuleUsed}/{quotaStats.capsuleLimit}
                                     </span>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                         
-                        {!memoryAidImage && !isGeneratingImage && !imageError && (
-                            <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
-                                <p className="text-slate-600 dark:text-zinc-400 mb-2">
-                                    {t('sketch_placeholder_text')}
-                                </p>
-                                <p className="text-xs text-slate-400 dark:text-zinc-500 italic mb-6">
-                                    {t('sketch_warning')}
-                                </p>
-                                <button
-                                    onClick={handleGenerateDrawing}
-                                    className="flex items-center justify-center gap-2 mx-auto px-6 py-3 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors font-semibold shadow-sm"
-                                >
-                                    <SparklesIcon className="w-5 h-5 text-violet-500"/>
-                                    {t('generate_sketch')}
-                                </button>
-                            </div>
-                        )}
-                        {isGeneratingImage && (
-                            <div className="w-full h-64 flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
-                                <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-10 w-10 mb-4 animate-spin border-t-violet-500"></div>
-                                <p className="text-slate-600 dark:text-zinc-400">{t('sketching')}</p>
-                            </div>
-                        )}
-                        {imageError && (
-                             <div className="p-6 bg-red-50 dark:bg-red-900/40 rounded-xl text-center border border-red-100 dark:border-red-800">
-                                 <p className="text-red-700 dark:text-red-300">{imageError}</p>
-                                 <button
-                                    onClick={handleGenerateDrawing}
-                                    className="mt-4 flex items-center justify-center gap-2 mx-auto px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors font-semibold"
-                                >
-                                    <RefreshCwIcon className="w-5 h-5"/>
-                                    {t('retry')}
-                                </button>
-                             </div>
-                        )}
-                        {memoryAidImage && (
-                            <div className="p-4 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
-                                <img src={memoryAidImage} alt="Dessin aide-mémoire" className="rounded-lg w-full bg-white shadow-sm" />
-                                {memoryAidDescription && (
-                                    <div className="mt-4 p-4 bg-white dark:bg-zinc-800 rounded-lg border-l-4 border-violet-400 shadow-sm">
-                                        <p className="text-sm text-slate-700 dark:text-zinc-300 italic">
-                                            <span className="font-semibold text-violet-600 dark:text-violet-400 not-italic mr-1">{t('info')}</span>
-                                            {memoryAidDescription}
-                                        </p>
+                        {!isPremium ? (
+                            /* ÉTAT VERROUILLÉ POUR LES UTILISATEURS GRATUITS */
+                            <div className="p-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-zinc-900 dark:to-zinc-800 rounded-xl border border-amber-200 dark:border-zinc-700 text-center relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                                    <CrownIcon className="w-24 h-24 text-amber-500" />
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <LockIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                                     </div>
-                                )}
-                                <div className="mt-4 flex justify-center items-center gap-6">
-                                    <button onClick={handleClearDrawing} className="text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
-                                        {t('erase')}
-                                    </button>
-                                    <button onClick={handleGenerateDrawing} className="text-sm font-semibold text-violet-500 hover:text-violet-700 dark:hover:text-violet-400 transition-colors flex items-center gap-1">
-                                        <RefreshCwIcon className="w-4 h-4" />
-                                        {t('regenerate')}
-                                    </button>
-                                    <button onClick={handleDownloadDrawing} className="text-sm font-semibold text-sky-500 hover:text-sky-700 dark:hover:text-sky-400 transition-colors flex items-center gap-1">
-                                        <DownloadIcon className="w-4 h-4" />
-                                        {t('download')}
+                                    <h4 className="font-bold text-slate-800 dark:text-zinc-100 mb-2">{t('premium_features')}</h4>
+                                    <p className="text-sm text-slate-600 dark:text-zinc-400 mb-6 max-w-sm mx-auto leading-relaxed">
+                                        {t('sketch_premium_only')}
+                                    </p>
+                                    <button 
+                                        onClick={onBackToList} /* Simple redirection ou on pourrait ouvrir le profil */
+                                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-bold shadow-md transition-all transform hover:scale-105 active:scale-95"
+                                    >
+                                        <CrownIcon className="w-4 h-4" />
+                                        {t('go_premium')}
                                     </button>
                                 </div>
                             </div>
+                        ) : (
+                            /* ÉTAT NORMAL POUR LES UTILISATEURS PREMIUM */
+                            <>
+                                {!memoryAidImage && !isGeneratingImage && !imageError && (
+                                    <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
+                                        <p className="text-slate-600 dark:text-zinc-400 mb-2">
+                                            {t('sketch_placeholder_text')}
+                                        </p>
+                                        <p className="text-xs text-slate-400 dark:text-zinc-500 italic mb-6">
+                                            {t('sketch_warning')}
+                                        </p>
+                                        <button
+                                            onClick={handleGenerateDrawing}
+                                            className="flex items-center justify-center gap-2 mx-auto px-6 py-3 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors font-semibold shadow-sm"
+                                        >
+                                            <SparklesIcon className="w-5 h-5 text-violet-500"/>
+                                            {t('generate_sketch')}
+                                        </button>
+                                    </div>
+                                )}
+                                {isGeneratingImage && (
+                                    <div className="w-full h-64 flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
+                                        <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-10 w-10 mb-4 animate-spin border-t-violet-500"></div>
+                                        <p className="text-slate-600 dark:text-zinc-400">{t('sketching')}</p>
+                                    </div>
+                                )}
+                                {imageError && (
+                                     <div className="p-6 bg-red-50 dark:bg-red-900/40 rounded-xl text-center border border-red-100 dark:border-red-800">
+                                         <p className="text-red-700 dark:text-red-300">{imageError}</p>
+                                         <button
+                                            onClick={handleGenerateDrawing}
+                                            className="mt-4 flex items-center justify-center gap-2 mx-auto px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors font-semibold"
+                                        >
+                                            <RefreshCwIcon className="w-5 h-5"/>
+                                            {t('retry')}
+                                        </button>
+                                     </div>
+                                )}
+                                {memoryAidImage && (
+                                    <div className="p-4 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
+                                        <img src={memoryAidImage} alt="Dessin aide-mémoire" className="rounded-lg w-full bg-white shadow-sm" />
+                                        {memoryAidDescription && (
+                                            <div className="mt-4 p-4 bg-white dark:bg-zinc-800 rounded-lg border-l-4 border-violet-400 shadow-sm">
+                                                <p className="text-sm text-slate-700 dark:text-zinc-300 italic">
+                                                    <span className="font-semibold text-violet-600 dark:text-violet-400 not-italic mr-1">{t('info')}</span>
+                                                    {memoryAidDescription}
+                                                </p>
+                                            </div>
+                                        )}
+                                        <div className="mt-4 flex justify-center items-center gap-6">
+                                            <button onClick={handleClearDrawing} className="text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
+                                                {t('erase')}
+                                            </button>
+                                            <button onClick={handleGenerateDrawing} className="text-sm font-semibold text-violet-500 hover:text-violet-700 dark:hover:text-violet-400 transition-colors flex items-center gap-1">
+                                                <RefreshCwIcon className="w-4 h-4" />
+                                                {t('regenerate')}
+                                            </button>
+                                            <button onClick={handleDownloadDrawing} className="text-sm font-semibold text-sky-500 hover:text-sky-700 dark:hover:text-sky-400 transition-colors flex items-center gap-1">
+                                                <DownloadIcon className="w-4 h-4" />
+                                                {t('download')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                     

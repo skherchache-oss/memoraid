@@ -2,7 +2,7 @@
 const QUOTA_KEY = 'memoraid_img_quota_v2';
 
 const LIMITS = {
-    FREE: { DAILY: 20, CAPSULE: 2 },
+    FREE: { DAILY: 0, CAPSULE: 0 }, // 0 pour le service gratuit
     PREMIUM: { DAILY: 500, CAPSULE: 10 }
 };
 
@@ -19,7 +19,6 @@ const loadState = (): QuotaState => {
         const stored = localStorage.getItem(QUOTA_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
-            // Si la date stockée est aujourd'hui, on retourne l'état
             if (parsed.date === getToday()) {
                 return parsed;
             }
@@ -27,7 +26,6 @@ const loadState = (): QuotaState => {
     } catch(e) {
         console.error("Erreur lecture quota", e);
     }
-    // Sinon (pas de données ou date différente), on reset pour la nouvelle journée
     return { date: getToday(), dailyCount: 0, capsuleCounts: {} };
 };
 
@@ -41,19 +39,23 @@ const saveState = (state: QuotaState) => {
 
 /**
  * Vérifie si l'utilisateur peut générer une image.
- * Retourne un objet contenant le résultat et la raison si refusé.
  */
 export const checkImageQuota = (capsuleId: string, isPremium: boolean = false): { allowed: boolean, reason?: string } => {
+    if (!isPremium) {
+        return { 
+            allowed: false, 
+            reason: "Cette fonctionnalité est réservée aux membres Memoraid Premium." 
+        };
+    }
+
     const state = loadState();
-    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
+    const limits = LIMITS.PREMIUM;
 
     // 1. Vérification Limite Journalière
     if (state.dailyCount >= limits.DAILY) {
         return { 
             allowed: false, 
-            reason: isPremium 
-                ? "Limite journalière de sécurité atteinte (500)." 
-                : "Quota journalier atteint (20). Revenez demain ou passez Premium pour continuer." 
+            reason: "Limite journalière de sécurité atteinte (500)." 
         };
     }
 
@@ -62,9 +64,7 @@ export const checkImageQuota = (capsuleId: string, isPremium: boolean = false): 
     if (capsuleCount >= limits.CAPSULE) {
         return { 
             allowed: false, 
-            reason: isPremium 
-                ? "Limite par capsule atteinte (10)." 
-                : "Limite de 2 images par capsule atteinte. Passez Premium pour en générer plus." 
+            reason: "Limite par capsule atteinte (10 images max)." 
         };
     }
 
@@ -76,7 +76,6 @@ export const checkImageQuota = (capsuleId: string, isPremium: boolean = false): 
  */
 export const incrementImageQuota = (capsuleId: string): void => {
     const state = loadState();
-    // Double vérification date (au cas où l'app est restée ouverte la nuit)
     if (state.date !== getToday()) {
         state.date = getToday();
         state.dailyCount = 0;
@@ -90,13 +89,11 @@ export const incrementImageQuota = (capsuleId: string): void => {
 
 /**
  * Retourne les statistiques actuelles pour l'affichage UI.
- * Cette fonction DOIT être exportée pour CapsuleView.
  */
 export const getQuotaStats = (capsuleId: string, isPremium: boolean = false) => {
     const state = loadState();
     const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
     
-    // Si changement de jour détecté à la lecture
     if (state.date !== getToday()) {
         return {
             capsuleUsed: 0,
@@ -114,7 +111,6 @@ export const getQuotaStats = (capsuleId: string, isPremium: boolean = false) => 
     };
 };
 
-// Fonctions dépréciées (gardées pour compatibilité temporaire si besoin)
 export const canGenerateCroquis = () => true; 
 export const registerCroquis = () => {};
 export const getRemainingQuota = () => 0;
