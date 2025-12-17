@@ -1,91 +1,107 @@
 
-const IMG_QUOTA_KEY = 'memoraid_img_quota_v2';
-const TTS_QUOTA_KEY = 'memoraid_tts_quota_v1';
+/**
+ * Quota Manager - Production Grade
+ * Gère les limites de l'API Gemini en mode Gratuit sans backend.
+ */
+
+const TTS_SAFETY_KEY = 'memoraid_tts_safety_v2';
 
 const LIMITS = {
-    FREE: { 
-        DAILY_IMG: 0, 
-        DAILY_TTS: 15, // Google Free Tier est très strict (env. 10-20/jour en prod)
-        SESSION_MAX_CHUNKS: 4 // Max phrases lues par clic pour économiser
+    FREE: {
+        DAILY_TOTAL: 12,        // Limite conservatrice pour éviter les bans IP
+        MAX_CHUNKS: 3,         // Max phrases lues par session pour économiser
     },
-    PREMIUM: { 
-        DAILY_IMG: 500, 
-        DAILY_TTS: 300,
-        SESSION_MAX_CHUNKS: 20
+    PREMIUM: {
+        DAILY_TOTAL: 500,
+        MAX_CHUNKS: 20,
     }
 };
 
-interface QuotaState {
+interface TtsSafetyState {
     date: string;
-    dailyCount: number;
-    isLocked?: boolean; // Verrouillé suite à une erreur 429 réelle
+    count: number;
+    isLocked: boolean; // Verrouillé si une erreur 429 a été rencontrée
 }
 
 const getToday = () => new Date().toISOString().split('T')[0];
 
-const loadState = (key: string): QuotaState => {
+const loadSafetyState = (): TtsSafetyState => {
     try {
-        const stored = localStorage.getItem(key);
+        const stored = localStorage.getItem(TTS_SAFETY_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.date === getToday()) return parsed;
         }
-    } catch(e) { console.error("Quota Read Error", e); }
-    return { date: getToday(), dailyCount: 0 };
+    } catch (e) {
+        console.error("Safety State Load Error", e);
+    }
+    return { date: getToday(), count: 0, isLocked: false };
 };
 
-export const checkTtsQuota = (isPremium: boolean = false) => {
-    const state = loadState(TTS_QUOTA_KEY);
-    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
-    
-    if (state.isLocked) {
-        return { allowed: false, reason: "Quota épuisé (Serveur saturé). Revenez demain." };
-    }
-    
-    if (state.dailyCount >= limits.DAILY_TTS) {
-        return { allowed: false, reason: "Limite quotidienne de lecture vocale atteinte." };
-    }
-    
-    return { allowed: true, sessionLimit: limits.SESSION_MAX_CHUNKS };
-};
-
-export const incrementTtsQuota = () => {
-    const state = loadState(TTS_QUOTA_KEY);
-    state.dailyCount++;
-    localStorage.setItem(TTS_QUOTA_KEY, JSON.stringify(state));
+const saveSafetyState = (state: TtsSafetyState) => {
+    localStorage.setItem(TTS_SAFETY_KEY, JSON.stringify(state));
 };
 
 /**
- * Appelé quand l'API renvoie une erreur 429 réelle.
- * Bloque le service localement pour éviter de "spammer" Google inutilement.
+ * Vérifie si le TTS est disponible avant de lancer l'appel.
  */
-export const lockTtsQuota = () => {
-    const state = loadState(TTS_QUOTA_KEY);
-    state.isLocked = true;
-    localStorage.setItem(TTS_QUOTA_KEY, JSON.stringify(state));
-};
-
-export const getTtsRemaining = (isPremium: boolean = false) => {
-    const state = loadState(TTS_QUOTA_KEY);
+export const checkTtsAvailability = (isPremium: boolean = false) => {
+    const state = loadSafetyState();
     const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
-    if (state.isLocked) return 0;
-    return Math.max(0, limits.DAILY_TTS - state.dailyCount);
+
+    if (state.isLocked) {
+        return { 
+            available: false, 
+            reason: "Le service vocal est temporairement saturé. Réessayez demain.",
+            code: 'LOCKED'
+        };
+    }
+
+    if (state.count >= limits.DAILY_TOTAL) {
+        return { 
+            available: false, 
+            reason: "Limite quotidienne de lecture atteinte. Revenez demain !",
+            code: 'QUOTA'
+        };
+    }
+
+    return { 
+        available: true, 
+        maxChunks: limits.MAX_CHUNKS 
+    };
 };
 
-// --- IMAGE QUOTA (EXISTING) ---
+/**
+ * Enregistre un succès d'appel TTS.
+ */
+export const recordTtsSuccess = () => {
+    const state = loadSafetyState();
+    state.count += 1;
+    saveSafetyState(state);
+};
+
+/**
+ * Verrouille le service suite à une erreur 429 réelle.
+ */
+export const triggerTtsSafetyLock = () => {
+    const state = loadSafetyState();
+    state.isLocked = true;
+    saveSafetyState(state);
+};
+
+// --- IMAGE QUOTA (Maintenu pour compatibilité) ---
+const IMG_QUOTA_KEY = 'memoraid_img_quota_v2';
 export const checkImageQuota = (capsuleId: string, isPremium: boolean = false) => {
-    if (!isPremium) return { allowed: false, reason: "Mode Premium requis pour les croquis." };
-    const state = loadState(IMG_QUOTA_KEY);
+    if (!isPremium) return { allowed: false, reason: "Mode Premium requis." };
     return { allowed: true };
 };
-
-export const incrementImageQuota = (capsuleId: string) => {
-    const state = loadState(IMG_QUOTA_KEY);
-    state.dailyCount++;
-    localStorage.setItem(IMG_QUOTA_KEY, JSON.stringify(state));
-};
-
+export const incrementImageQuota = (capsuleId: string) => {};
 export const getQuotaStats = (capsuleId: string, isPremium: boolean = false) => {
-    const state = loadState(IMG_QUOTA_KEY);
-    return { capsuleUsed: 0, capsuleLimit: 5, dailyUsed: state.dailyCount, dailyLimit: 100 };
+    return { capsuleUsed: 0, capsuleLimit: 5, dailyUsed: 0, dailyLimit: 100 };
+};
+export const getTtsRemaining = (isPremium: boolean = false) => {
+    const state = loadSafetyState();
+    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
+    if (state.isLocked) return 0;
+    return Math.max(0, limits.DAILY_TOTAL - state.count);
 };

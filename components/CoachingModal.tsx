@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CognitiveCapsule, ChatMessage, CoachingMode, UserProfile } from '../types';
 import { createCoachingSession, getAiClient } from '../services/geminiService';
@@ -7,7 +6,7 @@ import type { Chat, GenerateContentResponse } from '@google/genai';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
-import { checkTtsQuota, incrementTtsQuota, lockTtsQuota } from '../services/quotaManager';
+import { checkTtsAvailability, recordTtsSuccess, triggerTtsSafetyLock } from '../services/quotaManager';
 
 // Interfaces for Web Speech API
 interface SpeechRecognitionAlternative {
@@ -133,7 +132,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             setChatSession(session);
             
             let introMsg = "";
-            if (selectedMode === 'solver') introMsg = language === 'fr' ? "Bonjour. Quel exercice ou problème souhaitez-vous résoudre aujourd'hui ? Vous pouvez envoyer une photo." : "Hello. What exercise or problem would you like to solve today? You can upload a photo.";
+            if (selectedMode === 'solver') introMsg = language === 'fr' ? "Bonjour. Quel exercice ou problème souhaitez-vous résoudre aujourd'hui ?" : "Hello. What exercise or problem would you like to solve today?";
             else introMsg = "";
 
             const initialResponse: GenerateContentResponse = await session.sendMessage({ message: introMsg });
@@ -141,8 +140,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             setMessages([{ role: 'model', content: text }]);
             
             // On ne lit l'intro que si le quota permet au moins un fragment
-            const quota = checkTtsQuota(!!userProfile.isPremium);
-            if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended' && quota.allowed) {
+            const availability = checkTtsAvailability(!!userProfile.isPremium);
+            if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended' && availability.available) {
                 playTTS(text);
             }
         } catch (error) {
@@ -177,10 +176,10 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
-        // 1. VÉRIFICATION QUOTA
-        const quota = checkTtsQuota(!!userProfile.isPremium);
-        if (!quota.allowed) {
-            addToast(quota.reason!, "info");
+        // 1. VÉRIFICATION QUOTA PRÉVENTIVE
+        const availability = checkTtsAvailability(!!userProfile.isPremium);
+        if (!availability.available) {
+            addToast(availability.reason!, "info");
             return;
         }
 
@@ -191,20 +190,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             await audioContextRef.current.resume();
         }
 
-        if ("mediaSession" in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: "Coach Memoraid",
-                artist: capsule.title,
-                album: "Coaching Vocal",
-                artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
-            });
-            navigator.mediaSession.setActionHandler('pause', () => stopAudio());
-            navigator.mediaSession.setActionHandler('stop', () => stopAudio());
-        }
-
-        // 2. BURST CONTROL
         const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
-        const limit = quota.sessionLimit || 4;
+        const limit = availability.maxChunks || 3;
         const chunks = allChunks.slice(0, limit);
 
         if (chunks.length === 0) return;
@@ -224,7 +211,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                     config: {
                         responseModalities: [Modality.AUDIO],
                         speechConfig: {
-                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
                         },
                     },
                 });
@@ -252,15 +239,17 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                     if (!stopRequestRef.current) playChunkSequence(index + 1);
                 };
 
-                incrementTtsQuota();
+                // Enregistre le succès
+                recordTtsSuccess();
+                
                 source.start();
                 audioSourceRef.current = source;
 
             } catch (e: any) {
-                console.error("TTS Error", e);
-                if (e?.message?.includes('429')) {
-                    lockTtsQuota(); // APPRENTISSAGE : Verrouillage réel
-                    addToast("Vocal saturé (Quota atteint). Désactivé jusqu'à demain.", "error");
+                // 2. SAFETY LOCK SUR ÉCHEC RÉEL
+                if (e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED')) {
+                    triggerTtsSafetyLock();
+                    addToast("Vocal saturé. Désactivation temporaire.", "info");
                 }
                 stopAudio();
             }
@@ -269,66 +258,76 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         playChunkSequence(0);
     };
 
-    const cleanTranscription = (text: string): string => {
-        return text
-            .replace(/\b(euh+|hum+|ben|bah|genre|bref|enfin|um+|uh+|like|you know)\b/gi, '')
-            .replace(/\s+/g, ' ')
-            .replace(/\s+([.,!?])/g, '$1')
-            .trim()
-            .replace(/^\w/, c => c.toUpperCase());
-    };
+    // --- FIX: Added missing speech recognition handlers ---
 
-    const startRecording = useCallback(() => {
+    // Start voice recognition
+    const startRecording = () => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
-            addToast("Microphone non supporté.", "error");
+            addToast(t('micro_not_supported'), "error");
             return;
         }
-        if (recognitionRef.current) recognitionRef.current.abort();
+
+        if (recognitionRef.current) {
+            recognitionRef.current.abort();
+        }
+
         const recognition = new SpeechRecognitionAPI();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
-        if (textareaRef.current) textareaRef.current.blur();
+
         setTempSpeech('');
         setRecognitionState('recording');
-        recognition.onresult = (event: SpeechRecognitionEvent) => {
+
+        recognition.onresult = (event: any) => {
             let transcript = '';
             for (let i = 0; i < event.results.length; ++i) {
                 transcript += event.results[i][0].transcript;
             }
-            setTempSpeech(cleanTranscription(transcript));
+            setTempSpeech(transcript);
         };
-        recognition.onerror = () => {
-            stopRecording();
-            setRecognitionState('error');
-        };
-        recognition.onend = () => { if (recognitionState === 'recording') stopRecording(); };
-        recognitionRef.current = recognition;
-        try { recognition.start(); } catch (e) { setRecognitionState('error'); }
-    }, [language, addToast, recognitionState]);
 
-    const stopRecording = useCallback(() => {
-        if (recognitionRef.current) recognitionRef.current.stop();
+        recognition.onerror = (event: any) => {
+            console.error("Speech error", event.error);
+            setRecognitionState('error');
+            stopRecording();
+        };
+
+        recognition.onend = () => {
+            setRecognitionState('idle');
+        };
+
+        recognitionRef.current = recognition;
+        try {
+            recognition.start();
+        } catch (e) {
+            setRecognitionState('idle');
+        }
+    };
+
+    // Stop and commit speech to text
+    const stopRecording = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+        }
         setRecognitionState('idle');
         if (tempSpeech) {
             setUserInput(prev => {
                 const prefix = prev.trim();
                 const suffix = tempSpeech.trim();
-                return prefix ? prefix + " " + suffix : suffix;
+                return prefix ? `${prefix} ${suffix}` : suffix;
             });
             setTempSpeech('');
         }
-    }, [tempSpeech]);
+    };
 
-    const handleToggleRecording = () => recognitionState === 'recording' ? stopRecording() : startRecording();
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => setSelectedImage(reader.result as string);
-            reader.readAsDataURL(file);
+    // Toggle recording state
+    const toggleRecording = () => {
+        if (recognitionState === 'recording') {
+            stopRecording();
+        } else {
+            startRecording();
         }
     };
 
@@ -358,8 +357,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             const responseText = response.text;
             setMessages(prev => [...prev, { role: 'model', content: responseText }]);
             
-            // Check quota before auto-playing
-            if (selectedMode === 'oral' && checkTtsQuota(!!userProfile.isPremium).allowed) {
+            // Check availability before oral auto-play
+            if (selectedMode === 'oral' && checkTtsAvailability(!!userProfile.isPremium).available) {
                 playTTS(responseText);
             }
         } catch (error) {
@@ -418,10 +417,10 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                                 {msg.role === 'model' && (
                                     <button 
                                         onClick={() => playTTS(msg.content)} 
-                                        className={`mt-2 flex items-center gap-1 text-xs font-bold transition-opacity ${!checkTtsQuota(!!userProfile.isPremium).allowed ? 'text-slate-400 cursor-not-allowed' : 'text-blue-500 hover:text-blue-600'}`}
-                                        disabled={!checkTtsQuota(!!userProfile.isPremium).allowed}
+                                        className={`mt-2 flex items-center gap-1 text-xs font-bold transition-opacity ${!checkTtsAvailability(!!userProfile.isPremium).available ? 'text-slate-400 cursor-not-allowed' : 'text-blue-500 hover:text-blue-600'}`}
+                                        disabled={!checkTtsAvailability(!!userProfile.isPremium).available}
                                     >
-                                        <Volume2Icon className="w-3 h-3" /> Réécouter
+                                        <Volume2Icon className="w-3 h-3" /> {checkTtsAvailability(!!userProfile.isPremium).available ? 'Réécouter' : 'Vocal indisponible'}
                                     </button>
                                 )}
                             </div>
@@ -432,23 +431,23 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 </div>
                 <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <form onSubmit={handleSendMessage} className="flex items-end gap-2">
-                        {selectedMode === 'solver' && (
-                            <>
-                                <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 bg-slate-100 dark:bg-zinc-800 rounded-xl"><ImageIcon className="w-5 h-5" /></button>
-                            </>
-                        )}
                         <div className="flex-grow relative">
+                             <button
+                                type="button"
+                                onClick={toggleRecording}
+                                className={`absolute left-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-colors z-10 ${recognitionState === 'recording' ? 'bg-red-100 text-red-600 animate-pulse' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                             >
+                                <MicrophoneIcon className="w-5 h-5" />
+                             </button>
                              <textarea
                                 ref={textareaRef}
                                 value={displayValue}
                                 onChange={(e) => !isRecording && setUserInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage(e))}
                                 placeholder={isRecording ? "Écoute..." : "Message..."}
-                                className="w-full pl-4 pr-10 py-3 bg-slate-100 dark:bg-zinc-800 rounded-xl resize-none"
+                                className="w-full pl-11 pr-10 py-3 bg-slate-100 dark:bg-zinc-800 rounded-xl resize-none"
                                 rows={1}
                             />
-                             <button type="button" onClick={handleToggleRecording} className={`absolute right-2 bottom-2 p-1.5 ${isRecording ? 'text-red-600' : 'text-slate-400'}`}><MicrophoneIcon className="w-5 h-5" /></button>
                         </div>
                         <button type="submit" disabled={isLoading} className="p-3 bg-blue-600 text-white rounded-xl"><SendIcon className="w-5 h-5" /></button>
                     </form>

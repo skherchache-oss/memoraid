@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group, Comment, CollaborativeTask } from '../types';
@@ -12,7 +11,7 @@ import { ToastType } from '../hooks/useToast';
 import { addCommentToCapsule, saveCapsuleToCloud, assignTaskToMember, updateTaskStatus } from '../services/cloudService';
 import FocusMode from './FocusMode';
 import { useLanguage } from '../contexts/LanguageContext';
-import { checkImageQuota, incrementImageQuota, getQuotaStats, checkTtsQuota, incrementTtsQuota, lockTtsQuota } from '../services/quotaManager';
+import { checkImageQuota, incrementImageQuota, getQuotaStats, checkTtsAvailability, recordTtsSuccess, triggerTtsSafetyLock } from '../services/quotaManager';
 
 
 // Helper functions for audio decoding
@@ -84,8 +83,8 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const stopRequestRef = useRef<boolean>(false);
 
-    const [memoryAidImage, setMemoryAidImage] = useState<string | null>(null);
-    const [memoryAidDescription, setMemoryAidDescription] = useState<string | null>(null);
+    const [memoryAidImage, setMemoryAidImage] = useState<string | null>(capsule.memoryAidImage || null);
+    const [memoryAidDescription, setMemoryAidDescription] = useState<string | null>(capsule.memoryAidDescription || null);
     const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
     const [imageError, setImageError] = useState<string | null>(null);
     
@@ -104,7 +103,8 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
     const [selectedAssignee, setSelectedAssignee] = useState('');
     const [isFocusMode, setIsFocusMode] = useState(false);
 
-    const [isTtsLimitReached, setIsTtsLimitReached] = useState(!checkTtsQuota(!!isPremium).allowed);
+    // État de disponibilité de la voix
+    const [voiceStatus, setVoiceStatus] = useState(checkTtsAvailability(!!isPremium));
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -126,7 +126,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setIsFocusMode(false);
         setNewTaskDesc('');
         setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
-        setIsTtsLimitReached(!checkTtsQuota(!!isPremium).allowed);
+        setVoiceStatus(checkTtsAvailability(!!isPremium));
         
         return () => {
             stopAudio();
@@ -149,145 +149,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         setIsBuffering(null);
     }, []);
 
-    useEffect(() => {
-        const regenerate = async () => {
-            if (isDue && !isRegeneratingQuiz && !capsule.isShared) {
-                const alreadyRegeneratedKey = `quiz_regen_${capsule.id}_${capsule.lastReviewed}`;
-                if (sessionStorage.getItem(alreadyRegeneratedKey)) return;
-                sessionStorage.setItem(alreadyRegeneratedKey, 'attempted');
-                setIsRegeneratingQuiz(true);
-                try {
-                    const newQuiz = await regenerateQuiz(capsule, language);
-                    if (newQuiz && newQuiz.length > 0) {
-                        onUpdateQuiz(capsule.id, newQuiz);
-                        addToast(t('quiz_updated'), 'success');
-                    }
-                } catch (e) {
-                    console.warn("Quiz auto-regeneration failed:", e);
-                } finally {
-                    setIsRegeneratingQuiz(false);
-                }
-            }
-        };
-        regenerate();
-    }, [capsule, isDue, onUpdateQuiz, addToast, isRegeneratingQuiz, language, t]);
-
-    useEffect(() => {
-        if (!audioContextRef.current) {
-            try {
-                const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-                audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-            } catch (e) {
-                console.error("Web Audio API is not supported in this browser.", e);
-            }
-        }
-    }, []);
-
-    const handleGenerateDrawing = async () => {
-        const quotaCheck = checkImageQuota(capsule.id, !!isPremium);
-        if (!quotaCheck.allowed) {
-            setImageError(`⚠️ ${quotaCheck.reason}`);
-            return;
-        }
-        setIsGeneratingImage(true);
-        setImageError(null);
-        setMemoryAidImage(null);
-        setMemoryAidDescription(null);
-        try {
-            const result = await generateMemoryAidDrawing({
-                title: capsule.title,
-                summary: capsule.summary,
-                keyConcepts: capsule.keyConcepts,
-            }, language);
-            const fullImageSrc = `data:image/png;base64,${result.imageData}`;
-            setMemoryAidImage(fullImageSrc);
-            setMemoryAidDescription(result.description);
-            onSetMemoryAid(capsule.id, fullImageSrc, result.description);
-            incrementImageQuota(capsule.id);
-            setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
-        } catch (err) {
-            setImageError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue.');
-        } finally {
-            setIsGeneratingImage(false);
-        }
-    };
-
-    const handleGenerateMnemonic = async () => {
-        setIsGeneratingMnemonic(true);
-        try {
-            const result = await generateMnemonic({
-                title: capsule.title,
-                keyConcepts: capsule.keyConcepts
-            }, language);
-            if (result.includes("Impossible") && result.length < 50) {
-                 addToast("IA saturée, réessayez dans quelques secondes.", 'info');
-                 return;
-            }
-            setMnemonic(result);
-            onSetMnemonic(capsule.id, result);
-        } catch (e) {
-            addToast("Erreur génération mnémotechnique (Quota).", 'error');
-        } finally {
-            setIsGeneratingMnemonic(false);
-        }
-    };
-
-    const handleClearDrawing = () => {
-        setMemoryAidImage(null);
-        setMemoryAidDescription(null);
-        setImageError(null);
-        onSetMemoryAid(capsule.id, null, null);
-    };
-    
-    const handleToggleConcept = async (concept: string, originalExplanation: string) => {
-        if (expandedConcepts[concept]) {
-            const newExpanded = { ...expandedConcepts };
-            delete newExpanded[concept];
-            setExpandedConcepts(newExpanded);
-            return;
-        }
-        if (loadingConcepts[concept]) return;
-        setLoadingConcepts(prev => ({ ...prev, [concept]: true }));
-        setErrorConcepts(prev => ({ ...prev, [concept]: null }));
-        try {
-            const explanation = await expandKeyConcept(capsule.title, concept, originalExplanation, language);
-            setExpandedConcepts(prev => ({ ...prev, [concept]: cleanMarkdown(explanation) }));
-        } catch (err) {
-            let errorMessage = "Une erreur est survenue.";
-            if (err instanceof Error) {
-                if (err.message.trim().startsWith('{')) {
-                    try {
-                        const errorObj = JSON.parse(err.message);
-                        if (errorObj.error?.code === 429 || errorObj.error?.status === 'RESOURCE_EXHAUSTED') {
-                            errorMessage = "⚠️ Quota IA dépassé (429). Veuillez patienter 30s avant de réessayer.";
-                        } else {
-                            errorMessage = errorObj.error?.message || err.message;
-                        }
-                    } catch (e) {
-                        errorMessage = err.message;
-                    }
-                } else if (err.message.includes('429') || err.message.includes('Quota')) {
-                    errorMessage = "⚠️ Quota IA dépassé. Veuillez patienter un instant.";
-                } else {
-                    errorMessage = err.message;
-                }
-            }
-            setErrorConcepts(prev => ({ ...prev, [concept]: errorMessage }));
-        } finally {
-            setLoadingConcepts(prev => ({ ...prev, [concept]: false }));
-        }
-    };
-
-    const handleDownloadDrawing = () => {
-        if (!memoryAidImage) return;
-        const link = document.createElement('a');
-        link.href = memoryAidImage;
-        link.download = generateFilename('Memoraid_Croquis', capsule.title || 'sans-titre', 'png');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     const handleToggleSpeech = async (id: string, text: string) => {
         if (speakingId === id || isBuffering === id) {
             stopAudio();
@@ -297,38 +158,35 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         stopAudio(); 
         stopRequestRef.current = false;
         
-        if (!audioContextRef.current) return;
-
-        // 1. VÉRIFICATION DU QUOTA LOCAL
-        const quotaCheck = checkTtsQuota(!!isPremium);
-        if (!quotaCheck.allowed) {
-            addToast(quotaCheck.reason!, 'info');
-            setIsTtsLimitReached(true);
+        // 1. VÉRIFICATION PRÉVENTIVE DU QUOTA
+        const availability = checkTtsAvailability(!!isPremium);
+        if (!availability.available) {
+            addToast(availability.reason!, 'info');
+            setVoiceStatus(availability);
             return;
         }
 
-        if (audioContextRef.current.state === 'suspended') {
-            await audioContextRef.current.resume();
+        if (!audioContextRef.current) {
+            try {
+                const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+                audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+            } catch (e) {
+                addToast("Audio non supporté.", 'error');
+                return;
+            }
+        }
+
+        if (audioContextRef.current!.state === 'suspended') {
+            await audioContextRef.current!.resume();
         }
 
         const apiKey = process.env.API_KEY;
         if (!apiKey) return;
 
-        if ("mediaSession" in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: capsule.title,
-                artist: "Memoraid",
-                album: "Lecture Vocale",
-                artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
-            });
-            navigator.mediaSession.setActionHandler('stop', () => stopAudio());
-            navigator.mediaSession.setActionHandler('pause', () => stopAudio());
-        }
-
-        // 2. DÉCOUPAGE ET LIMITE DE SESSION (Burst Control)
+        // 2. DÉCOUPAGE ET LIMITATION DE SESSION
         const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
-        const sessionLimit = quotaCheck.sessionLimit || 5;
-        const chunks = allChunks.slice(0, sessionLimit); // Limiter la lecture pour économiser le quota
+        const maxChunks = availability.maxChunks || 3;
+        const chunks = allChunks.slice(0, maxChunks); // On ne lit que les X premières phrases en gratuit
 
         if (chunks.length === 0) return;
 
@@ -351,7 +209,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     config: {
                         responseModalities: [Modality.AUDIO],
                         speechConfig: {
-                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
                         },
                     },
                 });
@@ -366,7 +224,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                     }
                 }
 
-                if (!base64Audio) throw new Error("Audio vide");
+                if (!base64Audio) throw new Error("Empty audio");
 
                 const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
                 if (stopRequestRef.current) return;
@@ -381,21 +239,23 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
 
                 setIsBuffering(null);
                 setSpeakingId(id);
-                incrementTtsQuota(); // Marquer le succès localement
+                
+                // On incrémente après chaque chunk réussi
+                recordTtsSuccess();
                 
                 source.start();
                 audioSourceRef.current = source;
 
             } catch (error: any) {
                 console.error("TTS Error:", error);
-                const isRateLimit = error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED');
                 
-                if (isRateLimit) {
-                    lockTtsQuota(); // APPRENTISSAGE : Verrouiller localement
-                    setIsTtsLimitReached(true);
-                    addToast("Serveur vocal saturé. Lecture désactivée pour aujourd'hui.", 'error');
+                // 3. GESTION DU SAFETY LOCK SUR 429 RÉELLE
+                if (error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED')) {
+                    triggerTtsSafetyLock();
+                    setVoiceStatus(checkTtsAvailability(!!isPremium));
+                    addToast("Service vocal saturé. Mode silencieux activé.", 'info');
                 } else if (index === 0) {
-                    addToast("Erreur lecture vocale.", 'error');
+                    addToast("Lecture indisponible.", 'error');
                 }
                 stopAudio();
             }
@@ -516,6 +376,90 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
         addToast(`Quiz terminé ! Score enregistré : ${score}%`, 'success');
     };
 
+    // --- FIX: Added missing event handlers ---
+
+    // Handler to expand a key concept using AI
+    const handleToggleConcept = async (concept: string, context: string) => {
+        if (expandedConcepts[concept]) {
+            setExpandedConcepts(prev => {
+                const next = { ...prev };
+                delete next[concept];
+                return next;
+            });
+            return;
+        }
+
+        setLoadingConcepts(prev => ({ ...prev, [concept]: true }));
+        setErrorConcepts(prev => ({ ...prev, [concept]: null }));
+
+        try {
+            const result = await expandKeyConcept(capsule.title, concept, context, language);
+            setExpandedConcepts(prev => ({ ...prev, [concept]: result }));
+        } catch (error: any) {
+            setErrorConcepts(prev => ({ ...prev, [concept]: error.message }));
+            addToast(error.message || "Erreur d'approfondissement", "error");
+        } finally {
+            setLoadingConcepts(prev => ({ ...prev, [concept]: false }));
+        }
+    };
+
+    // Handler to generate a mnemonic for the capsule
+    const handleGenerateMnemonic = async () => {
+        setIsGeneratingMnemonic(true);
+        try {
+            const result = await generateMnemonic(capsule, language);
+            setMnemonic(result);
+            onSetMnemonic(capsule.id, result);
+        } catch (e) {
+            addToast("Impossible de générer l'astuce.", "error");
+        } finally {
+            setIsGeneratingMnemonic(false);
+        }
+    };
+
+    // Handler to generate a visual sketchnote drawing
+    const handleGenerateDrawing = async () => {
+        const quota = checkImageQuota(capsule.id, !!isPremium);
+        if (!quota.allowed) {
+            addToast(quota.reason || "Quota d'images atteint.", "info");
+            return;
+        }
+
+        setIsGeneratingImage(true);
+        setImageError(null);
+        try {
+            const result = await generateMemoryAidDrawing(capsule, language);
+            const dataUri = `data:image/png;base64,${result.imageData}`;
+            setMemoryAidImage(dataUri);
+            setMemoryAidDescription(result.description);
+            onSetMemoryAid(capsule.id, result.imageData, result.description);
+            incrementImageQuota(capsule.id);
+            setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
+            addToast("Croquis généré !", "success");
+        } catch (e: any) {
+            setImageError(e.message);
+        } finally {
+            setIsGeneratingImage(false);
+        }
+    };
+
+    // Handler to clear/erase the generated drawing
+    const handleClearDrawing = () => {
+        setMemoryAidImage(null);
+        setMemoryAidDescription(null);
+        onSetMemoryAid(capsule.id, null, null);
+        addToast("Croquis effacé.", "info");
+    };
+
+    // Handler to download the drawing as a PNG
+    const handleDownloadDrawing = () => {
+        if (!memoryAidImage) return;
+        const link = document.createElement('a');
+        link.href = memoryAidImage;
+        link.download = `Memoraid_Sketch_${capsule.id}.png`;
+        link.click();
+    };
+
     if (isFocusMode) {
         return (
             <FocusMode 
@@ -587,24 +531,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                             >
                                <Share2Icon className="w-5 h-5 md:w-6 md:h-6"/>
                             </button>
-                            {showShareMenu && userGroups.length > 0 && (
-                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-800 rounded-lg shadow-xl border border-slate-200 dark:border-zinc-700 z-20 animate-fade-in-fast">
-                                    <div className="p-2 border-b border-slate-200 dark:border-zinc-700">
-                                        <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400 px-2 uppercase">{t('share_group')}</p>
-                                    </div>
-                                    <div className="p-1">
-                                        {userGroups.map(group => (
-                                            <button
-                                                key={group.id}
-                                                onClick={() => handleShareToGroup(group)}
-                                                className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 rounded-md"
-                                            >
-                                                {group.name}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -614,10 +540,10 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                         </p>
                         <button
                             onClick={() => handleToggleSpeech('summary', capsule.summary)}
-                            className={`absolute top-0 right-0 -mt-1 p-2 rounded-full transition-colors ${isTtsLimitReached ? 'text-slate-300 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
-                            aria-label={speakingId === 'summary' ? "Arrêter la lecture" : "Lire le résumé à voix haute"}
-                            disabled={isBuffering === 'summary' || (isTtsLimitReached && speakingId !== 'summary')}
-                            title={isTtsLimitReached ? "Quota vocal atteint pour aujourd'hui" : ""}
+                            disabled={!voiceStatus.available && speakingId !== 'summary'}
+                            className={`absolute top-0 right-0 -mt-1 p-2 rounded-full transition-colors ${!voiceStatus.available && speakingId !== 'summary' ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
+                            aria-label={speakingId === 'summary' ? "Arrêter" : "Lire"}
+                            title={voiceStatus.available ? "Lire le résumé" : voiceStatus.reason}
                         >
                             {isBuffering === 'summary' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'summary' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                         </button>
@@ -652,7 +578,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                 placeholder={t('category_placeholder')}
                                 className="px-2 py-1 text-sm bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 autoFocus
-                                list="category-suggestions"
                             />
                             <button type="submit" className="px-3 py-1 text-xs font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700">
                                 {t('validate')}
@@ -671,9 +596,10 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                             <span>{t('key_concepts')}</span>
                             <button
                                 onClick={() => handleToggleSpeech('concepts-all', capsule.keyConcepts.map(c => `${c.concept}. ${c.explanation}`).join(' ')) }
-                                className={`ml-auto p-1 rounded-full transition-colors ${isTtsLimitReached ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
-                                aria-label={speakingId === 'concepts-all' ? "Arrêter la lecture" : "Lire tous les concepts clés"}
-                                disabled={isBuffering === 'concepts-all' || (isTtsLimitReached && speakingId !== 'concepts-all')}
+                                disabled={!voiceStatus.available && speakingId !== 'concepts-all'}
+                                className={`ml-auto p-1 rounded-full transition-colors ${!voiceStatus.available && speakingId !== 'concepts-all' ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
+                                aria-label={speakingId === 'concepts-all' ? "Arrêter" : "Lire tout"}
+                                title={voiceStatus.available ? "Lire tous les concepts" : voiceStatus.reason}
                             >
                                 {isBuffering === 'concepts-all' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'concepts-all' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                             </button>
@@ -718,9 +644,10 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                             <span>{t('examples')}</span>
                              <button
                                 onClick={() => handleToggleSpeech('examples-all', capsule.examples.join(' ')) }
-                                className={`ml-auto p-1 rounded-full transition-colors ${isTtsLimitReached ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
-                                aria-label={speakingId === 'examples-all' ? "Arrêter la lecture" : "Lire tous les exemples"}
-                                disabled={isBuffering === 'examples-all' || (isTtsLimitReached && speakingId !== 'examples-all')}
+                                disabled={!voiceStatus.available && speakingId !== 'examples-all'}
+                                className={`ml-auto p-1 rounded-full transition-colors ${!voiceStatus.available && speakingId !== 'examples-all' ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
+                                aria-label={speakingId === 'examples-all' ? "Arrêter" : "Lire tout"}
+                                title={voiceStatus.available ? "Lire les exemples" : voiceStatus.reason}
                             >
                                 {isBuffering === 'examples-all' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'examples-all' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                             </button>
@@ -1035,39 +962,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                                  >
                                     <PlayIcon className="w-6 h-6 text-amber-500"/>
                                     <span className="font-semibold">{t('mode_active')}</span>
-                                 </button>
-                            </div>
-                        </div>
-                        <div>
-                            <h4 className="text-lg font-bold text-slate-800 dark:text-zinc-200 mb-4">{t('advanced_export')}</h4>
-                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                 <button 
-                                     onClick={handleDownloadCapsule}
-                                     className="w-full flex items-center justify-center gap-2 text-center p-4 rounded-xl bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-transparent hover:border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors font-medium"
-                                 >
-                                    <FileTextIcon className="w-5 h-5 text-amber-500"/>
-                                    <span>{t('export_pdf')}</span>
-                                 </button>
-                                 <button 
-                                     onClick={handleExportPPTX}
-                                     className="w-full flex items-center justify-center gap-2 text-center p-4 rounded-xl bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-transparent hover:border-orange-300 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors font-medium"
-                                 >
-                                    <PresentationIcon className="w-5 h-5 text-orange-500"/>
-                                    <span>{t('export_ppt')}</span>
-                                 </button>
-                                 <button 
-                                     onClick={handleExportEPUB}
-                                     className="w-full flex items-center justify-center gap-2 text-center p-4 rounded-xl bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-transparent hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors font-medium"
-                                 >
-                                    <BookIcon className="w-5 h-5 text-emerald-500"/>
-                                    <span>{t('export_epub')}</span>
-                                 </button>
-                                 <button 
-                                     onClick={handleDownloadFlashcards}
-                                     className="w-full flex items-center justify-center gap-2 text-center p-4 rounded-xl bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-transparent hover:border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors font-medium"
-                                 >
-                                    <PrinterIcon className="w-5 h-5 text-purple-500"/>
-                                    <span>{t('export_cards')}</span>
                                  </button>
                             </div>
                         </div>
