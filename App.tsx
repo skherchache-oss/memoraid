@@ -23,7 +23,7 @@ import { updateTaskStatus } from './services/planningService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon } from './constants';
+import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon } from '../constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress } from './services/cloudService';
@@ -120,7 +120,10 @@ const AppContent: React.FC = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
     const [isPlanningWizardOpen, setIsPlanningWizardOpen] = useState<boolean>(false);
     const [isTeacherDashboardOpen, setIsTeacherDashboardOpen] = useState<boolean>(false);
-    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => Notification.permission);
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
+        // Safe check for SSR or environments where Notification is not defined
+        return typeof Notification !== 'undefined' ? Notification.permission : 'default';
+    });
     const [newlyAddedCapsuleId, setNewlyAddedCapsuleId] = useState<string | null>(null);
     const [selectedCapsuleIds, setSelectedCapsuleIds] = useState<string[]>([]);
     
@@ -554,6 +557,28 @@ const AppContent: React.FC = () => {
 
     const handleClearNewCapsule = () => setNewlyAddedCapsuleId(null);
 
+    const handleRequestNotificationPermission = useCallback(async () => {
+        if (!("Notification" in window)) {
+            addToast("Les notifications ne sont pas supportées par ce navigateur.", "error");
+            return;
+        }
+
+        try {
+            const permission = await Notification.requestPermission();
+            setNotificationPermission(permission);
+            if (permission === 'granted') {
+                addToast("Notifications activées ! Vous serez alerté des révisions.", "success");
+                // Test notification immediately to confirm
+                new Notification("Memoraid", { body: "Notifications configurées avec succès !" });
+            } else {
+                addToast("Notifications refusées. Vous devrez vérifier manuellement.", "info");
+            }
+        } catch (error) {
+            console.error("Erreur permission notifications", error);
+            addToast("Impossible d'activer les notifications.", "error");
+        }
+    }, [addToast]);
+
     const loadingIndicator = (
         <div className="w-full h-96 flex flex-col items-center justify-center bg-white dark:bg-zinc-900 rounded-2xl shadow-lg border border-emerald-100 dark:border-zinc-800 animate-fade-in-fast">
             <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4 animate-spin border-t-emerald-500"></div>
@@ -667,7 +692,7 @@ const AppContent: React.FC = () => {
                                     onSelectCapsule={setActiveCapsule}
                                     onNewCapsule={() => setView('create')}
                                     notificationPermission={notificationPermission}
-                                    onRequestNotificationPermission={() => {}}
+                                    onRequestNotificationPermission={handleRequestNotificationPermission}
                                     onDeleteCapsule={handleDeleteCapsule}
                                     newlyAddedCapsuleId={newlyAddedCapsuleId}
                                     onClearNewCapsule={handleClearNewCapsule}
@@ -708,7 +733,7 @@ const AppContent: React.FC = () => {
                                 onSelectCapsule={setActiveCapsule}
                                 onNewCapsule={() => setMobileTab('create')}
                                 notificationPermission={notificationPermission}
-                                onRequestNotificationPermission={() => {}}
+                                onRequestNotificationPermission={handleRequestNotificationPermission}
                                 onDeleteCapsule={handleDeleteCapsule}
                                 newlyAddedCapsuleId={newlyAddedCapsuleId}
                                 onClearNewCapsule={handleClearNewCapsule}

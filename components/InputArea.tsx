@@ -558,9 +558,12 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                 <HowItWorks onOpenProfile={onOpenProfile} />
             </div>
 
-            {/* ILLUSTRATION */}
-            <div className="flex justify-center mt-8 opacity-70 relative z-0">
+            {/* ILLUSTRATION & BRANDING */}
+            <div className="flex flex-col items-center justify-center mt-12 opacity-70 relative z-0 pb-8 pointer-events-none">
                 <LearningIllustration className="w-full max-w-[200px] h-auto" />
+                <h1 className="mt-4 text-3xl font-extrabold text-emerald-800 dark:text-emerald-500 tracking-tight">
+                    Memoraid
+                </h1>
             </div>
         </div>
     );
