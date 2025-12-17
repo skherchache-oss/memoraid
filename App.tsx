@@ -23,7 +23,7 @@ import { updateTaskStatus } from './services/planningService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon } from '../constants';
+import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress } from './services/cloudService';
