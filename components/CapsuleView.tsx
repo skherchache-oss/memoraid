@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group, Comment, CollaborativeTask } from '../types';
 import Quiz from './Quiz';
-import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon, LockIcon } from '../constants';
+import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon, LockIcon, ClockIcon, LayersIcon, XIcon } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
 import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic, cleanMarkdown } from '../services/geminiService';
 import { downloadFlashcardsPdf, downloadCapsulePdf, generateFilename, downloadQuizPdf } from '../services/pdfService';
@@ -13,41 +14,23 @@ import FocusMode from './FocusMode';
 import { useLanguage } from '../contexts/LanguageContext';
 import { checkImageQuota, incrementImageQuota, getQuotaStats, checkTtsAvailability, recordTtsSuccess, triggerTtsSafetyLock } from '../services/quotaManager';
 
-
-// Helper functions for audio decoding
 function decode(base64: string) {
   const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
   return bytes;
 }
 
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
-  const length = Math.floor(data.byteLength / 2);
-  const dataInt16 = new Int16Array(length);
-  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-  for (let i = 0; i < length; i++) {
-    dataInt16[i] = view.getInt16(i * 2, true);
-  }
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
   const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
+    for (let i = 0; i < frameCount; i++) channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
   }
   return buffer;
 }
-
 
 interface CapsuleViewProps {
     capsule: CognitiveCapsule;
@@ -74,910 +57,208 @@ interface CapsuleViewProps {
 const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToast, onBackToList, onSetMemoryAid, onSetMnemonic, allCategories, onSetCategory, onMarkAsReviewed, onStartActiveLearning, onStartFlashcards, onStartCoaching, userGroups, onShareCapsule, currentUserId, currentUserName, isPremium }) => {
     const { language, t } = useLanguage();
     const isDue = isCapsuleDue(capsule);
+    
     const [isEditingCategory, setIsEditingCategory] = useState(false);
     const [categoryInput, setCategoryInput] = useState(capsule.category || '');
-    
     const [speakingId, setSpeakingId] = useState<string | null>(null);
     const [isBuffering, setIsBuffering] = useState<string | null>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const stopRequestRef = useRef<boolean>(false);
 
-    const [memoryAidImage, setMemoryAidImage] = useState<string | null>(capsule.memoryAidImage || null);
+    const formatImageSrc = (src: string | null | undefined) => {
+        if (!src) return null;
+        return src.startsWith('data:') ? src : `data:image/png;base64,${src}`;
+    };
+
+    const [memoryAidImage, setMemoryAidImage] = useState<string | null>(formatImageSrc(capsule.memoryAidImage));
     const [memoryAidDescription, setMemoryAidDescription] = useState<string | null>(capsule.memoryAidDescription || null);
-    const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
-    const [imageError, setImageError] = useState<string | null>(null);
-    
-    const [quotaStats, setQuotaStats] = useState(getQuotaStats(capsule.id, !!isPremium));
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
     const [mnemonic, setMnemonic] = useState<string | null>(capsule.mnemonic || null);
     const [isGeneratingMnemonic, setIsGeneratingMnemonic] = useState(false);
-
     const [expandedConcepts, setExpandedConcepts] = useState<Record<string, string>>({});
     const [loadingConcepts, setLoadingConcepts] = useState<Record<string, boolean>>({});
-    const [errorConcepts, setErrorConcepts] = useState<Record<string, string | null>>({});
-
-    const [isRegeneratingQuiz, setIsRegeneratingQuiz] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
-    const [newComment, setNewComment] = useState('');
-    const [newTaskDesc, setNewTaskDesc] = useState('');
-    const [selectedAssignee, setSelectedAssignee] = useState('');
-    const [isFocusMode, setIsFocusMode] = useState(false);
-
-    // État de disponibilité de la voix
     const [voiceStatus, setVoiceStatus] = useState(checkTtsAvailability(!!isPremium));
 
     useEffect(() => {
         window.scrollTo(0, 0);
-    }, [capsule.id]);
-
-    useEffect(() => {
-        setCategoryInput(capsule.category || '');
-        setIsEditingCategory(false);
-        setMemoryAidImage(capsule.memoryAidImage || null);
-        setMemoryAidDescription(capsule.memoryAidDescription || null);
+        setMemoryAidImage(formatImageSrc(capsule.memoryAidImage));
         setMnemonic(capsule.mnemonic || null);
-        setIsGeneratingImage(false);
-        setIsGeneratingMnemonic(false);
-        setImageError(null);
-        setExpandedConcepts({});
-        setLoadingConcepts({});
-        setErrorConcepts({});
-        setShowShareMenu(false);
-        setIsFocusMode(false);
-        setNewTaskDesc('');
-        setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
-        setVoiceStatus(checkTtsAvailability(!!isPremium));
-        
-        return () => {
-            stopAudio();
-        };
-    }, [capsule, isPremium]);
+    }, [capsule.id]);
 
     const stopAudio = useCallback(() => {
         stopRequestRef.current = true;
         if (audioSourceRef.current) {
-            try {
-                audioSourceRef.current.stop();
-            } catch (e) { /* ignore */ }
+            try { audioSourceRef.current.stop(); } catch (e) {}
             audioSourceRef.current.disconnect();
             audioSourceRef.current = null;
-        }
-        if ("mediaSession" in navigator) {
-            navigator.mediaSession.playbackState = 'none';
         }
         setSpeakingId(null);
         setIsBuffering(null);
     }, []);
 
     const handleToggleSpeech = async (id: string, text: string) => {
-        if (speakingId === id || isBuffering === id) {
-            stopAudio();
-            return;
-        }
-
-        stopAudio(); 
-        stopRequestRef.current = false;
+        if (speakingId === id || isBuffering === id) { stopAudio(); return; }
+        stopAudio(); stopRequestRef.current = false;
+        const avail = checkTtsAvailability(!!isPremium);
+        if (!avail.available) { addToast(avail.reason!, 'info'); setVoiceStatus(avail); return; }
+        if (!audioContextRef.current) audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
         
-        // 1. VÉRIFICATION PRÉVENTIVE DU QUOTA
-        const availability = checkTtsAvailability(!!isPremium);
-        if (!availability.available) {
-            addToast(availability.reason!, 'info');
-            setVoiceStatus(availability);
-            return;
-        }
-
-        if (!audioContextRef.current) {
-            try {
-                const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-                audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-            } catch (e) {
-                addToast("Audio non supporté.", 'error');
-                return;
-            }
-        }
-
-        if (audioContextRef.current!.state === 'suspended') {
-            await audioContextRef.current!.resume();
-        }
-
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) return;
-
-        // 2. DÉCOUPAGE ET LIMITATION DE SESSION
-        const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
-        const maxChunks = availability.maxChunks || 3;
-        const chunks = allChunks.slice(0, maxChunks); // On ne lit que les X premières phrases en gratuit
-
+        const chunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0).slice(0, avail.maxChunks || 3);
         if (chunks.length === 0) return;
-
-        setSpeakingId(null);
         setIsBuffering(id);
-
-        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const playChunk = async (index: number) => {
-            if (index >= chunks.length || stopRequestRef.current) {
-                setSpeakingId(null);
-                setIsBuffering(null);
-                return;
-            }
-
+            if (index >= chunks.length || stopRequestRef.current) { setSpeakingId(null); setIsBuffering(null); return; }
             try {
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],
-                    config: {
-                        responseModalities: [Modality.AUDIO],
-                        speechConfig: {
-                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-                        },
-                    },
+                    config: { responseModalities: [Modality.AUDIO], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } } },
                 });
-
-                let base64Audio = '';
-                if (response.candidates?.[0]?.content?.parts) {
-                    for (const part of response.candidates[0].content.parts) {
-                        if (part.inlineData && part.inlineData.data) {
-                            base64Audio = part.inlineData.data;
-                            break;
-                        }
-                    }
-                }
-
-                if (!base64Audio) throw new Error("Empty audio");
-
-                const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
+                const base64 = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                if (!base64) throw new Error();
+                const buffer = await decodeAudioData(decode(base64), audioContextRef.current!, 24000, 1);
                 if (stopRequestRef.current) return;
-
                 const source = audioContextRef.current!.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioContextRef.current!.destination);
-                
-                source.onended = () => {
-                    if (!stopRequestRef.current) playChunk(index + 1);
-                };
-
-                setIsBuffering(null);
-                setSpeakingId(id);
-                
-                // On incrémente après chaque chunk réussi
-                recordTtsSuccess();
-                
-                source.start();
-                audioSourceRef.current = source;
-
-            } catch (error: any) {
-                console.error("TTS Error:", error);
-                
-                // 3. GESTION DU SAFETY LOCK SUR 429 RÉELLE
-                if (error?.message?.includes('429') || error?.message?.includes('RESOURCE_EXHAUSTED')) {
-                    triggerTtsSafetyLock();
-                    setVoiceStatus(checkTtsAvailability(!!isPremium));
-                    addToast("Service vocal saturé. Mode silencieux activé.", 'info');
-                } else if (index === 0) {
-                    addToast("Lecture indisponible.", 'error');
-                }
-                stopAudio();
+                source.buffer = buffer; source.connect(audioContextRef.current!.destination);
+                source.onended = () => { if (!stopRequestRef.current) playChunk(index + 1); };
+                setIsBuffering(null); setSpeakingId(id); recordTtsSuccess();
+                source.start(); audioSourceRef.current = source;
+            } catch (e) {
+                triggerTtsSafetyLock(); setVoiceStatus(checkTtsAvailability(!!isPremium)); stopAudio();
             }
         };
-
         playChunk(0);
     };
 
-    const handleCategorySubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSetCategory(capsule.id, categoryInput);
-        setIsEditingCategory(false);
-    };
-    
-    const handleShareClick = () => setShowShareMenu(!showShareMenu);
-
-    const handleShareToGroup = (group: Group) => {
-        onShareCapsule(group, capsule);
-        setShowShareMenu(false);
-        addToast(`${t('share_success')} ("${group.name}")`, 'success');
-    };
-
-    const handlePostComment = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newComment.trim() || !currentUserId || !capsule.groupId) return;
-        const comment: Comment = {
-            id: `cmt_${Date.now()}`,
-            userId: currentUserId,
-            userName: currentUserName || 'Anonyme',
-            content: newComment.trim(),
-            timestamp: Date.now()
-        };
-        try {
-            await addCommentToCapsule(capsule.groupId, capsule.id, comment);
-            setNewComment('');
-            addToast("Commentaire ajouté", 'success');
-        } catch (error) {
-            addToast("Erreur lors de l'ajout du commentaire", 'error');
-        }
-    };
-    
-    const handleAssignTask = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newTaskDesc.trim() || !selectedAssignee || !capsule.groupId) return;
-        const group = userGroups.find(g => g.id === capsule.groupId);
-        const member = group?.members.find(m => m.userId === selectedAssignee);
-        const newTask: CollaborativeTask = {
-            id: `task_${Date.now()}`,
-            capsuleId: capsule.id,
-            assigneeId: selectedAssignee,
-            assigneeName: member?.name || 'Membre inconnu',
-            description: newTaskDesc.trim(),
-            isCompleted: false,
-            createdAt: Date.now(),
-            createdBy: currentUserId || ''
-        };
-        try {
-            await assignTaskToMember(capsule.groupId, capsule.id, newTask);
-            setNewTaskDesc('');
-            addToast("Tâche assignée !", 'success');
-        } catch (e) {
-            addToast("Erreur d'assignation", 'error');
-        }
-    };
-
-    const handleToggleTask = async (taskId: string, currentStatus: boolean) => {
-        if (!capsule.groupId) return;
-        try {
-            await updateTaskStatus(capsule.groupId, capsule.id, taskId, !currentStatus, capsule.collaborativeTasks || []);
-        } catch(e) {
-            addToast("Erreur mise à jour tâche", 'error');
-        }
-    };
-
-    const handleDownloadFlashcards = useCallback(() => {
-        addToast('Génération du PDF des flashcards...', 'info');
-        downloadFlashcardsPdf(capsule).catch(error => {
-            const errorMessage = error instanceof Error ? error.message : "Erreur lors de la génération du PDF.";
-            addToast(errorMessage, 'error');
-        });
-    }, [capsule, addToast]);
-    
-    const handleDownloadCapsule = useCallback(() => {
-        addToast('Génération du PDF de la capsule...', 'info');
-        downloadCapsulePdf(capsule).catch(error => {
-            addToast("Erreur lors de la génération du PDF.", 'error');
-        });
-    }, [capsule, addToast]);
-
-    const handleDownloadQuiz = useCallback(() => {
-        addToast('Génération du PDF du quiz...', 'info');
-        downloadQuizPdf(capsule).catch(error => {
-            const errorMessage = error instanceof Error ? error.message : "Erreur lors de la génération du PDF.";
-            addToast(errorMessage, 'error');
-        });
-    }, [capsule, addToast]);
-
-    const handleExportPPTX = useCallback(() => {
-        addToast('Création de la présentation PowerPoint...', 'info');
-        exportToPPTX(capsule).then(() => {
-            addToast('Téléchargement PowerPoint démarré.', 'success');
-        }).catch(error => {
-            addToast("Erreur lors de l'export PowerPoint.", 'error');
-        });
-    }, [capsule, addToast]);
-
-    const handleExportEPUB = useCallback(() => {
-        addToast('Création du livre électronique (ePub)...', 'info');
-        exportToEPUB(capsule).then(() => {
-            addToast('Téléchargement ePub démarré.', 'success');
-        }).catch(error => {
-            addToast("Erreur lors de l'export ePub.", 'error');
-        });
-    }, [capsule, addToast]);
-
-    const handleQuizComplete = (score: number) => {
-        onMarkAsReviewed(capsule.id, score, 'quiz');
-        addToast(`Quiz terminé ! Score enregistré : ${score}%`, 'success');
-    };
-
-    // --- FIX: Added missing event handlers ---
-
-    // Handler to expand a key concept using AI
-    const handleToggleConcept = async (concept: string, context: string) => {
-        if (expandedConcepts[concept]) {
-            setExpandedConcepts(prev => {
-                const next = { ...prev };
-                delete next[concept];
-                return next;
-            });
-            return;
-        }
-
-        setLoadingConcepts(prev => ({ ...prev, [concept]: true }));
-        setErrorConcepts(prev => ({ ...prev, [concept]: null }));
-
-        try {
-            const result = await expandKeyConcept(capsule.title, concept, context, language);
-            setExpandedConcepts(prev => ({ ...prev, [concept]: result }));
-        } catch (error: any) {
-            setErrorConcepts(prev => ({ ...prev, [concept]: error.message }));
-            addToast(error.message || "Erreur d'approfondissement", "error");
-        } finally {
-            setLoadingConcepts(prev => ({ ...prev, [concept]: false }));
-        }
-    };
-
-    // Handler to generate a mnemonic for the capsule
     const handleGenerateMnemonic = async () => {
         setIsGeneratingMnemonic(true);
         try {
-            const result = await generateMnemonic(capsule, language);
-            setMnemonic(result);
-            onSetMnemonic(capsule.id, result);
-        } catch (e) {
-            addToast("Impossible de générer l'astuce.", "error");
-        } finally {
-            setIsGeneratingMnemonic(false);
-        }
+            const res = await generateMnemonic(capsule, language);
+            setMnemonic(res);
+            onSetMnemonic(capsule.id, res);
+            addToast("Astuce générée !", "success");
+        } catch (e) { addToast("Erreur", "error"); } finally { setIsGeneratingMnemonic(false); }
     };
 
-    // Handler to generate a visual sketchnote drawing
     const handleGenerateDrawing = async () => {
         const quota = checkImageQuota(capsule.id, !!isPremium);
-        if (!quota.allowed) {
-            addToast(quota.reason || "Quota d'images atteint.", "info");
-            return;
-        }
-
+        if (!quota.allowed) { addToast(quota.reason!, "info"); return; }
         setIsGeneratingImage(true);
-        setImageError(null);
         try {
-            const result = await generateMemoryAidDrawing(capsule, language);
-            const dataUri = `data:image/png;base64,${result.imageData}`;
-            setMemoryAidImage(dataUri);
-            setMemoryAidDescription(result.description);
-            onSetMemoryAid(capsule.id, result.imageData, result.description);
-            incrementImageQuota(capsule.id);
-            setQuotaStats(getQuotaStats(capsule.id, !!isPremium));
-            addToast("Croquis généré !", "success");
-        } catch (e: any) {
-            setImageError(e.message);
-        } finally {
-            setIsGeneratingImage(false);
-        }
+            const res = await generateMemoryAidDrawing(capsule, language);
+            const src = `data:image/png;base64,${res.imageData}`;
+            setMemoryAidImage(src);
+            setMemoryAidDescription(res.description);
+            onSetMemoryAid(capsule.id, res.imageData, res.description);
+            addToast("Croquis réussi !", "success");
+        } catch (e: any) { addToast(e.message, "error"); } finally { setIsGeneratingImage(false); }
     };
-
-    // Handler to clear/erase the generated drawing
-    const handleClearDrawing = () => {
-        setMemoryAidImage(null);
-        setMemoryAidDescription(null);
-        onSetMemoryAid(capsule.id, null, null);
-        addToast("Croquis effacé.", "info");
-    };
-
-    // Handler to download the drawing as a PNG
-    const handleDownloadDrawing = () => {
-        if (!memoryAidImage) return;
-        const link = document.createElement('a');
-        link.href = memoryAidImage;
-        link.download = `Memoraid_Sketch_${capsule.id}.png`;
-        link.click();
-    };
-
-    if (isFocusMode) {
-        return (
-            <FocusMode 
-                capsule={capsule} 
-                onExit={() => setIsFocusMode(false)}
-                onMarkAsReviewed={onMarkAsReviewed}
-            />
-        );
-    }
-
-    const activeGroup = capsule.isShared && capsule.groupId ? userGroups.find(g => g.id === capsule.groupId) : null;
 
     return (
-        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 overflow-hidden animate-fade-in">
-            <button 
-                onClick={onBackToList}
-                className="md:hidden flex items-center gap-1 p-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-slate-50 dark:hover:bg-zinc-800/50 w-full border-b border-slate-100 dark:border-zinc-800"
-            >
-                <ChevronLeftIcon className="w-5 h-5" />
-                {t('back_list')}
-            </button>
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 overflow-hidden animate-fade-in pb-20">
+            <button onClick={onBackToList} className="md:hidden flex items-center gap-1 p-4 text-sm font-semibold text-emerald-600 dark:text-emerald-400 w-full border-b border-slate-100 dark:border-zinc-800"><ChevronLeftIcon className="w-5 h-5" /> {t('back_list')}</button>
+            
             <div className="p-6 md:p-10">
-                {capsule.isShared && (
-                    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg mb-6 flex items-center gap-3 border border-purple-100 dark:border-purple-800/50">
-                        <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
-                            <UserIcon className="w-5 h-5 text-purple-600 dark:text-purple-200" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-semibold text-purple-900 dark:text-purple-200">{t('collaborative_capsule')}</p>
-                            <p className="text-xs text-purple-700 dark:text-purple-300">
-                                {t('shared_in')} <strong>{capsule.groupName}</strong> • {t('access_link')} : <span className="font-mono bg-purple-200 dark:bg-purple-900 px-1 rounded select-all">{capsule.sharedLink || 'N/A'}</span>
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {isDue && (
-                    <div className="bg-amber-50 dark:bg-amber-900/40 p-4 rounded-lg mb-6 flex items-center justify-between flex-wrap gap-4 no-export">
-                        <div>
-                            <h4 className="font-semibold text-amber-800 dark:text-amber-200">{t('time_to_review')}</h4>
-                            <p className="text-sm text-amber-700 dark:text-amber-300">{t('reinforce_knowledge')}</p>
-                        </div>
-                        <button
-                            onClick={() => onMarkAsReviewed(capsule.id, 100, 'manual')}
-                            className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 transition-colors font-semibold whitespace-nowrap"
-                        >
-                            {t('review_done')}
-                        </button>
-                    </div>
-                )}
-
                 <div className="mb-8">
                     <div className="flex justify-between items-start gap-4 mb-4">
-                        <h2 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">
-                            {capsule.title}
-                        </h2>
-                        <div className="flex-shrink-0 flex items-center gap-2 relative">
-                             <button 
-                                onClick={() => setIsFocusMode(true)}
-                                className="p-2 md:p-3 rounded-full text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors border border-transparent hover:border-slate-200 dark:hover:border-zinc-700"
-                                title="Mode Focus (Plein écran)"
-                            >
-                               <MonitorIcon className="w-5 h-5 md:w-6 md:h-6"/>
-                            </button>
-                            <button 
-                                onClick={handleShareClick}
-                                className="p-2 md:p-3 rounded-full text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
-                                title="Partager la capsule"
-                            >
-                               <Share2Icon className="w-5 h-5 md:w-6 md:h-6"/>
-                            </button>
+                        <h2 className="text-2xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">{capsule.title}</h2>
+                        <div className="flex gap-2">
+                             <button onClick={() => setShowShareMenu(true)} className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"><Share2Icon className="w-5 h-5"/></button>
                         </div>
                     </div>
-
-                    <div className="relative w-full">
-                        <p className="text-base md:text-lg text-slate-600 dark:text-zinc-300 pr-12 leading-relaxed text-left hyphens-auto">
-                            {capsule.summary}
-                        </p>
-                        <button
-                            onClick={() => handleToggleSpeech('summary', capsule.summary)}
-                            disabled={!voiceStatus.available && speakingId !== 'summary'}
-                            className={`absolute top-0 right-0 -mt-1 p-2 rounded-full transition-colors ${!voiceStatus.available && speakingId !== 'summary' ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
-                            aria-label={speakingId === 'summary' ? "Arrêter" : "Lire"}
-                            title={voiceStatus.available ? "Lire le résumé" : voiceStatus.reason}
-                        >
+                    <div className="relative">
+                        <p className="text-base md:text-lg text-slate-600 dark:text-zinc-300 pr-12 leading-relaxed">{capsule.summary}</p>
+                        <button onClick={() => handleToggleSpeech('summary', capsule.summary)} className="absolute top-0 right-0 p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full">
                             {isBuffering === 'summary' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'summary' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
                         </button>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 mb-8 text-sm">
-                    <TagIcon className="w-5 h-5 text-slate-400 dark:text-zinc-500 flex-shrink-0" />
-                    {!isEditingCategory ? (
-                        capsule.category ? (
-                            <button 
-                                onClick={() => setIsEditingCategory(true)}
-                                className="px-3 py-1 text-sm font-semibold rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200 border border-emerald-100 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors"
-                                title="Modifier la catégorie"
-                            >
-                                {capsule.category}
-                            </button>
-                        ) : (
-                            <button 
-                                onClick={() => setIsEditingCategory(true)}
-                                className="flex items-center gap-1 px-3 py-1 text-sm font-semibold rounded-full border-2 border-dashed border-emerald-200 dark:border-emerald-800/80 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 transition-colors"
-                            >
-                                {t('category_add')}
-                            </button>
-                        )
-                    ) : (
-                        <form onSubmit={handleCategorySubmit} className="flex items-center gap-2 animate-fade-in-fast">
-                            <input
-                                type="text"
-                                value={categoryInput}
-                                onChange={(e) => setCategoryInput(e.target.value)}
-                                placeholder={t('category_placeholder')}
-                                className="px-2 py-1 text-sm bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                                autoFocus
-                            />
-                            <button type="submit" className="px-3 py-1 text-xs font-semibold text-white bg-emerald-600 rounded-md hover:bg-emerald-700">
-                                {t('validate')}
-                            </button>
-                            <button type="button" onClick={() => { setIsEditingCategory(false); setCategoryInput(capsule.category || ''); }} className="text-xs text-slate-500 dark:text-zinc-400 hover:underline">
-                                {t('cancel')}
-                            </button>
-                        </form>
-                    )}
+                {/* BOÎTE À OUTILS */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+                    <button onClick={onStartFlashcards} className="flex items-center justify-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded-xl font-bold text-xs hover:bg-emerald-100 transition-colors"><LayersIcon className="w-4 h-4" /> Flashcards</button>
+                    <button onClick={onStartCoaching} className="flex items-center justify-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-xl font-bold text-xs hover:bg-blue-100 transition-colors"><MessageSquareIcon className="w-4 h-4" /> Coach IA</button>
+                    <button onClick={() => downloadCapsulePdf(capsule)} className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-bold text-xs hover:bg-slate-100 transition-colors"><FileTextIcon className="w-4 h-4" /> Fiche PDF</button>
+                    <button onClick={() => downloadFlashcardsPdf(capsule)} className="flex items-center justify-center gap-2 p-3 bg-slate-50 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-bold text-xs hover:bg-slate-100 transition-colors"><PrinterIcon className="w-4 h-4" /> Cartes (Print)</button>
                 </div>
 
                 <div className="space-y-12">
-                    <div>
-                        <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4">
-                            <LightbulbIcon className="w-6 h-6 mr-3 text-amber-500" />
-                            <span>{t('key_concepts')}</span>
-                            <button
-                                onClick={() => handleToggleSpeech('concepts-all', capsule.keyConcepts.map(c => `${c.concept}. ${c.explanation}`).join(' ')) }
-                                disabled={!voiceStatus.available && speakingId !== 'concepts-all'}
-                                className={`ml-auto p-1 rounded-full transition-colors ${!voiceStatus.available && speakingId !== 'concepts-all' ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
-                                aria-label={speakingId === 'concepts-all' ? "Arrêter" : "Lire tout"}
-                                title={voiceStatus.available ? "Lire tous les concepts" : voiceStatus.reason}
-                            >
-                                {isBuffering === 'concepts-all' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'concepts-all' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
-                            </button>
-                        </h3>
-                        <ul className="grid gap-4">
-                            {capsule.keyConcepts.map((item, index) => (
-                                <li key={index} className="p-5 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 hover:shadow-sm transition-shadow">
-                                    <p className="font-bold text-slate-900 dark:text-white text-lg mb-1">{item.concept}</p>
-                                    <p className="text-slate-600 dark:text-zinc-400 leading-relaxed">{item.explanation}</p>
-                                    <div className="mt-3">
-                                        {expandedConcepts[item.concept] ? (
-                                            <div className="animate-fade-in-fast">
-                                                <div className="p-4 bg-white dark:bg-zinc-800 rounded-lg border-l-4 border-emerald-400 shadow-sm mt-2">
-                                                    <p className="text-sm text-slate-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">{expandedConcepts[item.concept]}</p>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleToggleConcept(item.concept, item.explanation)}
-                                                    className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold mt-2 hover:underline"
-                                                >
-                                                    {t('hide')}
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => handleToggleConcept(item.concept, item.explanation)}
-                                                disabled={loadingConcepts[item.concept]}
-                                                className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-sm font-semibold hover:text-emerald-800 dark:hover:text-emerald-300 disabled:opacity-50 disabled:cursor-wait transition-colors mt-2"
-                                            >
-                                                <SparklesIcon className={`w-4 h-4 ${loadingConcepts[item.concept] ? 'animate-spin' : ''}`} />
-                                                <span>{loadingConcepts[item.concept] ? t('generating') : t('expand')}</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4">
-                            <ListChecksIcon className="w-6 h-6 mr-3 text-sky-500" />
-                            <span>{t('examples')}</span>
-                             <button
-                                onClick={() => handleToggleSpeech('examples-all', capsule.examples.join(' ')) }
-                                disabled={!voiceStatus.available && speakingId !== 'examples-all'}
-                                className={`ml-auto p-1 rounded-full transition-colors ${!voiceStatus.available && speakingId !== 'examples-all' ? 'text-slate-300 dark:text-zinc-700 cursor-not-allowed' : 'text-slate-400 dark:text-zinc-500 hover:bg-slate-100 dark:hover:bg-zinc-800'}`}
-                                aria-label={speakingId === 'examples-all' ? "Arrêter" : "Lire tout"}
-                                title={voiceStatus.available ? "Lire les exemples" : voiceStatus.reason}
-                            >
-                                {isBuffering === 'examples-all' ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : speakingId === 'examples-all' ? <StopCircleIcon className="w-5 h-5 text-emerald-500" /> : <Volume2Icon className="w-5 h-5" />}
-                            </button>
-                        </h3>
-                        <ul className="space-y-3 bg-slate-50 dark:bg-zinc-900/50 p-6 rounded-xl border border-slate-100 dark:border-zinc-800">
-                            {capsule.examples.map((example, index) => (
-                                <li key={index} className="flex items-start gap-3">
-                                    <span className="mt-1.5 flex-shrink-0 h-2 w-2 rounded-full bg-sky-500"></span>
-                                    <p className="text-slate-700 dark:text-zinc-300 leading-relaxed">{example}</p>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    <div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100">
-                                <ZapIcon className="w-6 h-6 mr-3 text-orange-500" />
-                                <span>{t('mnemonic_title')}</span>
-                            </h3>
-                        </div>
-                        
-                        {!mnemonic && !isGeneratingMnemonic && (
-                            <div className="p-6 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
-                                <div>
-                                    <p className="text-sm font-semibold text-orange-800 dark:text-orange-200">{t('mnemonic_desc')}</p>
-                                    <p className="text-xs text-orange-600 dark:text-orange-300">{t('mnemonic_boost')}</p>
-                                </div>
-                                <button
-                                    onClick={handleGenerateMnemonic}
-                                    className="px-4 py-2 bg-white dark:bg-zinc-800 text-orange-600 dark:text-orange-400 font-bold rounded-lg shadow-sm border border-orange-200 dark:border-orange-800 hover:bg-orange-50 dark:hover:bg-zinc-700 transition-colors whitespace-nowrap"
-                                >
-                                    {t('generate_mnemonic')}
-                                </button>
-                            </div>
-                        )}
-
-                        {isGeneratingMnemonic && (
-                            <div className="p-6 bg-slate-50 dark:bg-zinc-900/50 rounded-xl flex items-center justify-center gap-3">
-                                <RefreshCwIcon className="w-5 h-5 text-orange-500 animate-spin" />
-                                <span className="text-sm text-slate-500 dark:text-zinc-400">{t('generating_mnemonic')}</span>
-                            </div>
-                        )}
-
-                        {mnemonic && !isGeneratingMnemonic && (
-                            <div className="p-8 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-2xl border border-orange-200 dark:border-orange-800 shadow-sm animate-fade-in relative group text-center">
-                                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-zinc-800 p-2 rounded-full border border-orange-200 dark:border-orange-800 shadow-sm">
-                                    <ZapIcon className="w-6 h-6 text-orange-500" />
-                                </div>
-                                <blockquote className="text-2xl md:text-3xl font-serif font-medium text-slate-800 dark:text-zinc-100 italic leading-relaxed pt-4 px-2 break-words">
-                                    &ldquo;{mnemonic}&rdquo;
-                                </blockquote>
-                                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-4 font-bold uppercase tracking-wide opacity-70">
-                                    {t('mnemonic_generated_by')}
-                                </p>
-                                <button 
-                                    onClick={handleGenerateMnemonic}
-                                    className="absolute top-4 right-4 p-2 bg-white/80 dark:bg-zinc-800/80 rounded-full text-orange-500 hover:bg-orange-100 dark:hover:bg-zinc-700 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                    title={t('regenerate')}
-                                >
-                                    <RefreshCwIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    <div>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100">
-                                <ImageIcon className="w-6 h-6 mr-3 text-violet-500" />
-                                <span>{t('memory_aid_sketch')}</span>
-                            </h3>
-                            {isPremium && (
-                                <div className="flex flex-col items-end">
-                                    <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-2 py-1 rounded">
-                                        Images: {quotaStats.capsuleUsed}/{quotaStats.capsuleLimit}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                        
-                        {!isPremium ? (
-                            <div className="p-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-zinc-900 dark:to-zinc-800 rounded-xl border border-amber-200 dark:border-zinc-700 text-center relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                    <CrownIcon className="w-24 h-24 text-amber-500" />
-                                </div>
-                                <div className="relative z-10">
-                                    <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <LockIcon className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-                                    </div>
-                                    <h4 className="font-bold text-slate-800 dark:text-zinc-100 mb-2">{t('premium_features')}</h4>
-                                    <p className="text-sm text-slate-600 dark:text-zinc-400 mb-6 max-w-sm mx-auto leading-relaxed">
-                                        {t('sketch_premium_only')}
-                                    </p>
-                                    <button 
-                                        onClick={onBackToList}
-                                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full font-bold shadow-md transition-all transform hover:scale-105 active:scale-95"
-                                    >
-                                        <CrownIcon className="w-4 h-4" />
-                                        {t('go_premium')}
-                                    </button>
-                                </div>
+                    {/* SECRET DE MÉMORISATION */}
+                    <div className="animate-fade-in">
+                        <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4"><ZapIcon className="w-6 h-6 mr-3 text-orange-500" /> {t('mnemonic_title')}</h3>
+                        {mnemonic ? (
+                            <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-6 rounded-2xl border border-orange-200 dark:border-orange-800 relative group">
+                                <blockquote className="text-xl md:text-2xl font-serif italic text-slate-800 dark:text-zinc-100 text-center leading-relaxed">"{mnemonic}"</blockquote>
+                                <button onClick={handleGenerateMnemonic} className="absolute top-2 right-2 p-2 opacity-0 group-hover:opacity-100 text-orange-400 hover:text-orange-600 transition-all"><RefreshCwIcon className="w-4 h-4"/></button>
                             </div>
                         ) : (
-                            <>
-                                {!memoryAidImage && !isGeneratingImage && !imageError && (
-                                    <div className="p-8 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800 text-center">
-                                        <p className="text-slate-600 dark:text-zinc-400 mb-2">
-                                            {t('sketch_placeholder_text')}
-                                        </p>
-                                        <p className="text-xs text-slate-400 dark:text-zinc-500 italic mb-6">
-                                            {t('sketch_warning')}
-                                        </p>
-                                        <button
-                                            onClick={handleGenerateDrawing}
-                                            className="flex items-center justify-center gap-2 mx-auto px-6 py-3 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-700 transition-colors font-semibold shadow-sm"
-                                        >
-                                            <SparklesIcon className="w-5 h-5 text-violet-500"/>
-                                            {t('generate_sketch')}
-                                        </button>
-                                    </div>
-                                )}
-                                {isGeneratingImage && (
-                                    <div className="w-full h-64 flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
-                                        <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-10 w-10 mb-4 animate-spin border-t-violet-500"></div>
-                                        <p className="text-slate-600 dark:text-zinc-400">{t('sketching')}</p>
-                                    </div>
-                                )}
-                                {imageError && (
-                                     <div className="p-6 bg-red-50 dark:bg-red-900/40 rounded-xl text-center border border-red-100 dark:border-red-800">
-                                         <p className="text-red-700 dark:text-red-300">{imageError}</p>
-                                         <button
-                                            onClick={handleGenerateDrawing}
-                                            className="mt-4 flex items-center justify-center gap-2 mx-auto px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors font-semibold"
-                                        >
-                                            <RefreshCwIcon className="w-5 h-5"/>
-                                            {t('retry')}
-                                        </button>
-                                     </div>
-                                )}
-                                {memoryAidImage && (
-                                    <div className="p-4 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
-                                        <img src={memoryAidImage} alt="Dessin aide-mémoire" className="rounded-lg w-full bg-white shadow-sm" />
-                                        {memoryAidDescription && (
-                                            <div className="mt-4 p-4 bg-white dark:bg-zinc-800 rounded-lg border-l-4 border-violet-400 shadow-sm">
-                                                <p className="text-sm text-slate-700 dark:text-zinc-300 italic">
-                                                    <span className="font-semibold text-violet-600 dark:text-violet-400 not-italic mr-1">{t('info')}</span>
-                                                    {memoryAidDescription}
-                                                </p>
-                                            </div>
-                                        )}
-                                        <div className="mt-4 flex justify-center items-center gap-6">
-                                            <button onClick={handleClearDrawing} className="text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors">
-                                                {t('erase')}
-                                            </button>
-                                            <button onClick={handleGenerateDrawing} className="text-sm font-semibold text-violet-500 hover:text-violet-700 dark:hover:text-violet-400 transition-colors flex items-center gap-1">
-                                                <RefreshCwIcon className="w-4 h-4" />
-                                                {t('regenerate')}
-                                            </button>
-                                            <button onClick={handleDownloadDrawing} className="text-sm font-semibold text-sky-500 hover:text-sky-700 dark:hover:text-sky-400 transition-colors flex items-center gap-1">
-                                                <DownloadIcon className="w-4 h-4" />
-                                                {t('download')}
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
+                            <button onClick={handleGenerateMnemonic} disabled={isGeneratingMnemonic} className="w-full py-6 border-2 border-dashed border-orange-200 dark:border-orange-800 rounded-2xl text-orange-600 dark:text-orange-400 font-bold flex flex-col items-center justify-center gap-2 hover:bg-orange-50 transition-colors">
+                                {isGeneratingMnemonic ? <RefreshCwIcon className="w-6 h-6 animate-spin"/> : <SparklesIcon className="w-6 h-6"/>}
+                                {isGeneratingMnemonic ? t('generating_mnemonic') : t('generate_mnemonic')}
+                            </button>
                         )}
                     </div>
-                    
-                    {capsule.isShared && (
-                        <div>
-                            <h3 className="flex items-center text-xl font-semibold text-slate-800 dark:text-zinc-100 mb-3">
-                                <MessageSquareIcon className="w-6 h-6 mr-3 text-pink-500" />
-                                <span>{t('collaborative_space')}</span>
-                            </h3>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <div className="bg-slate-50 dark:bg-zinc-900/30 border border-slate-200 dark:border-zinc-800 rounded-lg p-4">
-                                    <h4 className="font-bold text-slate-700 dark:text-zinc-200 mb-3 text-sm uppercase tracking-wide">{t('discussion')}</h4>
-                                    <div className="space-y-4 mb-4 max-h-60 overflow-y-auto">
-                                        {capsule.comments && capsule.comments.length > 0 ? (
-                                            capsule.comments.map((comment) => (
-                                                <div key={comment.id} className="flex gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                                        {comment.userName.charAt(0).toUpperCase()}
-                                                    </div>
-                                                    <div className="bg-white dark:bg-zinc-800 p-3 rounded-lg rounded-tl-none shadow-sm flex-grow">
-                                                        <div className="flex justify-between items-baseline mb-1">
-                                                            <span className="text-xs font-bold text-slate-700 dark:text-zinc-300">{comment.userName}</span>
-                                                            <span className="text-xs text-slate-400">{new Date(comment.timestamp).toLocaleDateString()}</span>
-                                                        </div>
-                                                        <p className="text-sm text-slate-600 dark:text-zinc-300">{comment.content}</p>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-slate-400 text-center italic py-4">{t('no_comments')}</p>
-                                        )}
-                                    </div>
-                                    <form onSubmit={handlePostComment} className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            value={newComment}
-                                            onChange={(e) => setNewComment(e.target.value)}
-                                            placeholder={t('add_comment')}
-                                            className="flex-grow px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700 rounded-md text-sm focus:ring-2 focus:ring-pink-500 outline-none"
-                                        />
-                                        <button type="submit" disabled={!newComment.trim()} className="p-2 bg-pink-500 text-white rounded-md hover:bg-pink-600 disabled:opacity-50">
-                                            <SendIcon className="w-4 h-4" />
-                                        </button>
-                                    </form>
+
+                    {/* CONCEPTS */}
+                    <div>
+                        <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4"><LightbulbIcon className="w-6 h-6 mr-3 text-amber-500" /> {t('key_concepts')}</h3>
+                        <div className="grid gap-4">
+                            {capsule.keyConcepts.map((c, i) => (
+                                <div key={i} className="p-5 bg-slate-50 dark:bg-zinc-900/50 rounded-xl border border-slate-100 dark:border-zinc-800">
+                                    <p className="font-bold text-lg text-slate-900 dark:text-white mb-1">{c.concept}</p>
+                                    <p className="text-slate-600 dark:text-zinc-300">{c.explanation}</p>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
 
-                                {isPremium ? (
-                                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg p-4">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h4 className="font-bold text-amber-800 dark:text-amber-200 text-sm uppercase tracking-wide flex items-center gap-2">
-                                                <CrownIcon className="w-4 h-4" />
-                                                {t('team_management')}
-                                            </h4>
-                                        </div>
-                                        <div className="mb-6">
-                                            <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('assign_task')}</h5>
-                                            <form onSubmit={handleAssignTask} className="space-y-2">
-                                                <select 
-                                                    className="w-full p-2 text-sm rounded bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700"
-                                                    value={selectedAssignee}
-                                                    onChange={e => setSelectedAssignee(e.target.value)}
-                                                >
-                                                    <option value="">{t('choose_member')}</option>
-                                                    {activeGroup?.members.map(m => (
-                                                        <option key={m.userId} value={m.userId}>{m.name}</option>
-                                                    ))}
-                                                </select>
-                                                <div className="flex gap-2">
-                                                    <input 
-                                                        type="text" 
-                                                        placeholder={t('task_placeholder')}
-                                                        value={newTaskDesc}
-                                                        onChange={e => setNewTaskDesc(e.target.value)}
-                                                        className="flex-grow p-2 text-sm rounded bg-white dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700"
-                                                    />
-                                                    <button type="submit" disabled={!newTaskDesc || !selectedAssignee} className="px-3 bg-amber-600 text-white rounded text-sm hover:bg-amber-700 disabled:opacity-50">
-                                                        +
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                        {capsule.collaborativeTasks && capsule.collaborativeTasks.length > 0 && (
-                                            <div className="mb-6">
-                                                <h5 className="text-xs font-semibold text-slate-500 mb-2">{t('current_tasks')}</h5>
-                                                <div className="space-y-2">
-                                                    {capsule.collaborativeTasks.map(task => (
-                                                        <div key={task.id} className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-2 rounded border border-slate-200 dark:border-zinc-700">
-                                                            <button 
-                                                                onClick={() => handleToggleTask(task.id, task.isCompleted)}
-                                                                className={`p-1 rounded ${task.isCompleted ? 'text-emerald-500' : 'text-slate-300 hover:text-slate-500'}`}
-                                                            >
-                                                                <CheckSquareIcon className="w-4 h-4" />
-                                                            </button>
-                                                            <div className="flex-grow text-sm">
-                                                                <p className={`font-medium ${task.isCompleted ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-zinc-200'}`}>{task.description}</p>
-                                                                <p className="text-xs text-slate-400">Pour: {task.assigneeName}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                     </div>
+                    {/* CROQUIS */}
+                    <div>
+                        <h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-4"><ImageIcon className="w-6 h-6 mr-3 text-violet-500" /> {t('memory_aid_sketch')}</h3>
+                        {isPremium ? (
+                            <div className="bg-slate-50 dark:bg-zinc-900/50 rounded-2xl border border-slate-100 dark:border-zinc-800 p-4">
+                                {memoryAidImage ? (
+                                    <div className="space-y-4">
+                                        <div className="bg-white dark:bg-zinc-800 p-2 rounded-xl border border-slate-200 shadow-sm"><img src={memoryAidImage} alt="Sketch" className="w-full h-auto rounded-lg"/></div>
+                                        <div className="flex gap-4"><button onClick={() => setMemoryAidImage(null)} className="text-sm font-bold text-slate-400 hover:text-red-500">Effacer</button></div>
+                                    </div>
                                 ) : (
-                                    <div className="bg-slate-100 dark:bg-zinc-800 p-6 rounded-lg flex flex-col items-center justify-center text-center">
-                                        <CrownIcon className="w-8 h-8 text-slate-400 mb-2" />
-                                        <h4 className="font-bold text-slate-600 dark:text-zinc-400">{t('premium_features')}</h4>
-                                        <p className="text-xs text-slate-500 dark:text-zinc-500 mt-1 mb-3">
-                                            {t('premium_features_desc')}
-                                        </p>
-                                        <button disabled className="px-3 py-1 bg-slate-200 dark:bg-zinc-700 text-slate-500 rounded text-sm cursor-not-allowed">
-                                            {t('go_premium')}
+                                    <div className="text-center py-10">
+                                        <button onClick={handleGenerateDrawing} disabled={isGeneratingImage} className="px-6 py-3 bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 flex items-center gap-2 mx-auto disabled:opacity-50">
+                                            {isGeneratingImage ? <RefreshCwIcon className="w-5 h-5 animate-spin"/> : <SparklesIcon className="w-5 h-5"/>}
+                                            {isGeneratingImage ? t('sketching') : t('generate_sketch')}
                                         </button>
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    )}
-                    
-                    <div className="!mt-12 space-y-10 no-export">
-                        <div>
-                            <h4 className="text-lg font-bold text-slate-800 dark:text-zinc-200 mb-4">{t('learning_modes')}</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <button 
-                                     onClick={onStartFlashcards}
-                                     className="w-full flex items-center justify-center gap-3 text-center p-5 rounded-xl bg-white dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:border-blue-300 hover:bg-slate-50 hover:shadow-md transition-all"
-                                 >
-                                    <div className="p-2 bg-blue-50 rounded-full text-blue-600">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M4 6H20M4 10H20M4 14H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                        </svg>
-                                    </div>
-                                    <span className="font-semibold">{t('mode_flashcards')}</span>
-                                 </button>
-                                 <button 
-                                     onClick={onStartCoaching}
-                                     className="w-full flex items-center justify-center gap-3 text-center p-5 rounded-xl bg-white dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:border-emerald-300 hover:bg-slate-50 hover:shadow-md transition-all"
-                                 >
-                                    <MessageSquareIcon className="w-6 h-6 text-emerald-500"/>
-                                    <span className="font-semibold">{t('mode_coach')}</span>
-                                 </button>
-                                 <button 
-                                     onClick={onStartActiveLearning}
-                                     className="w-full flex items-center justify-center gap-3 text-center p-5 rounded-xl bg-white dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:border-amber-300 hover:bg-slate-50 hover:shadow-md transition-all"
-                                 >
-                                    <PlayIcon className="w-6 h-6 text-amber-500"/>
-                                    <span className="font-semibold">{t('mode_active')}</span>
-                                 </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="relative">
-                        {isRegeneratingQuiz && (
-                            <div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 z-10 flex flex-col items-center justify-center rounded-lg">
-                                <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-8 w-8 mb-3 animate-spin border-t-emerald-500"></div>
-                                <p className="font-semibold text-slate-600 dark:text-zinc-300">Mise à jour du quiz...</p>
+                        ) : (
+                            <div className="bg-amber-50 dark:bg-amber-900/10 p-8 rounded-2xl border border-amber-200 dark:border-amber-800/30 text-center">
+                                <LockIcon className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+                                <h4 className="font-bold text-amber-800 dark:text-amber-400">{t('premium_features')}</h4>
+                                <p className="text-sm text-amber-700">{t('sketch_premium_only')}</p>
                             </div>
                         )}
-                        <Quiz questions={capsule.quiz} onComplete={handleQuizComplete} />
                     </div>
+
+                    <Quiz questions={capsule.quiz} onComplete={(s) => onMarkAsReviewed(capsule.id, s, 'quiz')} />
                 </div>
             </div>
+
+            {showShareMenu && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowShareMenu(false)}>
+                    <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="p-4 border-b border-slate-100 dark:border-zinc-800 flex justify-between font-bold"><h3>{t('share_group')}</h3><button onClick={() => setShowShareMenu(false)}><XIcon className="w-5 h-5"/></button></div>
+                        <div className="p-2">{userGroups.length > 0 ? userGroups.map(g => (
+                            <button key={g.id} onClick={() => { onShareCapsule(g, capsule); setShowShareMenu(false); addToast("Partagé !", "success"); }} className="w-full text-left p-3 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg text-sm transition-colors">{g.name}</button>
+                        )) : <p className="p-4 text-sm text-slate-400 italic text-center">Aucun groupe.</p>}</div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
