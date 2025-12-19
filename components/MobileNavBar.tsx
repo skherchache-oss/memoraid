@@ -35,6 +35,7 @@ const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChange, has
                     return (
                         <button
                             key={item.id}
+                            data-tab={item.id}
                             onClick={() => onTabChange(item.id)}
                             className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
                                 isActive 

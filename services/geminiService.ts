@@ -29,8 +29,6 @@ export const cleanMarkdown = (text: string): string => {
 
 // Helper pour obtenir le client IA de manière sécurisée et Lazy
 export const getAiClient = () => {
-    // Fix: Obtained exclusively from the environment variable process.env.API_KEY.
-    // Initialization: Always use const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
     return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
@@ -130,6 +128,7 @@ const repairCapsuleData = (data: any, sourceType: SourceType): any => {
     const rawConcepts = data.keyConcepts || data.key_concepts || [];
     if (Array.isArray(rawConcepts)) {
         fixedConcepts = rawConcepts.map((item: any) => {
+            if (item && typeof item === 'object' && item.concept && item.explanation) return { concept: cleanMarkdown(item.concept), explanation: cleanMarkdown(item.explanation) };
             if (typeof item === 'string') return { concept: cleanMarkdown(item), explanation: "" };
             if (typeof item === 'object' && item !== null) {
                 return {
@@ -167,12 +166,8 @@ const getPromptStrategy = (sourceType: SourceType, lang: Language = 'fr'): strin
     }
 };
 
-// Fonction centralisée de gestion d'erreur API
 const handleGeminiError = (error: any, defaultMsg: string = "Impossible de générer la capsule."): GeminiError => {
     let errorMessage = defaultMsg;
-    
-    // 1. Détection Quota / Rate Limit (429)
-    // Google peut renvoyer 429 ou "Resource exhausted" dans le message
     const isQuotaError = 
         error?.status === 429 || 
         (error?.message && (
@@ -181,11 +176,7 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
             error.message.toLowerCase().includes("resource exhausted")
         ));
 
-    if (isQuotaError) {
-        return new GeminiError("⚠️ Quota API saturé temporairement.", true);
-    }
-
-    // 2. Autres erreurs
+    if (isQuotaError) return new GeminiError("⚠️ Quota API saturé temporairement.", true);
     if (error instanceof Error) {
         const msg = error.message.toLowerCase();
         if (msg.includes("api_key")) errorMessage = "Clé API invalide.";
@@ -227,23 +218,13 @@ const generateContentWithFallback = async (
             return repairedData;
 
         } catch (error: any) {
-            console.warn(`Attempt ${attempt + 1} failed:`, error);
             lastError = handleGeminiError(error);
-            
-            // Si c'est une erreur de quota, on ne réessaie PAS immédiatement pour ne pas aggraver
-            if (lastError.isQuotaError) {
-                throw lastError; 
-            }
-            
-            if (attempt < maxRetries - 1) {
-                await delay(1000 * (attempt + 1));
-            }
+            if (lastError.isQuotaError) throw lastError; 
+            if (attempt < maxRetries - 1) await delay(1000 * (attempt + 1));
         }
     }
     throw lastError;
 };
-
-// --- EXPORTS ---
 
 export const generateCognitiveCapsule = async (inputText: string, explicitSourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual') => {
   let sourceType: SourceType = 'text';
@@ -267,7 +248,6 @@ export const generateCognitiveCapsule = async (inputText: string, explicitSource
   `;
 
   try {
-      // Fix: Use recommended model gemini-3-flash-preview for text tasks
       return await generateContentWithFallback("gemini-3-flash-preview", { parts: [{ text: prompt }] }, capsuleSchema(language), sourceType);
   } catch (error) {
       throw handleGeminiError(error);
@@ -288,7 +268,6 @@ export const generateCognitiveCapsuleFromFile = async (fileData: { mimeType: str
   const prompt = `Analyze document/image. Generate "Cognitive Capsule" JSON with at least 4 detailed key concepts and 4 quiz questions. ${strategy} ${pedagogy} OUTPUT: **${targetLang}**.`;
 
   try {
-      // Fix: Use recommended model gemini-3-flash-preview for multimodal content analysis
       return await generateContentWithFallback(
           "gemini-3-flash-preview",
           { parts: [{ inlineData: { mimeType: fileData.mimeType, data: fileData.data } }, { text: prompt }]},
@@ -305,7 +284,6 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     const targetLang = getLangName(language);
     const learningStyle = userProfile?.learningStyle || 'textual';
     let systemInstruction = `You are Memoraid Coach. Topic: "${capsule.title}". Mode: ${mode}. Style: ${learningStyle}. Language: ${targetLang}. Keep responses short and concise. Do NOT use markdown bolding (asterisks).`;
-    // Fix: Use recommended model gemini-3-flash-preview for text chat
     return ai.chats.create({ model: 'gemini-3-flash-preview', config: { systemInstruction } });
 };
 
@@ -313,7 +291,6 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
     const ai = getAiClient();
     const prompt = `Topic: "${capsule.title}". Create a short, catchy mnemonic in ${getLangName(language)}. Plain text only, no asterisks, no formatting.`;
     try {
-        // Fix: Use recommended model gemini-3-flash-preview
         const response = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
         return cleanMarkdown((response.text || "").trim());
     } catch (e) {
@@ -324,29 +301,33 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr') => {
     const ai = getAiClient();
     const langName = getLangName(language);
-    const prompt = `Create a simple, educational sketchnote illustration about "${capsule.title}". Style: clean black ink on white background, diagram-like, clear visual metaphor. Target Language for any text: ${langName}. Ensure text is minimal, legible, and correctly spelled in ${langName}. Use the appropriate script (alphabet) for ${langName}.`;
+    
+    // NOUVEAU PROMPT : Style papier à spirale, crayons de couleur
+    const prompt = `Create an educational sketchnote illustration about "${capsule.title}" drawn on a clean white spiral-bound sketchbook page. 
+    Style: Vibrant hand-drawn art with colored pencils on textured paper. 
+    Look & Feel: Artistic "hand-drawn" aesthetic with soft shading, arrows, and clear visual metaphors. 
+    Important: Include a realistic silver spiral binding effect along the left or top edge of the image to make it look like a physical notebook page.
+    Use a harmonious palette of colors. Target Language for labels: ${langName}. 
+    Include a tiny, elegant handwritten "Memoraid" signature in the bottom right corner. 
+    Ensure the drawing is informative, clear, and artistic.`;
     
     try {
-        // Utilisation du modèle Flash Image qui est plus stable et rapide
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: prompt }] },
         });
 
-        // Extraction de l'image de la réponse
         if (response.candidates?.[0]?.content?.parts) {
             for (const part of response.candidates[0].content.parts) {
                 if (part.inlineData && part.inlineData.data) {
                     return { 
                         imageData: part.inlineData.data, 
-                        description: "Illustration générée par IA" 
+                        description: "Illustration crayonnée sur cahier par Memoraid" 
                     };
                 }
             }
         }
-        
-        throw new Error("Aucune image générée dans la réponse.");
-
+        throw new Error("Aucune image générée.");
     } catch (e: any) {
         console.error("Erreur image generation:", e);
         throw handleGeminiError(e, "Le service de dessin est momentanément indisponible.");
@@ -356,10 +337,9 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
 export const expandKeyConcept = async (title: string, concept: string, context: string, language: Language = 'fr') => {
     const ai = getAiClient();
     try {
-        // Fix: Use recommended model gemini-3-flash-preview
         const response = await ai.models.generateContent({ 
             model: "gemini-3-flash-preview", 
-            contents: `Explain "${concept}" in context of "${title}". Lang: ${getLangName(language)}. Concise. No markdown formatting (no bold/italics).` 
+            contents: `Explain "${concept}" in context of "${title}". Lang: ${getLangName(language)}. Concise. No markdown formatting.` 
         });
         return cleanMarkdown(response.text || "");
     } catch (e) { throw handleGeminiError(e); }
@@ -368,7 +348,6 @@ export const expandKeyConcept = async (title: string, concept: string, context: 
 export const regenerateQuiz = async (capsule: CognitiveCapsule, language: Language = 'fr') => {
     const ai = getAiClient();
     try {
-        // Fix: Use recommended model gemini-3-flash-preview
         const response = await ai.models.generateContent({ 
             model: "gemini-3-flash-preview", 
             contents: `Generate quiz for "${capsule.title}". Lang: ${getLangName(language)}. Create at least 4 questions. JSON Array.`,
