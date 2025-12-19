@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { XIcon, BookOpenIcon, DownloadIcon, CheckCircleIcon, RefreshCwIcon } from '../constants';
 import type { ExternalPlatform, SchoolCourse, SchoolMaterial } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ImportModalProps {
     onClose: () => void;
@@ -40,6 +42,7 @@ const MOCK_COURSES: Record<ExternalPlatform, SchoolCourse[]> = {
 };
 
 const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
+    const { t } = useLanguage();
     const [step, setStep] = useState<'select' | 'auth' | 'list' | 'loading'>('select');
     const [platform, setPlatform] = useState<ExternalPlatform | null>(null);
     const [courses, setCourses] = useState<SchoolCourse[]>([]);
@@ -85,7 +88,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                     <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5l7.51-3.22-7.52-3.22 7.52 3.22z"/></svg>
                 </div>
                 <span className="font-bold text-slate-700 dark:text-zinc-200">Google Classroom</span>
-                <span className="text-xs text-slate-400 mt-1 text-center">Importez vos devoirs et supports</span>
+                <span className="text-xs text-slate-400 mt-1 text-center">{t('import_platform_classroom_desc')}</span>
             </button>
             <button 
                 onClick={() => handleSelectPlatform('pronote')}
@@ -95,7 +98,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                    <BookOpenIcon className="w-6 h-6" />
                 </div>
                 <span className="font-bold text-slate-700 dark:text-zinc-200">Pronote</span>
-                <span className="text-xs text-slate-400 mt-1 text-center">Cahier de textes et ressources</span>
+                <span className="text-xs text-slate-400 mt-1 text-center">{t('import_platform_pronote_desc')}</span>
             </button>
             <button 
                 onClick={() => handleSelectPlatform('moodle')}
@@ -105,7 +108,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                     <span className="text-xl font-bold">M</span>
                 </div>
                 <span className="font-bold text-slate-700 dark:text-zinc-200">Moodle</span>
-                <span className="text-xs text-slate-400 mt-1 text-center">Cours universitaires et fichiers</span>
+                <span className="text-xs text-slate-400 mt-1 text-center">{t('import_platform_moodle_desc')}</span>
             </button>
         </div>
     );
@@ -118,15 +121,15 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                 {platform === 'moodle' && <span className="text-orange-600 font-bold text-2xl">M</span>}
             </div>
             <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
-                Connexion à {platform === 'classroom' ? 'Google Classroom' : platform === 'pronote' ? 'Pronote' : 'Moodle'}
+                {t('import_auth_title').replace('{platform}', platform === 'classroom' ? 'Google Classroom' : platform === 'pronote' ? 'Pronote' : 'Moodle')}
             </h3>
             <p className="text-slate-500 dark:text-zinc-400 mb-6 max-w-sm">
-                Memoraid va récupérer la liste de vos cours récents et les documents associés pour générer des capsules.
+                {t('import_auth_desc')}
             </p>
 
             {platform !== 'classroom' && (
                 <div className="w-full max-w-xs mb-4">
-                    <input type="text" placeholder="URL de l'établissement (facultatif pour démo)" className="w-full px-4 py-2 mb-2 rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800" disabled />
+                    <input type="text" placeholder="URL..." className="w-full px-4 py-2 mb-2 rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800" disabled />
                     <input type="text" value="demo_student" readOnly className="w-full px-4 py-2 mb-2 rounded-lg border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-500" />
                 </div>
             )}
@@ -139,21 +142,21 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                 {isAuthLoading ? (
                     <>
                         <RefreshCwIcon className="w-5 h-5 animate-spin" />
-                        Connexion en cours...
+                        ...
                     </>
                 ) : (
-                    'Autoriser l\'accès'
+                    t('import_auth_button')
                 )}
             </button>
-            <p className="text-xs text-slate-400 mt-4 italic">Aucun mot de passe n'est stocké. Simulation pour la démo.</p>
+            <p className="text-xs text-slate-400 mt-4 italic">{t('import_auth_note')}</p>
         </div>
     );
 
     const renderList = () => (
         <div className="h-full flex flex-col">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-lg text-slate-800 dark:text-white">Vos cours récents</h3>
-                <button onClick={() => setStep('select')} className="text-sm text-blue-500 hover:underline">Changer</button>
+                <h3 className="font-bold text-lg text-slate-800 dark:text-white">{t('import_list_title')}</h3>
+                <button onClick={() => setStep('select')} className="text-sm text-blue-500 hover:underline">{t('import_list_change')}</button>
             </div>
             <div className="flex-grow overflow-y-auto space-y-4 pr-2">
                 {courses.map(course => (
@@ -178,7 +181,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                                         </div>
                                         <div className="flex-grow">
                                             <p className="text-sm font-medium text-slate-700 dark:text-zinc-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">{material.title}</p>
-                                            <p className="text-xs text-slate-400">Importable en 1 clic</p>
+                                            <p className="text-xs text-slate-400">{t('import_list_note')}</p>
                                         </div>
                                         <DownloadIcon className="w-5 h-5 text-slate-300 group-hover:text-blue-500" />
                                     </button>
@@ -197,7 +200,7 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                 <header className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-zinc-800 flex-shrink-0">
                     <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <DownloadIcon className="w-6 h-6 text-blue-600" />
-                        Import Scolaire Intelligent
+                        {t('import_modal_title')}
                     </h2>
                     <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800">
                         <XIcon className="w-6 h-6 text-slate-500" />
@@ -211,8 +214,8 @@ const ImportModal: React.FC<ImportModalProps> = ({ onClose, onImport }) => {
                     {step === 'loading' && (
                          <div className="flex-grow flex flex-col items-center justify-center text-center">
                             <div className="loader ease-linear rounded-full border-4 border-t-4 border-slate-200 h-12 w-12 mb-4 animate-spin border-t-blue-500"></div>
-                            <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Récupération du cours...</h3>
-                            <p className="text-slate-500 dark:text-zinc-400">Extraction du contenu et préparation de l'analyse.</p>
+                            <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{t('import_loading_title')}</h3>
+                            <p className="text-slate-500 dark:text-zinc-400">{t('import_loading_desc')}</p>
                          </div>
                     )}
                 </div>

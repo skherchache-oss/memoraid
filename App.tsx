@@ -162,7 +162,19 @@ const AppContent: React.FC = () => {
         try {
             const capsuleData = await generateCognitiveCapsule(inputText, sourceType, language, profile.user.learningStyle);
             if (generationController.current.isCancelled) return;
-            const newCapsule: CognitiveCapsule = { ...capsuleData, id: `cap_${Date.now()}`, createdAt: Date.now(), lastReviewed: null, reviewStage: 0, history: [], masteryLevel: 0 };
+            if (!capsuleData || typeof capsuleData !== 'object' || !capsuleData.title) {
+                throw new Error("Invalid capsule data structure.");
+            }
+            const newCapsule: CognitiveCapsule = { 
+                ...capsuleData, 
+                id: `cap_${Date.now()}`, 
+                createdAt: Date.now(), 
+                lastReviewed: null, 
+                reviewStage: 0, 
+                history: [], 
+                masteryLevel: 0,
+                sourceType: sourceType || 'text'
+            };
             await saveCapsuleData(newCapsule);
             handleGamificationAction('create');
             setActiveCapsule(newCapsule); setNewlyAddedCapsuleId(newCapsule.id);
@@ -171,7 +183,7 @@ const AppContent: React.FC = () => {
         } catch (e: any) {
             if (generationController.current.isCancelled) return;
             if (e instanceof GeminiError && e.isQuotaError) setCooldownUntil(Date.now() + 60000);
-            setError(e.message);
+            setError(e.message || t('error_generation'));
         } finally { 
             if (!generationController.current.isCancelled) {
                 setIsLoading(false); 
@@ -188,7 +200,19 @@ const AppContent: React.FC = () => {
             const base64Data = await fileToBase64(file);
             const capsuleData = await generateCognitiveCapsuleFromFile({ mimeType: file.type, data: base64Data }, sourceType, language, profile.user.learningStyle);
             if (generationController.current.isCancelled) return;
-            const newCapsule: CognitiveCapsule = { ...capsuleData, id: `cap_${Date.now()}`, createdAt: Date.now(), lastReviewed: null, reviewStage: 0, history: [], masteryLevel: 0 };
+            if (!capsuleData || typeof capsuleData !== 'object' || !capsuleData.title) {
+                throw new Error("Invalid capsule data structure.");
+            }
+            const newCapsule: CognitiveCapsule = { 
+                ...capsuleData, 
+                id: `cap_${Date.now()}`, 
+                createdAt: Date.now(), 
+                lastReviewed: null, 
+                reviewStage: 0, 
+                history: [], 
+                masteryLevel: 0,
+                sourceType: sourceType || 'unknown'
+            };
             await saveCapsuleData(newCapsule);
             handleGamificationAction('create');
             setActiveCapsule(newCapsule); setNewlyAddedCapsuleId(newCapsule.id);
@@ -196,7 +220,7 @@ const AppContent: React.FC = () => {
             addToast(t('capsule_created'), 'success');
         } catch (e: any) {
             if (generationController.current.isCancelled) return;
-            setError(e.message);
+            setError(e.message || t('error_file_read'));
         } finally { 
             if (!generationController.current.isCancelled) {
                 setIsLoading(false); 
@@ -229,7 +253,6 @@ const AppContent: React.FC = () => {
         setMobileTab('profile');
         setIsProfileModalOpen(false); 
         
-        // Défilement fluide vers la section premium avec un identifiant spécifique
         setTimeout(() => {
             const premiumAnchor = document.getElementById('premium-section-anchor');
             if (premiumAnchor) {
@@ -242,7 +265,6 @@ const AppContent: React.FC = () => {
 
     const handleUpdateProfile = (newProfile: UserProfile) => {
         setProfile(prev => ({ ...prev, user: newProfile }));
-        // Aucune notification ici pour éviter le spam lors des auto-save debouncés
     };
 
     const displayCapsules = useMemo(() => {
@@ -266,7 +288,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="relative min-h-screen bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200">
-            <Header onOpenProfile={() => {setView('profile'); setMobileTab('profile'); setIsProfileModalOpen(true);}} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => {setView('create'); setMobileTab('create'); setActiveCapsule(null);}} currentTheme={theme} onToggleTheme={toggleTheme} />
+            <Header onOpenProfile={() => {setView('profile'); setMobileTab('profile'); setIsProfileModalOpen(true);}} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => {setView('create'); setMobileTab('create'); setActiveCapsule(null);}} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
 
             <main className="container mx-auto max-w-screen-2xl p-4 md:p-8 md:block hidden min-h-[calc(100vh-80px)]">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

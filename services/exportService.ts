@@ -62,8 +62,6 @@ export const exportToPPTX = async (capsule: CognitiveCapsule) => {
         pres.author = 'Memoraid';
 
         // --- 3. MASQUE (MASTER SLIDE) ---
-        // Footer occupe les 5% du bas.
-        // Pour centrer le texte "Memoraid", on utilise un alignement vertical 'middle' dans la zone du footer.
         pres.defineSlideMaster({
             title: 'MEMORAID_MASTER',
             background: { color: C.BG_LIGHT },
@@ -82,12 +80,11 @@ export const exportToPPTX = async (capsule: CognitiveCapsule) => {
                             fontSize: 10, 
                             color: C.EMERALD_LIGHT, 
                             align: 'center', 
-                            valign: 'middle' // Centrage vertical
+                            valign: 'middle' 
                         } 
                     } 
                 }
             ],
-            // Numéro de page aligné à droite, centré verticalement dans le footer
             slideNumber: { x: '92%', y: '95%', w: '5%', h: '5%', fontSize: 10, color: C.WHITE, align: 'right', valign: 'middle' }
         });
 
@@ -104,25 +101,45 @@ export const exportToPPTX = async (capsule: CognitiveCapsule) => {
             });
         }
 
+        // REPOSITIONNEMENT : Titre remonté à y: '12%' pour éviter tout chevauchement
         slideTitle.addText(sanitizeForPPTX(capsule.title), {
-            x: '35%', y: '35%', w: '60%', h: 2,
+            x: '35%', y: '12%', w: '60%', h: 1.8,
             fontSize: 32, fontFace: 'Arial', bold: true, color: C.TEXT_MAIN,
             align: 'left', valign: 'middle', shrinkText: true
         });
 
+        // REPOSITIONNEMENT : Résumé à y: '45%' (plus d'espace)
         slideTitle.addText(sanitizeForPPTX(capsule.summary), {
-            x: '35%', y: '60%', w: '60%', h: 1.5,
+            x: '35%', y: '45%', w: '60%', h: 2.2,
             fontSize: 14, color: C.TEXT_SEC, italic: true, align: 'left', valign: 'top', wrap: true
         });
 
-        // --- 5. SLIDE IMAGE ---
-        if (capsule.memoryAidImage && capsule.memoryAidImage.length > 100) {
+        // --- 5. SLIDE IMAGE (SYNTHÈSE VISUELLE) ---
+        if (capsule.memoryAidImage && capsule.memoryAidImage.length > 50) {
             const slideImg = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
-            slideImg.addText("Synthèse Visuelle", { x: 0.5, y: 0.5, w: '90%', h: 0.5, fontSize: 24, bold: true, color: C.EMERALD_DARK });
-            const base64Data = capsule.memoryAidImage.split(',')[1] || capsule.memoryAidImage;
-            slideImg.addImage({ data: `data:image/png;base64,${base64Data}`, x: 2, y: 1.2, w: 6, h: 3.5, sizing: { type: 'contain', w: 6, h: 3.5 } });
+            slideImg.addText("Synthèse Visuelle", { 
+                x: 0.5, y: 0.3, w: '90%', h: 0.6, 
+                fontSize: 24, bold: true, color: C.EMERALD_DARK, align: 'center' 
+            });
+            
+            // Extraction des données base64
+            const base64Data = capsule.memoryAidImage.includes('base64,') 
+                ? capsule.memoryAidImage.split('base64,')[1] 
+                : capsule.memoryAidImage;
+
+            // Centrage de l'image (Slide is 10x5.625 inches)
+            // contain garantit le respect du ratio d'aspect original
+            slideImg.addImage({ 
+                data: `data:image/png;base64,${base64Data}`, 
+                x: 1.5, y: 1.0, w: 7.0, h: 3.8, 
+                sizing: { type: 'contain', w: 7.0, h: 3.8 } 
+            });
+
             if (capsule.memoryAidDescription) {
-                slideImg.addText(sanitizeForPPTX(capsule.memoryAidDescription), { x: 1, y: 4.8, w: 8, h: 0.5, fontSize: 11, color: C.TEXT_SEC, align: 'center', italic: true });
+                slideImg.addText(sanitizeForPPTX(capsule.memoryAidDescription), { 
+                    x: 1, y: 4.9, w: 8, h: 0.5, 
+                    fontSize: 11, color: C.TEXT_SEC, align: 'center', italic: true 
+                });
             }
         }
 
@@ -159,38 +176,25 @@ export const exportToPPTX = async (capsule: CognitiveCapsule) => {
             slideInter.addText("À vous de jouer !", { x: 0, y: 3.5, w: '100%', align: 'center', fontSize: 18, color: C.EMERALD_LIGHT });
 
             capsule.quiz.forEach((q, i) => {
-                // --- SLIDE A : LA QUESTION ---
                 const slideQ = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
-                
-                // Badge "Question X"
                 slideQ.addShape(pres.ShapeType.roundRect, { x: 0.5, y: 0.3, w: 1.5, h: 0.4, fill: { color: C.ACCENT }, r: 5 });
                 slideQ.addText(`QUESTION ${i + 1}`, { x: 0.5, y: 0.3, w: 1.5, h: 0.4, fontSize: 12, color: C.WHITE, bold: true, align: 'center' });
-                
-                // Texte Question
                 slideQ.addText(sanitizeForPPTX(q.question), {
                     x: 0.5, y: 0.8, w: 9, h: 1.2,
                     fontSize: 22, bold: true, color: C.TEXT_MAIN,
                     valign: 'top', shrinkText: true
                 });
 
-                // Options (Neutres) - Espacement optimisé
                 q.options.forEach((opt, idx) => {
-                    // On démarre à y=2.2 pour laisser de la place au titre
                     const yOffset = 2.2 + (idx * 0.7); 
-                    
-                    // Boite Option (Plus compacte)
                     slideQ.addShape(pres.ShapeType.rect, {
                         x: 1, y: yOffset, w: 8, h: 0.6,
                         fill: { color: C.WHITE }, line: { color: 'CBD5E1', width: 1 }, rx: 5
                     });
-                    
-                    // Lettre A, B, C...
                     slideQ.addText(String.fromCharCode(65 + idx), { 
                         x: 1.1, y: yOffset, w: 0.5, h: 0.6, 
                         fontSize: 14, color: C.ACCENT, bold: true, valign: 'middle' 
                     });
-
-                    // Texte Option
                     slideQ.addText(sanitizeForPPTX(opt), {
                         x: 1.6, y: yOffset, w: 7.2, h: 0.6,
                         fontSize: 14, color: C.TEXT_SEC, valign: 'middle',
@@ -198,40 +202,26 @@ export const exportToPPTX = async (capsule: CognitiveCapsule) => {
                     });
                 });
 
-                // --- SLIDE B : LA RÉPONSE ---
                 const slideA = pres.addSlide({ masterName: 'MEMORAID_MASTER' });
-
-                // Header Réponse
                 slideA.addText(`RÉPONSE ${i + 1}`, { x: 0.5, y: 0.4, fontSize: 12, color: C.EMERALD, bold: true });
-
-                // Rappel Question (petit)
                 slideA.addText(sanitizeForPPTX(q.question), {
                     x: 0.5, y: 0.7, w: 9, h: 0.6,
                     fontSize: 14, color: C.TEXT_SEC, italic: true
                 });
-
-                // Boite Réponse (Gros et Vert) - Remontée
                 slideA.addShape(pres.ShapeType.rect, {
                     x: 1, y: 1.4, w: 8, h: 1.0,
                     fill: { color: C.EMERALD_LIGHT }, line: { color: C.EMERALD, width: 2 }, rx: 10
                 });
-
                 slideA.addText(sanitizeForPPTX(q.correctAnswer), {
                     x: 1, y: 1.4, w: 8, h: 1.0,
                     fontSize: 20, bold: true, color: C.EMERALD_DARK,
                     align: 'center', valign: 'middle', shrinkText: true
                 });
-
-                // Explication - Remontée et taille contrainte pour ne pas toucher le footer
-                // Le footer commence à y=95% (~5.35 pouces). 
-                // Ici la boite va de y=2.6 à y=5.0 (2.6+2.4), ce qui laisse une marge de sécurité.
                 slideA.addShape(pres.ShapeType.rect, {
                     x: 1, y: 2.6, w: 8, h: 2.4,
                     fill: { color: C.WHITE }, line: { color: 'E2E8F0' }
                 });
-                
                 slideA.addText("Explication :", { x: 1.2, y: 2.7, fontSize: 12, bold: true, color: C.ACCENT });
-                
                 slideA.addText(sanitizeForPPTX(q.explanation), {
                     x: 1.2, y: 3.0, w: 7.6, h: 1.9,
                     fontSize: 14, color: C.TEXT_MAIN, valign: 'top', shrinkText: true
@@ -243,7 +233,6 @@ export const exportToPPTX = async (capsule: CognitiveCapsule) => {
         const blob = await pres.write({ outputType: 'blob' });
         
         if (blob instanceof Blob) {
-            // Force MIME type for mobile compatibility to avoid ZIP download
             const pptxBlob = new Blob([blob], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
             const filename = generateFilename('Presentation', capsule.title, 'pptx');
             downloadBlob(pptxBlob, filename);
@@ -336,7 +325,7 @@ export const exportToEPUB = async (capsule: CognitiveCapsule) => {
 
         const opfContent = `<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookID" version="2.0">
-    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
+    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://purl.org/dc/elements/1.1/">
         <dc:title>${capsule.title}</dc:title>
         <dc:creator opf:role="aut">Memoraid</dc:creator>
         <dc:language>fr</dc:language>

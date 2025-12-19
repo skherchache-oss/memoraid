@@ -17,9 +17,10 @@ interface HeaderProps {
     onLogoClick: () => void;
     currentTheme: 'light' | 'dark';
     onToggleTheme: () => void;
+    isPremium?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, isOnline = true, gamification, addToast, onLogoClick, currentTheme, onToggleTheme }) => {
+const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, isOnline = true, gamification, addToast, onLogoClick, currentTheme, onToggleTheme, isPremium }) => {
     const { language, toggleLanguage, t } = useLanguage();
     const xpProgress = gamification ? getLevelProgress(gamification.xp) : 0;
 
@@ -44,7 +45,7 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                     </button>
                     
                     <div className="flex items-center gap-3 md:gap-4">
-                        {/* THEME SWITCHER - MOVED FIRST FOR VISIBILITY */}
+                        {/* THEME SWITCHER */}
                         <button
                             onClick={onToggleTheme}
                             className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 transition-all hover:ring-2 hover:ring-emerald-500"
@@ -54,14 +55,13 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                             {currentTheme === 'dark' ? <SunIcon className="w-5 h-5 text-amber-400" /> : <MoonIcon className="w-5 h-5 text-indigo-600" />}
                         </button>
 
-                        {/* GAMIFICATION STATS (Compact on Mobile) */}
+                        {/* GAMIFICATION STATS */}
                         {gamification && (
                             <div 
                                 className="flex items-center gap-2 bg-emerald-50 dark:bg-zinc-800/50 rounded-full px-2 py-1 md:px-3 border border-emerald-100 dark:border-zinc-700 cursor-pointer hover:bg-emerald-100 dark:hover:bg-zinc-700 transition-colors"
                                 onClick={handleXpClick}
                                 title="Cliquez pour voir les détails"
                             >
-                                {/* Streak (Hidden on mobile) */}
                                 <div className="hidden sm:flex items-center gap-1">
                                     <FlameIcon className={`w-5 h-5 ${gamification.currentStreak > 0 ? 'text-orange-500 animate-pulse' : 'text-slate-400'}`} />
                                     <span className={`font-bold text-sm ${gamification.currentStreak > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500'}`}>
@@ -70,17 +70,14 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                                 </div>
                                 <div className="hidden sm:block w-px h-4 bg-slate-300 dark:bg-zinc-600"></div>
                                 
-                                {/* Level / XP - Compact Mode for Mobile */}
                                 <div className="flex items-center gap-2">
                                     <div className="flex flex-col items-end w-full">
-                                        {/* Mobile: Compact Badge style */}
                                         <div className="md:hidden flex items-center">
                                             <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
                                                 Lvl {gamification.level}
                                             </span>
                                         </div>
 
-                                        {/* Desktop: Full XP Bar */}
                                         <div className="hidden md:block min-w-[100px]">
                                             <div className="flex justify-between w-full text-[10px] font-bold text-slate-600 dark:text-zinc-300 leading-none mb-1">
                                                 <span>Niv. {gamification.level}</span>
@@ -111,18 +108,26 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                         {/* USER SECTION */}
                         {currentUser ? (
                             <>
-                                {/* Avatar / Profile Button - HIDDEN ON MOBILE (md:block) */}
+                                {/* Avatar / Profile Button - Desktop / Mobile */}
                                 {currentUser.photoURL ? (
                                     <img 
                                         src={currentUser.photoURL} 
                                         alt="Profil" 
-                                        className="hidden md:block w-9 h-9 rounded-full cursor-pointer border border-slate-200 dark:border-zinc-700 hover:ring-2 hover:ring-emerald-300 transition-all"
+                                        className={`w-9 h-9 rounded-full cursor-pointer border-2 transition-all hover:ring-2 ${
+                                            isPremium 
+                                                ? 'border-amber-400 ring-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+                                                : 'border-slate-200 dark:border-zinc-700 hover:ring-emerald-300'
+                                        }`}
                                         onClick={onOpenProfile}
                                     />
                                 ) : (
                                     <button
                                         onClick={onOpenProfile}
-                                        className="hidden md:block p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors"
+                                        className={`p-2 rounded-full transition-colors ${
+                                            isPremium 
+                                                ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-400' 
+                                                : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900'
+                                        }`}
                                         aria-label="Ouvrir le profil"
                                     >
                                         <UserIcon className="w-5 h-5" />
@@ -133,15 +138,23 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={onLogin}
-                                    className="px-3 py-1.5 md:px-4 md:py-2 text-xs sm:text-sm font-semibold text-white bg-emerald-600 rounded-full hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap"
+                                    className={`px-3 py-1.5 md:px-4 md:py-2 text-xs sm:text-sm font-bold rounded-full transition-all shadow-sm whitespace-nowrap ${
+                                        isPremium 
+                                            ? 'bg-amber-500 text-white hover:bg-amber-600 ring-2 ring-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    }`}
                                 >
                                     <span className="hidden sm:inline">{t('login_signup')}</span>
-                                    <span className="sm:hidden">Login</span>
+                                    <span className="sm:hidden">{isPremium ? 'Login ★' : 'Login'}</span>
                                 </button>
-                                {/* BOUTON PROFIL POUR INVITÉ - HIDDEN ON MOBILE */}
+                                {/* BOUTON PROFIL POUR INVITÉ */}
                                 <button
                                     onClick={onOpenProfile}
-                                    className="hidden md:block p-2 rounded-full bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors border border-slate-200 dark:border-zinc-700"
+                                    className={`hidden md:block p-2 rounded-full transition-colors border ${
+                                        isPremium 
+                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.3)]' 
+                                            : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100'
+                                    }`}
                                     aria-label="Ouvrir le profil invité"
                                 >
                                     <UserIcon className="w-5 h-5" />

@@ -19,7 +19,7 @@ export const translations = {
         create_capsule: "Créer une capsule",
         input_instruction: "Collez un texte, importez un fichier ou dictez votre sujet.",
         input_placeholder: "Ex: https://fr.wikipedia.org/wiki/Astronomie ou collez votre cours...",
-        input_placeholder_voice: "Je vous écoute... Parlez naturellement.",
+        input_placeholder_voice: "Je vous écoute... Parlez naturellement pour transcrire votre cours.",
         recording: "Enregistrement...",
         file_button: "Fichier",
         scan_button: "Scanner",
@@ -37,6 +37,16 @@ export const translations = {
         image_error: "Erreur image. Essayez une photo moins lourde.",
         image_processing: "Traitement et compression de l'image...",
         
+        // Loading Steps
+        loading_step_1: "Lecture et analyse du contenu...",
+        loading_step_2: "Extraction des concepts clés prioritaires...",
+        loading_step_3: "Structuration pédagogique approfondie...",
+        loading_step_4: "Génération des approfondissements techniques...",
+        loading_step_5: "Création du quiz interactif (4 questions)...",
+        loading_step_6: "Rédaction des flashcards de mémorisation...",
+        loading_step_7: "Finalisation de votre capsule MEMORAID...",
+        loading_subtext: "L'IA de Memoraid traite de gros volumes d'informations pour vous offrir une synthèse parfaite.",
+        
         // Loading
         loading_title: "Création de votre capsule...",
         loading_desc: "Memoraid analyse et structure le contenu.",
@@ -44,7 +54,8 @@ export const translations = {
         // Errors
         error_file_size: "Le fichier est trop volumineux.",
         error_file_type: "Type de fichier non supporté.",
-        error_generation: "Erreur de Génération",
+        error_generation: "Erreur de Génération par l'IA.",
+        error_file_read: "Erreur lors de la lecture du fichier.",
         retry: "Réessayer",
         close: "Fermer",
         gen_needs_online: "La génération par IA nécessite une connexion Internet.",
@@ -53,6 +64,21 @@ export const translations = {
         share_error: "Erreur lors du partage.",
         share_needs_online: "Le partage nécessite une connexion Internet.",
         pack_error: "Erreur lors de l'ajout du pack.",
+        
+        // Import Modal
+        import_modal_title: "Import Scolaire Intelligent",
+        import_platform_classroom_desc: "Importez vos devoirs et supports",
+        import_platform_pronote_desc: "Cahier de textes et ressources",
+        import_platform_moodle_desc: "Cours universitaires et fichiers",
+        import_auth_title: "Connexion à {platform}",
+        import_auth_desc: "Memoraid va récupérer la liste de vos cours récents et les documents associés pour générer des capsules.",
+        import_auth_button: "Autoriser l'accès",
+        import_auth_note: "Aucun mot de passe n'est stocké. Simulation pour la démo.",
+        import_list_title: "Vos cours récents",
+        import_list_change: "Changer",
+        import_list_note: "Importable en 1 clic",
+        import_loading_title: "Récupération du cours...",
+        import_loading_desc: "Extraction du contenu et préparation de l'analyse.",
         
         // Dashboard / Recent
         recent_activity: "Activité récente",
@@ -106,6 +132,7 @@ export const translations = {
         review_done: "Révision terminée",
         key_concepts: "Concepts Clés",
         expand: "Approfondir",
+        deep_dive_label: "Approfondir le sujet",
         hide: "Masquer",
         generating: "Génération...",
         examples: "Exemples Pratiques",
@@ -171,6 +198,14 @@ export const translations = {
         no_group_msg: "Vous ne faites partie d'aucun groupe.",
         no_comments: "Aucun commentaire pour le moment.",
         activate_in_profile: "Activable dans le profil",
+        
+        // Voice UI
+        reading_in_progress: "Lecture en cours...",
+        voice_loading: "Chargement des voix...",
+        voice_preparing: "Préparation...",
+        full_reading_branding: "Lecture intégrale (MEMORAID)",
+        stop: "Arrêter",
+        listen_all: "Tout écouter",
         
         // Flashcards
         front: "Recto",
@@ -264,7 +299,7 @@ export const translations = {
         email_body_capsule: "CAPSULE",
         email_body_summary: "RÉSUMÉ",
         email_body_concepts: "CONCEPTS CLÉS",
-        email_body_examples: "EXEMPLES PRATIQUES",
+        email_body_examples: "PRACTICAL EXAMPLES",
 
         // Dashboard Stats
         global_mastery: "Maîtrise Globale",
@@ -374,7 +409,7 @@ export const translations = {
         create_capsule: "Create a capsule",
         input_instruction: "Paste text, upload a file, or dictate your topic.",
         input_placeholder: "Ex: https://en.wikipedia.org/wiki/Astronomy or paste your notes...",
-        input_placeholder_voice: "I'm listening... Speak naturally.",
+        input_placeholder_voice: "I'm listening... Speak naturally to transcribe your notes.",
         recording: "Recording...",
         file_button: "File",
         scan_button: "Scan",
@@ -391,6 +426,16 @@ export const translations = {
         image_too_large: "Image is too large (> 30MB).",
         image_error: "Image error. Try a smaller photo.",
         image_processing: "Processing and compressing image...",
+
+        // Loading Steps
+        loading_step_1: "Reading and analyzing content...",
+        loading_step_2: "Extracting priority key concepts...",
+        loading_step_3: "Deep pedagogical structuring...",
+        loading_step_4: "Generating technical deep dives...",
+        loading_step_5: "Creating interactive quiz (4 questions)...",
+        loading_step_6: "Writing memory flashcards...",
+        loading_step_7: "Finalizing your MEMORAID capsule...",
+        loading_subtext: "Memoraid's AI processes large volumes of information to provide you with a perfect summary.",
         
         // Loading
         loading_title: "Creating your capsule...",
@@ -399,7 +444,8 @@ export const translations = {
         // Errors
         error_file_size: "File is too large.",
         error_file_type: "File type not supported.",
-        error_generation: "Generation Error",
+        error_generation: "AI Generation error.",
+        error_file_read: "Error reading the file.",
         retry: "Retry",
         close: "Close",
         gen_needs_online: "AI generation requires an internet connection.",
@@ -409,6 +455,21 @@ export const translations = {
         share_needs_online: "Sharing requires an internet connection.",
         pack_error: "Error adding the pack.",
         
+        // Import Modal
+        import_modal_title: "Smart School Import",
+        import_platform_classroom_desc: "Import your homework and materials",
+        import_platform_pronote_desc: "Student logbook and resources",
+        import_platform_moodle_desc: "University courses and files",
+        import_auth_title: "Login to {platform}",
+        import_auth_desc: "Memoraid will fetch your recent courses and associated documents to generate capsules.",
+        import_auth_button: "Authorize access",
+        import_auth_note: "No password is stored. Demo simulation.",
+        import_list_title: "Your recent courses",
+        import_list_change: "Change",
+        import_list_note: "Import in 1 click",
+        import_loading_title: "Fetching course...",
+        import_loading_desc: "Extracting content and preparing analysis.",
+
         // Dashboard / Recent
         recent_activity: "Recent Activity",
         recent_activity_desc: "You have {count} capsules in your library.",
@@ -461,6 +522,7 @@ export const translations = {
         review_done: "Review Complete",
         key_concepts: "Key Concepts",
         expand: "Expand",
+        deep_dive_label: "Deep dive into the subject",
         hide: "Hide",
         generating: "Generating...",
         examples: "Practical Examples",
@@ -526,6 +588,14 @@ export const translations = {
         no_group_msg: "You are not part of any group.",
         no_comments: "No comments yet.",
         activate_in_profile: "Activate in profile",
+        
+        // Voice UI
+        reading_in_progress: "Reading in progress...",
+        voice_loading: "Loading voices...",
+        voice_preparing: "Preparing...",
+        full_reading_branding: "Full reading (MEMORAID)",
+        stop: "Stop",
+        listen_all: "Listen all",
         
         // Flashcards
         front: "Front",
