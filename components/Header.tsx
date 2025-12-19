@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon } from '../constants';
+import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
 import type { GamificationStats } from '../types';
@@ -18,9 +18,24 @@ interface HeaderProps {
     currentTheme: 'light' | 'dark';
     onToggleTheme: () => void;
     isPremium?: boolean;
+    currentView: string;
+    onNavigate: (view: any) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, isOnline = true, gamification, addToast, onLogoClick, currentTheme, onToggleTheme, isPremium }) => {
+const Header: React.FC<HeaderProps> = ({ 
+    onOpenProfile, 
+    onLogin, 
+    currentUser, 
+    isOnline = true, 
+    gamification, 
+    addToast, 
+    onLogoClick, 
+    currentTheme, 
+    onToggleTheme, 
+    isPremium,
+    currentView,
+    onNavigate
+}) => {
     const { language, toggleLanguage, t } = useLanguage();
     const xpProgress = gamification ? getLevelProgress(gamification.xp) : 0;
 
@@ -28,21 +43,46 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
         addToast("Points d'Expérience (XP) : Créez des capsules et faites des quiz pour progresser !", 'info');
     };
 
+    const navItemClass = (view: string) => `
+        flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all
+        ${currentView === view 
+            ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shadow-sm' 
+            : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-800 dark:hover:text-zinc-200'}
+    `;
+
     return (
         <header className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
-                    {/* LOGO & TITRE (Cliquable pour retour accueil) */}
-                    <button 
-                        onClick={onLogoClick}
-                        className="flex items-center gap-2 sm:gap-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
-                        aria-label="Retour à l'accueil"
-                    >
-                         <MemoraidLogoIcon className="h-8 w-8 md:h-10 md:w-10 text-emerald-500" />
-                        <h1 className="hidden sm:block text-2xl md:text-3xl font-extrabold text-emerald-700 dark:text-emerald-500 tracking-tight">
-                            Memoraid
-                        </h1>
-                    </button>
+                    {/* LOGO & TITRE */}
+                    <div className="flex items-center gap-8">
+                        <button 
+                            onClick={onLogoClick}
+                            className="flex items-center gap-2 sm:gap-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
+                            aria-label="Retour à l'accueil"
+                        >
+                            <MemoraidLogoIcon className="h-8 w-8 md:h-10 md:w-10 text-emerald-500" />
+                            <h1 className="hidden lg:block text-2xl font-extrabold text-emerald-700 dark:text-emerald-500 tracking-tight">
+                                Memoraid
+                            </h1>
+                        </button>
+
+                        {/* DESKTOP NAVIGATION */}
+                        <nav className="hidden md:flex items-center gap-1">
+                            <button onClick={() => onNavigate('create')} className={navItemClass('create')}>
+                                <PlusIcon className="w-4 h-4" />
+                                {t('nav_create')}
+                            </button>
+                            <button onClick={() => onNavigate('agenda')} className={navItemClass('agenda')}>
+                                <CalendarIcon className="w-4 h-4" />
+                                {t('nav_agenda')}
+                            </button>
+                            <button onClick={() => onNavigate('store')} className={navItemClass('store')}>
+                                <ShoppingBagIcon className="w-4 h-4" />
+                                {t('nav_store')}
+                            </button>
+                        </nav>
+                    </div>
                     
                     <div className="flex items-center gap-3 md:gap-4">
                         {/* THEME SWITCHER */}
@@ -107,33 +147,28 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
 
                         {/* USER SECTION */}
                         {currentUser ? (
-                            <>
-                                {/* Avatar / Profile Button - Desktop / Mobile */}
+                            <button
+                                onClick={onOpenProfile}
+                                className={`group relative w-9 h-9 flex items-center justify-center rounded-full transition-all overflow-hidden border-2 ${
+                                    isPremium 
+                                        ? 'border-amber-400 ring-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
+                                        : 'border-slate-200 dark:border-zinc-700 hover:border-emerald-500'
+                                }`}
+                                aria-label="Mon Profil"
+                            >
                                 {currentUser.photoURL ? (
                                     <img 
                                         src={currentUser.photoURL} 
                                         alt="Profil" 
-                                        className={`w-9 h-9 rounded-full cursor-pointer border-2 transition-all hover:ring-2 ${
-                                            isPremium 
-                                                ? 'border-amber-400 ring-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
-                                                : 'border-slate-200 dark:border-zinc-700 hover:ring-emerald-300'
-                                        }`}
-                                        onClick={onOpenProfile}
+                                        className="w-full h-full object-cover"
                                     />
                                 ) : (
-                                    <button
-                                        onClick={onOpenProfile}
-                                        className={`p-2 rounded-full transition-colors ${
-                                            isPremium 
-                                                ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.3)] border border-amber-400' 
-                                                : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900'
-                                        }`}
-                                        aria-label="Ouvrir le profil"
-                                    >
+                                    <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
                                         <UserIcon className="w-5 h-5" />
-                                    </button>
+                                    </div>
                                 )}
-                            </>
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            </button>
                         ) : (
                             <div className="flex items-center gap-2">
                                 <button
@@ -150,10 +185,10 @@ const Header: React.FC<HeaderProps> = ({ onOpenProfile, onLogin, currentUser, is
                                 {/* BOUTON PROFIL POUR INVITÉ */}
                                 <button
                                     onClick={onOpenProfile}
-                                    className={`hidden md:block p-2 rounded-full transition-colors border ${
+                                    className={`hidden md:flex items-center justify-center p-2 rounded-full transition-all border ${
                                         isPremium 
-                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.3)]' 
-                                            : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100'
+                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.3)] hover:scale-105' 
+                                            : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 hover:border-emerald-500'
                                     }`}
                                     aria-label="Ouvrir le profil invité"
                                 >

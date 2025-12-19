@@ -248,7 +248,7 @@ const AppContent: React.FC = () => {
     };
 
     const handleNavigateToProfile = () => {
-        setActiveCapsule(null);
+        setActiveCapsule(null); // CRITICAL: Ferme la capsule pour laisser place à la page Profil
         setView('profile');
         setMobileTab('profile');
         setIsProfileModalOpen(false); 
@@ -286,9 +286,31 @@ const AppContent: React.FC = () => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, updatedCapsules.find(c => c.id === id)!);
     };
 
+    const handleDesktopNavigate = (newView: View) => {
+        setActiveCapsule(null);
+        setView(newView);
+        // Sync mobile tab if needed, though they are usually separate
+        if (newView === 'create') setMobileTab('create');
+        if (newView === 'agenda') setMobileTab('agenda');
+        if (newView === 'store') setMobileTab('store');
+    };
+
     return (
         <div className="relative min-h-screen bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200">
-            <Header onOpenProfile={() => {setView('profile'); setMobileTab('profile'); setIsProfileModalOpen(true);}} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => {setView('create'); setMobileTab('create'); setActiveCapsule(null);}} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
+            <Header 
+                onOpenProfile={handleNavigateToProfile} 
+                onLogin={() => setIsAuthModalOpen(true)} 
+                currentUser={currentUser} 
+                isOnline={isOnline} 
+                gamification={profile.user.gamification} 
+                addToast={addToast} 
+                onLogoClick={() => handleDesktopNavigate('create')} 
+                currentTheme={theme} 
+                onToggleTheme={toggleTheme} 
+                isPremium={profile.user.isPremium}
+                currentView={view}
+                onNavigate={handleDesktopNavigate}
+            />
 
             <main className="container mx-auto max-w-screen-2xl p-4 md:p-8 md:block hidden min-h-[calc(100vh-80px)]">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
