@@ -5,7 +5,7 @@ import type { CognitiveCapsule, QuizQuestion, Group, Comment, CollaborativeTask 
 import Quiz from './Quiz';
 import { LightbulbIcon, ListChecksIcon, MessageSquareIcon, DownloadIcon, TagIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, PlayIcon, Share2Icon, FileTextIcon, UserIcon, SendIcon, MonitorIcon, CrownIcon, CheckSquareIcon, PresentationIcon, BookIcon, PrinterIcon, ZapIcon, LockIcon, ClockIcon, LayersIcon, XIcon, AlertCircleIcon } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
-import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic, cleanMarkdown } from '../services/geminiService';
+import { generateMemoryAidDrawing, expandKeyConcept, regenerateQuiz, generateMnemonic, cleanMarkdown, GeminiError } from '../services/geminiService';
 import { downloadFlashcardsPdf, downloadCapsulePdf, generateFilename, downloadQuizPdf } from '../services/pdfService';
 import { exportToPPTX, exportToEPUB } from '../services/exportService';
 import { ToastType } from '../hooks/useToast';
@@ -151,7 +151,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
             setMemoryAidImage(src);
             onSetMemoryAid(capsule.id, res.imageData, res.description);
             addToast("Croquis aide-mémoire généré !", "success");
-        } catch (e: any) { addToast(e.message, "error"); } finally { setIsGeneratingImage(false); }
+        } catch (e: any) { 
+            // Gestion améliorée du message de quota
+            if (e instanceof GeminiError && e.isQuotaError) {
+                addToast(t('sketch_quota_reached'), "info");
+            } else {
+                addToast(e.message || t('error_generation'), "error"); 
+            }
+        } finally { setIsGeneratingImage(false); }
     };
 
     const downloadSketch = () => {
@@ -178,7 +185,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, onUpdateQuiz, addToa
                 <button onClick={() => downloadCapsulePdf(capsule)} className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-bold text-[10px] hover:shadow-md transition-all border border-slate-200 dark:border-zinc-700"><FileTextIcon className="w-5 h-5" /> Fiche PDF</button>
                 <button onClick={() => downloadFlashcardsPdf(capsule)} className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-bold text-[10px] hover:shadow-md transition-all border border-slate-200 dark:border-zinc-700"><PrinterIcon className="w-5 h-5" /> {t('export_cards')}</button>
                 <button onClick={() => exportToPPTX(capsule)} className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-bold text-[10px] hover:shadow-md transition-all border border-slate-200 dark:border-zinc-700"><PresentationIcon className="w-5 h-5" /> PowerPoint</button>
-                <button onClick={() => downloadQuizPdf(capsule)} className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-bold text-[10px] hover:shadow-md transition-all border border-slate-200 dark:border-zinc-700"><CheckSquareIcon className="w-5 h-5" /> Quiz PDF</button>
+                <button onClick={() => downloadQuizPdf(capsule)} className="flex flex-col items-center justify-center gap-1.5 p-3 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold text-[10px] hover:shadow-md transition-all border border-slate-200 dark:border-zinc-700"><CheckSquareIcon className="w-5 h-5" /> Quiz PDF</button>
             </div>
         </div>
     );

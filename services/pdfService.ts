@@ -159,11 +159,11 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
         }
     }
 
-    // MNÉMOTECHNIQUE : Désormais après les exemples
+    // MNÉMOTECHNIQUE : Restauration et Positionnement
     if (capsule.mnemonic) {
         const maxWidth = context.page.getSize().width - 2 * MARGIN;
         const mLines = wrapText(`"${capsule.mnemonic}"`, fontItalic, 11, maxWidth - 30);
-        const blockHeight = FOOTER_BOX_HEIGHT;
+        const blockHeight = Math.max(60, mLines.length * 15 + 30);
 
         if (context.cursor.y - blockHeight < MARGIN + 20) {
             context.page = context.doc.addPage();
@@ -181,12 +181,12 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
 
         context.page.drawText("Secret de Mémorisation :", {
             x: MARGIN + 15, y: boxY + blockHeight - 20,
-            size: 8, font: fontBold, color: rgb(0.8, 0.4, 0)
+            size: 9, font: fontBold, color: rgb(0.8, 0.4, 0)
         });
 
         mLines.forEach((line, i) => {
             context.page.drawText(line, {
-                x: MARGIN + 15, y: boxY + 40 - (i * 13),
+                x: MARGIN + 15, y: boxY + blockHeight - 40 - (i * 13),
                 size: 11, font: fontItalic, color: rgb(0.2, 0.2, 0.2)
             });
         });
@@ -205,27 +205,49 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
                 size: 18, font: fontBold, color: rgb(0.06, 0.73, 0.5)
             });
 
-            const imageBytes = decodeBase64(capsule.memoryAidImage);
-            const pdfImage = await doc.embedPng(imageBytes);
+            const rawData = capsule.memoryAidImage;
+            const imageBytes = decodeBase64(rawData);
+            
+            // Gestion intelligente du format (PNG vs JPG)
+            let pdfImage;
+            if (rawData.includes('image/png') || rawData.includes('iVBORw0KG')) {
+                pdfImage = await doc.embedPng(imageBytes);
+            } else {
+                pdfImage = await doc.embedJpg(imageBytes);
+            }
+            
             const dims = pdfImage.scale(0.8);
             const imgWidth = width - (2 * MARGIN);
             const imgHeight = (dims.height * imgWidth) / dims.width;
             
+            // On s'assure que l'image ne dépasse pas la hauteur de la page
+            const maxAllowedHeight = height - 200;
+            let finalWidth = imgWidth;
+            let finalHeight = imgHeight;
+            if (imgHeight > maxAllowedHeight) {
+                finalHeight = maxAllowedHeight;
+                finalWidth = (dims.width * finalHeight) / dims.height;
+            }
+
             sketchPage.drawImage(pdfImage, {
-                x: MARGIN, y: height - 120 - imgHeight,
-                width: imgWidth, height: imgHeight,
+                x: (width - finalWidth) / 2, 
+                y: height - 120 - finalHeight,
+                width: finalWidth, 
+                height: finalHeight,
             });
 
             if (capsule.memoryAidDescription) {
                 const descLines = wrapText(capsule.memoryAidDescription, fontItalic, 10, width - (2 * MARGIN));
-                let descY = height - 140 - imgHeight;
+                let descY = height - 140 - finalHeight;
                 descLines.forEach(line => {
-                    sketchPage.drawText(line, { x: MARGIN, y: descY, size: 10, font: fontItalic, color: rgb(0.4, 0.4, 0.4) });
-                    descY -= 12;
+                    if (descY > MARGIN) {
+                        sketchPage.drawText(line, { x: MARGIN, y: descY, size: 10, font: fontItalic, color: rgb(0.4, 0.4, 0.4) });
+                        descY -= 12;
+                    }
                 });
             }
         } catch (imgError) {
-            console.warn("Could not embed image in PDF", imgError);
+            console.warn("Could not embed image in PDF:", imgError);
         }
     }
 

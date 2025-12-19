@@ -118,7 +118,8 @@ export const translations = {
         generating_mnemonic: "Création de votre astuce...",
         memory_aid_sketch: "Croquis Aide-Mémoire",
         sketch_placeholder_text: "Visualisez les concepts avec un croquis style 'Sketchnote'.",
-        sketch_warning: "Note : le texte des croquis peut comporter des imprécisions.",
+        sketch_warning: "Note : le texte du croquis peut comporter des imprécisions.",
+        sketch_quota_reached: "Nos crayons se reposent un instant... (quota atteint). Réessayez d'ici quelques minutes !",
         sketch_premium_only: "Les croquis aide-mémoire sont réservés aux membres Premium.",
         generate_sketch: "Générer le croquis",
         sketching: "Memoraid dessine...",
@@ -262,7 +263,7 @@ export const translations = {
         email_body_capsule: "CAPSULE",
         email_body_summary: "RÉSUMÉ",
         email_body_concepts: "CONCEPTS CLÉS",
-        email_body_examples: "CONCEPTS CLÉS", // Fixed repeated line if needed
+        email_body_examples: "EXEMPLES PRATIQUES",
 
         // Dashboard Stats
         global_mastery: "Maîtrise Globale",
@@ -472,6 +473,7 @@ export const translations = {
         memory_aid_sketch: "Memory Aid Sketch",
         sketch_placeholder_text: "Visualize concepts with a hand-drawn 'Sketchnote' style sketch.",
         sketch_warning: "Note: text in sketches may contain inaccuracies.",
+        sketch_quota_reached: "Our pencils are taking a short break (quota reached). Try again in a few minutes!",
         sketch_premium_only: "Memory aid sketches are for Premium members only.",
         generate_sketch: "Generate Sketch",
         sketching: "Memoraid is sketching...",

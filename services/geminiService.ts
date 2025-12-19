@@ -176,7 +176,7 @@ const handleGeminiError = (error: any, defaultMsg: string = "Impossible de gén�
             error.message.toLowerCase().includes("resource exhausted")
         ));
 
-    if (isQuotaError) return new GeminiError("⚠️ Quota API saturé temporairement.", true);
+    if (isQuotaError) return new GeminiError("QUOTA_REACHED", true);
     if (error instanceof Error) {
         const msg = error.message.toLowerCase();
         if (msg.includes("api_key")) errorMessage = "Clé API invalide.";
@@ -302,14 +302,13 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
     const ai = getAiClient();
     const langName = getLangName(language);
     
-    // NOUVEAU PROMPT : Style papier à spirale, crayons de couleur
-    const prompt = `Create an educational sketchnote illustration about "${capsule.title}" drawn on a clean white spiral-bound sketchbook page. 
-    Style: Vibrant hand-drawn art with colored pencils on textured paper. 
-    Look & Feel: Artistic "hand-drawn" aesthetic with soft shading, arrows, and clear visual metaphors. 
-    Important: Include a realistic silver spiral binding effect along the left or top edge of the image to make it look like a physical notebook page.
-    Use a harmonious palette of colors. Target Language for labels: ${langName}. 
-    Include a tiny, elegant handwritten "Memoraid" signature in the bottom right corner. 
-    Ensure the drawing is informative, clear, and artistic.`;
+    const prompt = `Create a beautiful, educational sketchnote illustration about "${capsule.title}".
+    Background: Drawn on a clean white spiral-bound sketchbook page. A silver spiral binding should be visible on the left edge.
+    Style: Vibrant hand-drawn art with colored pencils. Use soft shading and textures.
+    Look & Feel: Artistic "hand-drawn" aesthetic with clear visual metaphors, arrows, and structured notes.
+    Use a harmonious palette of colors. Target Language for labels: ${langName}.
+    Important: Include a tiny, elegant handwritten "Memoraid" signature in the bottom right corner.
+    Ensure the drawing is informative, clear, and visually appealing for learning.`;
     
     try {
         const response = await ai.models.generateContent({
@@ -329,8 +328,7 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
         }
         throw new Error("Aucune image générée.");
     } catch (e: any) {
-        console.error("Erreur image generation:", e);
-        throw handleGeminiError(e, "Le service de dessin est momentanément indisponible.");
+        throw handleGeminiError(e);
     }
 };
 
