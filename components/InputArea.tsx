@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { SparklesIcon, XIcon, UploadIcon, AlertTriangleIcon, RefreshCwIcon, ImageIcon, BookOpenIcon, MicrophoneIcon, LearningIllustration } from '../constants';
+import { SparklesIcon, XIcon, UploadIcon, AlertTriangleIcon, RefreshCwIcon, ImageIcon, BookOpenIcon, MicrophoneIcon, LearningIllustration, StopIcon } from '../constants';
 import ImportModal from './ImportModal';
 import type { SourceType } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -11,6 +11,7 @@ import HowItWorks from './HowItWorks';
 interface InputAreaProps {
     onGenerate: (text: string, sourceType?: SourceType) => void;
     onGenerateFromFile: (file: File, sourceType?: SourceType) => void;
+    onCancel: () => void;
     isLoading: boolean;
     error: string | null;
     onClearError: () => void;
@@ -36,7 +37,7 @@ interface SpeechRecognition extends EventTarget {
 const MAX_DOC_SIZE_MB = 5;
 const MAX_RAW_IMAGE_SIZE_MB = 30; // Limite dure pour éviter les crashs navigateurs
 
-const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, isLoading, error, onClearError, onOpenProfile }) => {
+const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, onCancel, isLoading, error, onClearError, onOpenProfile }) => {
     const { t, language } = useLanguage();
     const { addToast } = useToast();
     const [inputText, setInputText] = useState('');
@@ -480,7 +481,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                         <button
                             type="button"
                             onClick={handleFileImportClick}
-                            disabled={isProcessingImage}
+                            disabled={isProcessingImage || isLoading}
                             className="flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold border border-emerald-100 dark:border-zinc-700 rounded-xl text-emerald-700 dark:text-zinc-300 bg-emerald-50/50 dark:bg-zinc-900/20 hover:bg-emerald-100 dark:hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50"
                         >
                            <UploadIcon className="w-5 h-5"/>
@@ -490,7 +491,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                         <button
                             type="button"
                             onClick={toggleRecording}
-                            disabled={isProcessingImage}
+                            disabled={isProcessingImage || isLoading}
                             className={`flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold border rounded-xl transition-colors shadow-sm disabled:opacity-50 ${isRecording ? 'border-red-500 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-200' : 'border-emerald-100 dark:border-zinc-700 text-emerald-700 dark:text-zinc-300 bg-emerald-50/50 dark:bg-zinc-900/20 hover:bg-emerald-100 dark:hover:bg-zinc-800'}`}
                         >
                            <MicrophoneIcon className={`w-5 h-5 ${isRecording ? 'text-red-600 animate-pulse' : 'text-emerald-600'}`}/>
@@ -500,7 +501,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                         <button
                             type="button"
                             onClick={() => setIsImportModalOpen(true)}
-                            disabled={isProcessingImage}
+                            disabled={isProcessingImage || isLoading}
                             className="flex items-center justify-center gap-2 px-4 py-3 text-base font-semibold border border-emerald-100 dark:border-zinc-700 rounded-xl text-emerald-700 dark:text-zinc-300 bg-emerald-50/50 dark:bg-zinc-900/20 hover:bg-emerald-100 dark:hover:bg-zinc-800 transition-colors shadow-sm disabled:opacity-50"
                         >
                            <BookOpenIcon className="w-5 h-5 text-emerald-600"/>
@@ -532,14 +533,34 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, i
                         </div>
                     )}
 
-                    <button
-                        type="submit"
-                        disabled={isLoading || isProcessingImage || (!displayValue.trim() && !selectedFile)}
-                        className="w-full mt-8 flex items-center justify-center gap-3 px-8 py-4 border border-transparent text-lg font-bold rounded-2xl shadow-md shadow-emerald-200/50 dark:shadow-none text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.01]"
-                    >
-                        <SparklesIcon className="w-6 h-6"/>
-                        {isLoading ? t('analyzing') : t('generate_button')}
-                    </button>
+                    {!isLoading ? (
+                        <button
+                            type="submit"
+                            disabled={isProcessingImage || (!displayValue.trim() && !selectedFile)}
+                            className="w-full mt-8 flex items-center justify-center gap-3 px-8 py-4 border border-transparent text-lg font-bold rounded-2xl shadow-md shadow-emerald-200/50 dark:shadow-none text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.01]"
+                        >
+                            <SparklesIcon className="w-6 h-6"/>
+                            {t('generate_button')}
+                        </button>
+                    ) : (
+                        <div className="flex flex-col items-center gap-4 mt-8">
+                             <div className="flex items-center justify-center gap-3 w-full px-8 py-4 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 text-lg font-bold rounded-2xl animate-pulse">
+                                <RefreshCwIcon className="w-6 h-6 animate-spin"/>
+                                {t('analyzing')}
+                             </div>
+                             {/* BOUTON CARRÉ NOIR POUR ARRÊTER */}
+                             <button
+                                type="button"
+                                onClick={onCancel}
+                                className="flex items-center gap-2 px-6 py-3 bg-zinc-950 text-white rounded-xl font-bold hover:bg-zinc-800 transition-all shadow-lg transform active:scale-95 group"
+                             >
+                                <div className="p-1 bg-white/20 rounded">
+                                    <StopIcon className="w-5 h-5 text-white" />
+                                </div>
+                                <span>{t('stop_generation')}</span>
+                             </button>
+                        </div>
+                    )}
                     
                      {parseError && <p className="text-red-500 mt-4 text-center font-semibold text-base bg-red-50 dark:bg-red-900/20 p-2 rounded">{parseError}</p>}
 

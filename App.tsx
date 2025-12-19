@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { CognitiveCapsule, AppData, UserProfile, QuizQuestion, ReviewLog, Group, StudyPlan, MemberProgress, PremiumPack, Badge, SourceType } from './types';
 import Header from './components/Header';
@@ -168,18 +169,25 @@ const AppContent: React.FC = () => {
             setView('base'); setMobileTab('library');
             addToast(t('capsule_created'), 'success');
         } catch (e: any) {
+            if (generationController.current.isCancelled) return;
             if (e instanceof GeminiError && e.isQuotaError) setCooldownUntil(Date.now() + 60000);
             setError(e.message);
-        } finally { setIsLoading(false); }
+        } finally { 
+            if (!generationController.current.isCancelled) {
+                setIsLoading(false); 
+            }
+        }
     }, [addToast, profile, isOnline, language, t, isLoading, cooldownUntil]);
 
     const handleGenerateFromFile = useCallback(async (file: File, sourceType?: SourceType) => {
         if (!isOnline) { setError(t('file_needs_online')); return; }
         if (isLoading || Date.now() < cooldownUntil) return;
+        generationController.current.isCancelled = false;
         setIsLoading(true); setError(null); setActiveCapsule(null);
         try {
             const base64Data = await fileToBase64(file);
             const capsuleData = await generateCognitiveCapsuleFromFile({ mimeType: file.type, data: base64Data }, sourceType, language, profile.user.learningStyle);
+            if (generationController.current.isCancelled) return;
             const newCapsule: CognitiveCapsule = { ...capsuleData, id: `cap_${Date.now()}`, createdAt: Date.now(), lastReviewed: null, reviewStage: 0, history: [], masteryLevel: 0 };
             await saveCapsuleData(newCapsule);
             handleGamificationAction('create');
@@ -187,9 +195,21 @@ const AppContent: React.FC = () => {
             setView('base'); setMobileTab('library');
             addToast(t('capsule_created'), 'success');
         } catch (e: any) {
+            if (generationController.current.isCancelled) return;
             setError(e.message);
-        } finally { setIsLoading(false); }
+        } finally { 
+            if (!generationController.current.isCancelled) {
+                setIsLoading(false); 
+            }
+        }
     }, [addToast, profile, isOnline, language, t, isLoading, cooldownUntil]);
+
+    const handleCancelGeneration = useCallback(() => {
+        generationController.current.isCancelled = true;
+        setIsLoading(false);
+        setError(null);
+        addToast(t('generation_cancelled'), "info");
+    }, [addToast, t]);
 
     const saveCapsuleData = async (capsule: CognitiveCapsule) => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
@@ -276,7 +296,7 @@ const AppContent: React.FC = () => {
                             />
                         ) : (
                             <>
-                                {(view === 'create' || view === 'base') && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} isLoading={isLoading} error={error} onClearError={() => setError(null)} onOpenProfile={handleNavigateToProfile} />}
+                                {(view === 'create' || view === 'base') && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} onCancel={handleCancelGeneration} isLoading={isLoading} error={error} onClearError={() => setError(null)} onOpenProfile={handleNavigateToProfile} />}
                                 {view === 'agenda' && <AgendaView plans={profile.user.plans || []} activePlanId={profile.user.activePlanId} onSetActivePlan={(id) => setProfile(prev => ({...prev, user: {...prev.user, activePlanId: id}}))} onUpdatePlan={(p) => setProfile(prev => ({...prev, user: {...prev.user, plans: prev.user.plans?.map(pl => pl.id === p.id ? p : pl)}}))} onDeletePlan={(id) => setProfile(prev => ({...prev, user: {...prev.user, plans: prev.user.plans?.filter(p => p.id !== id)}}))} onOpenCapsule={(id) => setActiveCapsule(displayCapsules.find(c => c.id === id) || null)} onCreateNew={() => setIsPlanningWizardOpen(true)} />}
                                 {view === 'store' && <PremiumStore onUnlockPack={(p) => setProfile(prev => ({...prev, user: {...prev.user, unlockedPackIds: [...(prev.user.unlockedPackIds || []), p.id]}, capsules: [...prev.capsules, ...p.capsules]}))} unlockedPackIds={profile.user.unlockedPackIds || []} isPremiumUser={!!profile.user.isPremium} />}
                                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} isIOS={isIOS} isStandalone={isStandalone} installPrompt={installPrompt} onInstall={() => installPrompt?.prompt()} onNavigateToReviews={() => {setView('base'); setMobileTab('library');}} />}
@@ -292,7 +312,7 @@ const AppContent: React.FC = () => {
             <div className="md:hidden p-4 pb-24">
                 {!activeCapsule ? (
                     <>
-                        {mobileTab === 'create' && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} isLoading={isLoading} error={error} onClearError={() => setError(null)} onOpenProfile={handleNavigateToProfile} />}
+                        {mobileTab === 'create' && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} onCancel={handleCancelGeneration} isLoading={isLoading} error={error} onClearError={() => setError(null)} onOpenProfile={handleNavigateToProfile} />}
                         {mobileTab === 'library' && <KnowledgeBase capsules={displayCapsules} onSelectCapsule={setActiveCapsule} onNewCapsule={() => setMobileTab('create')} notificationPermission={notificationPermission} onRequestNotificationPermission={()=>{}} onDeleteCapsule={setCapsuleToDelete} newlyAddedCapsuleId={newlyAddedCapsuleId} onClearNewCapsule={() => setNewlyAddedCapsuleId(null)} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} onOpenStore={() => setMobileTab('store')} />}
                         {mobileTab === 'agenda' && <AgendaView plans={profile.user.plans || []} activePlanId={profile.user.activePlanId} onSetActivePlan={(id) => setProfile(prev => ({...prev, user: {...prev.user, activePlanId: id}}))} onUpdatePlan={()=>{}} onDeletePlan={()=>{}} onOpenCapsule={(id) => setActiveCapsule(displayCapsules.find(c => c.id === id) || null)} onCreateNew={() => setIsPlanningWizardOpen(true)} />}
                         {mobileTab === 'store' && <PremiumStore onUnlockPack={()=>{}} unlockedPackIds={profile.user.unlockedPackIds || []} isPremiumUser={!!profile.user.isPremium} />}
