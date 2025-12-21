@@ -150,9 +150,25 @@ export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' |
 
 export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr') => {
     const ai = getAiClient();
-    const prompt = `Educational sketchnote about "${capsule.title}". Hand-drawn style, pencils. Lang: ${getLangName(language)}. White background.`;
-    const res = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: { parts: [{ text: prompt }] } });
+    const targetLang = getLangName(language);
+    
+    // Prompt Image Optimisé : Style carnet à spirales et crayons de couleur
+    const promptImage = `An artistic and educational sketchnote about "${capsule.title}". 
+    BACKGROUND: The drawing must be on a hand-drawn white paper of a spiral bound sketchbook. Black or silver spirals are clearly visible on the far left edge of the paper area.
+    STYLE: Artistic hand-drawn look with textured colored pencils (vibrant blues, yellows, greens).
+    CONTENT PRIORITY: High visual impact. Use icons, symbols, arrows, and metaphors. 
+    TEXT: Use almost zero text. Only a few clear, large handwritten labels for the 2-3 most essential concepts.
+    LAYOUT: A clean but artistic infographic on the sketchbook page.
+    Language: ${targetLang}. Clear and aesthetically pleasing.`;
+    
+    const res = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: { parts: [{ text: promptImage }] } });
     const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
     if (!part || !part.inlineData) throw new Error("Drawing failed");
-    return { imageData: part.inlineData.data, description: "Illustration Memoraid" };
+
+    // Prompt Description (Résumé court du croquis)
+    const promptDesc = `Describe in 2 very short sentences (max 30 words) what this visual sketchnote about "${capsule.title}" represents. Language: ${targetLang}. No formatting.`;
+    const resDesc = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: promptDesc });
+    const description = resDesc.text?.trim() || `Synthèse visuelle artistique sur le sujet "${capsule.title}".`;
+
+    return { imageData: part.inlineData.data, description };
 };

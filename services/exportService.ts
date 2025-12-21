@@ -10,10 +10,12 @@ const sanitizeForPPTX = (text: string | undefined): string => {
     if (!text) return "";
     // 1. Convertir en string
     let str = String(text);
-    // 2. Supprimer les caractères de contrôle XML invalides (sauf tab, CR, LF)
+    // 2. Gérer les ligatures spécifiques (oe, OE)
+    str = str.replace(/œ/g, "oe").replace(/Œ/g, "OE");
+    // 3. Supprimer les caractères de contrôle XML invalides (sauf tab, CR, LF)
     // eslint-disable-next-line no-control-regex
     str = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
-    // 3. Remplacer les caractères problématiques courants
+    // 4. Remplacer les caractères problématiques courants
     str = str.replace(/’/g, "'").replace(/“/g, '"').replace(/”/g, '"');
     return str.trim();
 };

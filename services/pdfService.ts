@@ -33,6 +33,8 @@ const TOP_CONTENT_LIMIT = 50;
 const sanitizeText = (text: string): string => {
     if (!text) return '';
     return text
+        .replace(/œ/g, "oe")
+        .replace(/Œ/g, "OE")
         .replace(/[\u2018\u2019]/g, "'")
         .replace(/[\u201C\u201D]/g, '"')
         .replace(/[\u2014]/g, '-')
@@ -202,28 +204,19 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
                 height: dims.height,
             });
 
-            // SIGNATURE MEMORAID
-            const signatureY = currentY - dims.height - 30;
-            sketchPage.drawText('Signé Memoraid', {
-                x: (pageWidth - fontBold.widthOfTextAtSize('Signé Memoraid', 10)) / 2,
-                y: signatureY,
-                size: 10,
-                font: fontBold,
-                color: rgb(0.5, 0.5, 0.5)
-            });
-
+            // DESCRIPTION DE L'ILLUSTRATION (Sera "Illustration Memoraid" par défaut)
             if (capsule.memoryAidDescription) {
-                const descLines = wrapText(capsule.memoryAidDescription, fontItalic, 9, pageWidth - 2 * MARGIN);
-                let descY = signatureY - 20;
+                const descLines = wrapText(capsule.memoryAidDescription, fontBold, 10, pageWidth - 2 * MARGIN);
+                let descY = currentY - dims.height - 30;
                 descLines.forEach(line => {
                     sketchPage.drawText(line, {
-                        x: (pageWidth - fontItalic.widthOfTextAtSize(line, 9)) / 2,
+                        x: (pageWidth - fontBold.widthOfTextAtSize(line, 10)) / 2,
                         y: descY,
-                        size: 9,
-                        font: fontItalic,
+                        size: 10,
+                        font: fontBold,
                         color: rgb(0.4, 0.4, 0.4)
                     });
-                    descY -= 12;
+                    descY -= 14;
                 });
             }
 

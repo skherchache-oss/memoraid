@@ -91,8 +91,9 @@ export const triggerTtsSafetyLock = () => {
 };
 
 // --- IMAGE QUOTA ---
-export const checkImageQuota = (capsuleId: string, isPremium: boolean = false) => {
-    if (!isPremium) return { allowed: false, reason: "Mode Premium requis." };
+export const checkImageQuota = (capsuleId: string, isPremiumOrContentPremium: boolean = false) => {
+    // Si l'utilisateur est premium OU si le contenu spécifique est premium (pack acheté)
+    if (!isPremiumOrContentPremium) return { allowed: false, reason: "Mode Premium requis." };
     return { allowed: true };
 };
 export const incrementImageQuota = (capsuleId: string) => {};
