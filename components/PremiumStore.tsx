@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import type { PremiumPack, PremiumCategory, CognitiveCapsule } from '../types';
-import { ShoppingBagIcon, StarIcon, GraduationCapIcon, LockIcon, UnlockIcon, CheckCircleIcon, GlobeIcon, MicIcon, CodeIcon, DnaIcon, BrainIcon } from '../constants';
+import { ShoppingBagIcon, StarIcon, GraduationCapIcon, LockIcon, UnlockIcon, CheckCircleIcon, GlobeIcon, MicIcon, CodeIcon, DnaIcon, BrainIcon, RefreshCwIcon } from '../constants';
 
 interface PremiumStoreProps {
     onUnlockPack: (pack: PremiumPack) => void;
@@ -15,7 +15,7 @@ const SKETCH_MEMORY_FLOW = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3
 const SKETCH_ACTIVE_PASSIVE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZjZmNmYyIvPgogIDxsaW5lIHgxPSIyMDAiIHkxPSI1MCIgeDI9IjIwMCIgeTI9IjI1MCIgc3Ryb2tlPSIjZGRkIiBzdHJva2UtZGFzaGFycmF5PSI0LDQiLz4KICAgIDx0ZXh0IHg9IjEwMCIgeT0iNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzY2NiI+UEFTU0lWRTwvdGV4dD4KICA8Y2lyY2xlIGN4PSIzMDAiIGN5PSIxMzAiIHI9IjM1IiBmaWxsPSIjZDFmYWU1IiBzdHJva2U9IiMxMGI5ODEiLz4KICA8cGF0aCBkPSJNMjg1IDEzMCBMMjk1IDE0MCBMMzE1IDEyMCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2Utd2lkdGg9IjMiLz4KPC9zdmc+";
 const SKETCH_CHUNKING = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y4ZmFmYyIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzMCwgNzApIj4KICAgIDxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IiNkMWZhZTUiIHN0cm9rZT0iIzEwYjk4MSIvPgogICAgPHRleHQgeD0iMTAiIHk9IjU1IiBmb250LXNpemU9IjEwIiBmaWxsPSIjMDU5Njc5Ij5DaHVuazwvdGV4dD4KICA8L2c+Cjwvc3ZnPg==";
 
-// --- DONNÉES DU PACK APPRENDRE À APPRENDRE (1 à 10) ---
+// --- DONNÉES DU PACK APPRENDRE À APPRENDRE ---
 const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
     {
         id: 'learn_1',
@@ -130,40 +130,44 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
 
     return (
         <div className="bg-white dark:bg-zinc-900 min-h-screen pb-20">
-            <div className="bg-slate-900 text-white py-12 px-6 text-center">
-                <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
+            <div className="bg-slate-900 text-white py-14 px-6 text-center">
+                <h1 className="text-4xl md:text-5xl font-black mb-4 flex items-center justify-center gap-3 uppercase tracking-tighter">
                     <ShoppingBagIcon className="w-10 h-10 text-amber-400" />
                     Packs de Savoir
                 </h1>
-                <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-                    Explorez des parcours thématiques structurés pour booster votre mémoire et maîtriser de nouveaux sujets.
+                <p className="text-slate-300 text-lg max-w-2xl mx-auto font-medium leading-relaxed">
+                    Explorez des parcours structurés pour maîtriser de nouveaux sujets. Contenus enrichis avec mnémotechniques et schémas visuels inclus (ne consomme pas votre quota).
                 </p>
             </div>
 
-            <div className="container mx-auto px-4 py-8">
+            <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {MOCK_PACKS.map(pack => {
                         const isUnlocked = unlockedPackIds.includes(pack.id);
+                        // Changement : "expert" devient "Fondamentaux"
+                        const categoryLabel = pack.category === 'expert' ? 'Fondamentaux' : pack.category.toUpperCase();
+                        
                         return (
-                            <div key={pack.id} className="group bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-700 shadow-sm hover:shadow-xl transition-all flex flex-col">
-                                <div className={`h-32 ${pack.coverColor} relative flex items-center justify-center`}>
-                                    <BrainIcon className="w-16 h-16 text-white/80" />
-                                    {isUnlocked && <div className="absolute top-3 right-3 bg-white/20 p-1 rounded-full"><CheckCircleIcon className="w-5 h-5 text-white" /></div>}
+                            <div key={pack.id} className="group bg-white dark:bg-zinc-800 rounded-3xl overflow-hidden border border-slate-200 dark:border-zinc-700 shadow-sm hover:shadow-2xl transition-all flex flex-col">
+                                <div className={`h-40 ${pack.coverColor} relative flex items-center justify-center overflow-hidden`}>
+                                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+                                    <BrainIcon className="w-20 h-20 text-white/90 transform group-hover:scale-110 transition-transform duration-500" />
+                                    {isUnlocked && <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-md p-1.5 rounded-full"><CheckCircleIcon className="w-6 h-6 text-white" /></div>}
                                 </div>
-                                <div className="p-6 flex-grow flex flex-col">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{pack.category}</span>
-                                        <span className="text-xs font-semibold bg-slate-100 dark:bg-zinc-700 px-2 py-1 rounded">{pack.capsuleCount} capsules</span>
+                                <div className="p-8 flex-grow flex flex-col">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-zinc-700 px-2.5 py-1 rounded-full">{categoryLabel}</span>
+                                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{pack.capsuleCount} modules</span>
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">{pack.title}</h3>
-                                    <p className="text-sm text-slate-600 dark:text-zinc-400 mb-6 flex-grow leading-relaxed">{pack.description}</p>
-                                    <div className="mt-auto pt-4 border-t border-slate-100 dark:border-zinc-700 flex items-center justify-between">
-                                        <span className="text-xl font-bold">{isPremiumUser ? 'Inclus' : `${pack.price} €`}</span>
+                                    <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{pack.title}</h3>
+                                    <p className="text-sm text-slate-600 dark:text-zinc-400 mb-8 flex-grow leading-relaxed font-medium">{pack.description}</p>
+                                    <div className="mt-auto pt-6 border-t border-slate-100 dark:border-zinc-700 flex items-center justify-between">
+                                        <span className="text-2xl font-black text-slate-900 dark:text-white">{isPremiumUser ? 'OFFERT' : `${pack.price} €`}</span>
                                         {isUnlocked ? (
-                                            <span className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-zinc-700 text-slate-500 rounded-lg font-semibold"><UnlockIcon className="w-4 h-4" /> Débloqué</span>
+                                            <span className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 dark:bg-zinc-700 text-slate-500 rounded-xl font-black uppercase text-xs tracking-widest"><UnlockIcon className="w-4 h-4" /> Débloqué</span>
                                         ) : (
-                                            <button onClick={() => handleBuy(pack)} disabled={!!loadingPackId} className="flex items-center gap-2 px-6 py-2 bg-slate-900 text-white dark:bg-white dark:text-black rounded-lg font-semibold hover:opacity-90">
-                                                {loadingPackId === pack.id ? '...' : isPremiumUser ? 'Ajouter' : 'Acheter'}
+                                            <button onClick={() => handleBuy(pack)} disabled={!!loadingPackId} className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200/50 dark:shadow-none active:scale-95">
+                                                {loadingPackId === pack.id ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : isPremiumUser ? 'Ajouter' : 'Débloquer'}
                                             </button>
                                         )}
                                     </div>

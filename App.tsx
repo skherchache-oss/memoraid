@@ -53,7 +53,7 @@ const AppContent: React.FC = () => {
     const { theme, toggleTheme } = useTheme();
     const { language, t } = useLanguage();
     const [view, setView] = useState<View>('create');
-    const [mobileTab, setMobileTab] = useState<MobileTab>('create');
+    const [mobileTab, setMobileTab] = useState('create' as MobileTab);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -168,7 +168,7 @@ const AppContent: React.FC = () => {
 
     const saveCapsuleData = async (capsule: CognitiveCapsule) => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
-        else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules] }));
+        else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
     };
 
     const handleGamificationAction = (action: any, count = 1, score?: number) => {
@@ -202,6 +202,20 @@ const AppContent: React.FC = () => {
         await saveCapsuleData(updatedCapsule);
         handleGamificationAction(type === 'quiz' ? 'quiz' : (type === 'flashcard' ? 'flashcard' : 'manual_review'), 0, score);
         if (activeCapsule?.id === id) setActiveCapsule(updatedCapsule);
+    };
+
+    const handleBulkSetCategory = async (ids: string[], category: string) => {
+        try {
+            for (const id of ids) {
+                const capsule = displayCapsules.find(c => c.id === id);
+                if (capsule) {
+                    await saveCapsuleData({ ...capsule, category });
+                }
+            }
+            addToast(`${ids.length} modules classés en "${category}"`, "success");
+        } catch (e) {
+            addToast("Erreur lors du classement groupé", "error");
+        }
     };
 
     const displayCapsules = useMemo(() => {
@@ -272,11 +286,23 @@ const AppContent: React.FC = () => {
                                 selectedCapsuleIds={selectedCapsuleIds} 
                                 setSelectedCapsuleIds={setSelectedCapsuleIds} 
                                 onOpenStore={() => setView('store')} 
+                                onBulkSetCategory={handleBulkSetCategory}
                             />
                         )}
                     </div>
                 )}
-                {view === 'agenda' && <AgendaView plans={profile.user.plans || []} activePlanId={profile.user.activePlanId} onSetActivePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, activePlanId: id } }))} onUpdatePlan={p => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.map(pl => pl.id === p.id ? p : pl) } }))} onDeletePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.filter(pl => pl.id !== id) } }))} onOpenCapsule={id => { setActiveCapsule(displayCapsules.find(c => c.id === id)!); setView('base'); }} onCreateNew={() => setIsPlanningWizardOpen(true)} />}
+                {/* Fixed syntax errors in AgendaView props assignment below */}
+                {view === 'agenda' && (
+                    <AgendaView 
+                        plans={profile.user.plans || []} 
+                        activePlanId={profile.user.activePlanId} 
+                        onSetActivePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, activePlanId: id } }))} 
+                        onUpdatePlan={p => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.map(pl => pl.id === p.id ? p : pl) } }))} 
+                        onDeletePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.filter(pl => pl.id !== id) } }))} 
+                        onOpenCapsule={id => { setActiveCapsule(displayCapsules.find(c => c.id === id)!); setView('base'); }} 
+                        onCreateNew={() => setIsPlanningWizardOpen(true)} 
+                    />
+                )}
                 {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} isPremiumUser={!!profile.user.isPremium} />}
                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={p => setProfile(prev => ({ ...prev, user: p }))} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
                 {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={userGroups.filter(g => g.ownerId === currentUser?.uid)} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
