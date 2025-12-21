@@ -23,7 +23,8 @@ import { updateTaskStatus } from './services/planningService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon } from './constants';
+// Added BookOpenIcon to the imports to resolve the 'Cannot find name' error
+import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon, BookOpenIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress, updateUserProfileInCloud } from './services/cloudService';
@@ -248,7 +249,7 @@ const AppContent: React.FC = () => {
     };
 
     const handleNavigateToProfile = () => {
-        setActiveCapsule(null); // CRITICAL: Ferme la capsule pour laisser place à la page Profil
+        setActiveCapsule(null); 
         setView('profile');
         setMobileTab('profile');
         setIsProfileModalOpen(false); 
@@ -288,5 +289,137 @@ const AppContent: React.FC = () => {
     };
 
     const handleUnlockPack = async (pack: PremiumPack) => {
-        // 1. Mettre à jour l'état local immédiatement
-        const newUnlockedIds = [...(profile.user.unlockedPackIds || []), pack.id];
+        try {
+            // 1. Mise à jour de la liste des packs débloqués
+            const newUnlockedIds = Array.from(new Set([...(profile.user.unlockedPackIds || []), pack.id]));
+            const updatedProfile = { ...profile.user, unlockedPackIds: newUnlockedIds };
+            
+            // Mise à jour locale du profil
+            setProfile(prev => ({ ...prev, user: updatedProfile }));
+            
+            // Mise à jour Cloud du profil si connecté
+            if (currentUser) {
+                await updateUserProfileInCloud(currentUser.uid, updatedProfile);
+            }
+
+            // 2. Ajout des capsules du pack
+            const packCapsules = pack.capsules.map(c => ({
+                ...c,
+                category: pack.title, // On force la catégorie au nom du pack
+                isPremiumContent: true,
+                originalPackId: pack.id
+            }));
+
+            // Sauvegarde de chaque capsule
+            for (const capsule of packCapsules) {
+                await saveCapsuleData(capsule);
+            }
+
+            addToast(t('pack_added'), 'success');
+            setView('base');
+            setMobileTab('library');
+        } catch (err) {
+            console.error("Erreur lors de l'achat du pack:", err);
+            addToast(t('pack_error'), 'error');
+        }
+    };
+
+    const handleMarkAsReviewed = async (id: string, score?: number, type: 'quiz' | 'flashcard' | 'manual' = 'manual') => {
+        const capsule = displayCapsules.find(c => c.id === id);
+        if (!capsule) return;
+        const now = Date.now();
+        const newLog: ReviewLog = { date: now, type, score: score || 100 };
+        const history = [...(capsule.history || []), newLog];
+        const reviewStage = capsule.reviewStage + 1;
+        const updatedCapsule = { ...capsule, lastReviewed: now, reviewStage, history, masteryLevel: calculateMasteryScore({ ...capsule, reviewStage, history }) };
+        await saveCapsuleData(updatedCapsule);
+        handleGamificationAction(type === 'quiz' ? 'quiz' : (type === 'flashcard' ? 'flashcard' : 'manual_review'), 0, score);
+        if (activeCapsule?.id === id) setActiveCapsule(updatedCapsule);
+        if (updatedCapsule.isShared && updatedCapsule.groupId && currentUser) {
+            await updateSharedCapsuleProgress(updatedCapsule.groupId, updatedCapsule.id, { userId: currentUser.uid, userName: profile.user.name, lastReviewed: now, masteryScore: updatedCapsule.masteryLevel || 0 }, updatedCapsule.groupProgress);
+        }
+    };
+
+    const handleSetCategory = async (id: string, category: string) => {
+        const updatedCapsules = profile.capsules.map(c => c.id === id ? { ...c, category } : c);
+        setProfile(prev => ({ ...prev, capsules: updatedCapsules }));
+        if (activeCapsule?.id === id) setActiveCapsule(prev => prev ? { ...prev, category } : null);
+        if (currentUser) await saveCapsuleToCloud(currentUser.uid, updatedCapsules.find(c => c.id === id)!);
+    };
+
+    const handleDeleteCapsule = async (capsule: CognitiveCapsule) => {
+        if (currentUser) await deleteCapsuleFromCloud(currentUser.uid, capsule.id);
+        else setProfile(prev => ({ ...prev, capsules: prev.capsules.filter(c => c.id !== capsule.id) }));
+        if (activeCapsule?.id === capsule.id) setActiveCapsule(null);
+        setCapsuleToDelete(null);
+        addToast(`"${capsule.title}" ${t('capsule_deleted')}`, 'info');
+    };
+
+    const handleShareCapsule = async (group: Group, capsule: CognitiveCapsule) => {
+        if (!isOnline) { addToast(t('share_needs_online'), 'error'); return; }
+        if (!currentUser) return;
+        try {
+            await shareCapsuleToGroup(currentUser.uid, group, capsule);
+            addToast(t('share_success'), 'success');
+        } catch (e) { addToast(t('share_error'), 'error'); }
+    };
+
+    const handleNavigate = (newView: View) => {
+        setActiveCapsule(null);
+        setView(newView);
+        if (newView === 'create') setMobileTab('create');
+        if (newView === 'agenda') setMobileTab('agenda');
+        if (newView === 'store') setMobileTab('store');
+        if (newView === 'profile') setMobileTab('profile');
+    };
+
+    const handleMobileTabChange = (tab: MobileTab) => {
+        setActiveTab(null);
+        setMobileTab(tab);
+        if (tab === 'create') setView('create');
+        else if (tab === 'library') setView('base');
+        else if (tab === 'agenda') setView('agenda');
+        else if (tab === 'classes') setView('classes');
+        else if (tab === 'store') setView('store');
+        else if (tab === 'profile') setView('profile');
+    };
+
+    const setActiveTab = (capsule: CognitiveCapsule | null) => {
+        setActiveCapsule(capsule);
+        if (capsule) { setView('base'); setMobileTab('library'); }
+    };
+
+    return (
+        <div className={`min-h-screen transition-colors duration-500 ${theme === 'dark' ? 'dark bg-zinc-950' : 'bg-gray-50'}`}>
+            <Header currentView={view} onNavigate={handleNavigate} onOpenProfile={() => { setView('profile'); setMobileTab('profile'); }} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => handleNavigate('create')} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
+            <main ref={mainContentRef} className="container mx-auto px-4 py-6 md:py-10 pb-24 md:pb-10 max-w-6xl">
+                {view === 'create' && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} onCancel={handleCancelGeneration} isLoading={isLoading} error={error} onClearError={() => setError(null)} onOpenProfile={() => setIsProfileModalOpen(true)} />}
+                {view === 'base' && (
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+                        <div className={`md:col-span-4 lg:col-span-4 ${activeCapsule ? 'hidden md:block' : 'block'}`}>
+                            <KnowledgeBase capsules={displayCapsules} activeCapsuleId={activeCapsule?.id} onSelectCapsule={setActiveCapsule} onNewCapsule={() => setView('create')} notificationPermission={notificationPermission} onRequestNotificationPermission={() => Notification.requestPermission().then(setNotificationPermission)} onDeleteCapsule={setCapsuleToDelete} newlyAddedCapsuleId={newlyAddedCapsuleId} onClearNewCapsule={() => setNewlyAddedCapsuleId(null)} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} onOpenStore={() => setView('store')} />
+                        </div>
+                        <div className={`md:col-span-8 lg:col-span-8 ${activeCapsule ? 'block' : 'hidden md:block'}`}>
+                            {activeCapsule ? <CapsuleView key={activeCapsule.id} capsule={activeCapsule} allCapsules={profile.capsules} selectedCapsuleIds={selectedCapsuleIds} onStartCoaching={() => setIsCoaching(true)} onStartFlashcards={() => setIsFlashcardMode(true)} onStartActiveLearning={() => setIsActiveLearning(true)} onMarkAsReviewed={handleMarkAsReviewed} onSetCategory={handleSetCategory} allCategories={Array.from(new Set(profile.capsules.map(c => c.category).filter(Boolean))) as string[]} onSetMemoryAid={handleSetMemoryAid} onSetMnemonic={handleSetMnemonic} onUpdateQuiz={(id, q) => setProfile(prev => ({ ...prev, capsules: prev.capsules.map(c => c.id === id ? { ...c, quiz: q } : c) }))} onBackToList={() => setActiveCapsule(null)} onNavigateToProfile={handleNavigateToProfile} addToast={addToast} userGroups={userGroups} onShareCapsule={handleShareCapsule} currentUserId={currentUser?.uid} isPremium={profile.user.isPremium} /> : <div className="hidden md:flex flex-col items-center justify-center h-[60vh] bg-white dark:bg-zinc-900/50 rounded-3xl border-2 border-dashed border-slate-200 dark:border-zinc-800 text-slate-400"><BookOpenIcon className="w-16 h-16 mb-4 opacity-20" /><p className="text-lg font-medium">{t('start_creating')}</p></div>}
+                        </div>
+                    </div>
+                )}
+                {view === 'agenda' && <AgendaView plans={profile.user.plans || []} activePlanId={profile.user.activePlanId} onSetActivePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, activePlanId: id } }))} onUpdatePlan={p => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: (prev.user.plans || []).map(pl => pl.id === p.id ? p : pl) } }))} onDeletePlan={id => { setProfile(prev => ({ ...prev, user: { ...prev.user, plans: (prev.user.plans || []).filter(pl => pl.id !== id), activePlanId: prev.user.activePlanId === id ? undefined : prev.user.activePlanId } })); addToast(t('plan_deleted'), 'info'); }} onOpenCapsule={id => { const c = displayCapsules.find(cap => cap.id === id); if (c) { setActiveCapsule(c); setView('base'); setMobileTab('library'); } }} onCreateNew={() => setIsPlanningWizardOpen(true)} />}
+                {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} isPremiumUser={!!profile.user.isPremium} />}
+                {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} installPrompt={installPrompt} onInstall={() => installPrompt?.prompt()} isIOS={isIOS} isStandalone={isStandalone} onNavigateToReviews={() => { setView('base'); setMobileTab('library'); setActiveCapsule(null); }} />}
+                {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={userGroups.filter(g => g.ownerId === currentUser?.uid)} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
+            </main>
+            <MobileNavBar activeTab={mobileTab} onTabChange={handleMobileTabChange} hasActivePlan={!!profile.user.activePlanId} userRole={profile.user.role} />
+            {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} addToast={addToast} />}
+            {isCoaching && activeCapsule && <CoachingModal capsule={activeCapsule} userProfile={profile.user} onClose={() => setIsCoaching(false)} />}
+            {isFlashcardMode && activeCapsule && <FlashcardModal capsule={activeCapsule} onClose={() => setIsFlashcardMode(false)} addToast={addToast} />}
+            {isActiveLearning && activeCapsule && <ActiveLearningModal capsule={activeCapsule} onClose={() => setIsActiveLearning(false)} />}
+            {isGroupModalOpen && currentUser && <GroupModal userId={currentUser.uid} userName={profile.user.name} userGroups={userGroups} onClose={() => setIsGroupModalOpen(false)} addToast={addToast} />}
+            {isPlanningWizardOpen && <PlanningWizard capsules={profile.capsules} onClose={() => setIsPlanningWizardOpen(false)} onPlanCreated={p => { setProfile(prev => ({ ...prev, user: { ...prev.user, plans: [...(prev.user.plans || []), p], activePlanId: p.id } })); setIsPlanningWizardOpen(false); setView('agenda'); setMobileTab('agenda'); addToast(t('plan_generated'), 'success'); }} />}
+            {capsuleToDelete && <ConfirmationModal isOpen={!!capsuleToDelete} onClose={() => setCapsuleToDelete(null)} onConfirm={() => handleDeleteCapsule(capsuleToDelete)} title="Supprimer la capsule ?" message={`Voulez-vous vraiment supprimer "${capsuleToDelete.title}" ? Cette action est irréversible.`} confirmText="Supprimer" cancelText="Annuler" variant="danger" />}
+        </div>
+    );
+};
+
+const App: React.FC = () => <ToastProvider><AppContent /></ToastProvider>;
+export default App;
