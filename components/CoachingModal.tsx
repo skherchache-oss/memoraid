@@ -189,7 +189,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         
         const availability = checkTtsAvailability(!!userProfile.isPremium);
         if (!availability.available) {
-            addToast(availability.reason!, "info");
+            const msg = availability.code === 'QUOTA' ? t('error_vocal_quota') : availability.reason!;
+            addToast(msg, "info");
             return;
         }
 
@@ -263,11 +264,18 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 audioSourceRef.current = source;
 
             } catch (e: any) {
-                if (e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED')) {
-                    triggerTtsSafetyLock();
-                    addToast("Vocal saturé. Désactivation temporaire.", "info");
-                }
                 stopAudio();
+                const errorStr = e?.message || "";
+                if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+                    triggerTtsSafetyLock();
+                    addToast(t('error_vocal_quota'), "info");
+                } else if (errorStr.includes('503') || errorStr.includes('busy')) {
+                    addToast(t('error_vocal_busy'), "info");
+                } else if (!navigator.onLine) {
+                    addToast(t('error_vocal_offline'), "error");
+                } else {
+                    addToast(t('error_general_service'), "error");
+                }
             }
         };
 
@@ -402,7 +410,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                             </div>
                         </div>
                     ))}
-                    {isLoading && <div className="p-3 rounded-2xl bg-white dark:bg-zinc-800 inline-block animate-pulse">...</div>}
+                    {isLoading && <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 inline-block animate-pulse">...</div>}
                     <div ref={messagesEndRef} />
                 </div>
                 <footer className="p-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">

@@ -183,8 +183,20 @@ const AppContent: React.FC = () => {
             addToast(t('capsule_created'), 'success');
         } catch (e: any) {
             if (generationController.current.isCancelled) return;
-            if (e instanceof GeminiError && e.isQuotaError) setCooldownUntil(Date.now() + 60000);
-            setError(e.message || t('error_generation'));
+            
+            let errorMsg = t('error_generation');
+            const errorStr = e?.message || "";
+            
+            if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+                setCooldownUntil(Date.now() + 60000);
+                errorMsg = t('error_quota_reached');
+            } else if (errorStr.includes('503') || errorStr.includes('busy')) {
+                errorMsg = t('error_api_busy');
+            } else if (!navigator.onLine) {
+                errorMsg = t('error_general_service');
+            }
+            
+            setError(errorMsg);
         } finally { 
             if (!generationController.current.isCancelled) {
                 setIsLoading(false); 
@@ -221,7 +233,20 @@ const AppContent: React.FC = () => {
             addToast(t('capsule_created'), 'success');
         } catch (e: any) {
             if (generationController.current.isCancelled) return;
-            setError(e.message || t('error_file_read'));
+            
+            let errorMsg = t('error_generation');
+            const errorStr = e?.message || "";
+            
+            if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+                setCooldownUntil(Date.now() + 60000);
+                errorMsg = t('error_quota_reached');
+            } else if (errorStr.includes('503') || errorStr.includes('busy')) {
+                errorMsg = t('error_api_busy');
+            } else if (!navigator.onLine) {
+                errorMsg = t('error_general_service');
+            }
+            
+            setError(errorMsg);
         } finally { 
             if (!generationController.current.isCancelled) {
                 setIsLoading(false); 

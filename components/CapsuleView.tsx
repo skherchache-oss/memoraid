@@ -120,7 +120,11 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
         stopRequestRef.current = false;
         
         const avail = checkTtsAvailability(!!isPremium);
-        if (!avail.available) { addToast(avail.reason!, 'info'); return; }
+        if (!avail.available) { 
+            const msg = avail.code === 'QUOTA' ? t('error_vocal_quota') : avail.reason!;
+            addToast(msg, 'info'); 
+            return; 
+        }
         
         if (!audioContextRef.current) {
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -186,9 +190,18 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
                 
                 // Enchaîner
                 queueChunk(index + 1);
-            } catch (e) {
+            } catch (e: any) {
                 stopAudio();
-                addToast("Vocal MEMORAID indisponible.", "error");
+                const errorStr = e?.message || "";
+                if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+                    addToast(t('error_vocal_quota'), "info");
+                } else if (errorStr.includes('503') || errorStr.includes('busy')) {
+                    addToast(t('error_vocal_busy'), "info");
+                } else if (!navigator.onLine) {
+                    addToast(t('error_vocal_offline'), "error");
+                } else {
+                    addToast(t('error_general_service'), "error");
+                }
             }
         };
         queueChunk(0);
