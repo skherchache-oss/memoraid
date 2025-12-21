@@ -126,9 +126,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         }
     }, []);
 
-    // Audio sync effect
     useEffect(() => {
-        const handleStopAll = () => {
+        const handleStopAll = (e: any) => {
+            if (e.detail?.origin === 'coach-ai') return;
             stopAudio();
         };
         window.addEventListener('memoraid-stop-audio', handleStopAll);
@@ -140,12 +140,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     useEffect(() => {
         if (!audioContextRef.current) {
-            try {
-                const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-                audioContextRef.current = new AudioContext({ sampleRate: 24000 });
-            } catch (e) {
-                console.error("Web Audio API is not supported.", e);
-            }
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            audioContextRef.current = new AudioContext({ sampleRate: 24000 });
         }
     }, []);
 
@@ -183,13 +179,13 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             if (recognitionRef.current) recognitionRef.current.abort();
             stopAudio();
         };
-    }, [initializeChat]);
+    }, [initializeChat, stopAudio]);
 
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
-        // Signal global pour arrêter les autres audio
-        window.dispatchEvent(new CustomEvent('memoraid-stop-audio'));
+        // Signal global pour arrêter les autres audio internes
+        window.dispatchEvent(new CustomEvent('memoraid-stop-audio', { detail: { origin: 'coach-ai' } }));
         
         const availability = checkTtsAvailability(!!userProfile.isPremium);
         if (!availability.available) {
@@ -197,11 +193,20 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             return;
         }
 
-        stopAudio();
         stopRequestRef.current = false;
 
         if (audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
+        }
+
+        // PRENDRE LE FOCUS SYSTEME
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: 'Coach IA',
+                artist: 'Memoraid',
+                artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
+            });
+            navigator.mediaSession.playbackState = 'playing';
         }
 
         const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
@@ -210,10 +215,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
         if (chunks.length === 0) return;
 
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) return;
-
-        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const playChunkSequence = async (index: number) => {
             if (index >= chunks.length || stopRequestRef.current) return;
@@ -251,6 +253,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 
                 source.onended = () => {
                     if (!stopRequestRef.current) playChunkSequence(index + 1);
+                    else if (index === chunks.length - 1 && 'mediaSession' in navigator) {
+                        navigator.mediaSession.playbackState = 'none';
+                    }
                 };
 
                 recordTtsSuccess();
