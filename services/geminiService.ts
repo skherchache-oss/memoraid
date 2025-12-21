@@ -152,14 +152,14 @@ export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, '
     const ai = getAiClient();
     const targetLang = getLangName(language);
     
-    // Prompt Image Optimisé : Style carnet à spirales et crayons de couleur
-    const promptImage = `An artistic and educational sketchnote about "${capsule.title}". 
-    BACKGROUND: The drawing must be on a hand-drawn white paper of a spiral bound sketchbook. Black or silver spirals are clearly visible on the far left edge of the paper area.
-    STYLE: Artistic hand-drawn look with textured colored pencils (vibrant blues, yellows, greens).
-    CONTENT PRIORITY: High visual impact. Use icons, symbols, arrows, and metaphors. 
-    TEXT: Use almost zero text. Only a few clear, large handwritten labels for the 2-3 most essential concepts.
-    LAYOUT: A clean but artistic infographic on the sketchbook page.
-    Language: ${targetLang}. Clear and aesthetically pleasing.`;
+    // Prompt Image "Sketchbook" : Spirales et crayons de couleur
+    const promptImage = `An artistic sketchnote for learning about "${capsule.title}". 
+    BACKGROUND: The drawing is on a hand-drawn white paper of a spiral-bound notebook. Large black spirals are clearly visible on the far left edge of the page.
+    STYLE: Hand-drawn with textured vibrant colored pencils (blues, yellows, reds, greens). Artistic and pedagogical.
+    CONTENT PRIORITY: Highly visual. Use metaphors, symbols, arrows, and small schemas. 
+    TEXT: Minimize text. Use only 2 or 3 clear, large handwritten titles/labels for main concepts.
+    LAYOUT: Clean, centered infographic on the notebook page. No cluttered text blocks.
+    Language: ${targetLang}. Focus on visual aid.`;
     
     const res = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: { parts: [{ text: promptImage }] } });
     const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);

@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group } from '../types';
 import Quiz from './Quiz';
-// Added XIcon to the list of imported constants
 import { LightbulbIcon, MessageSquareIcon, DownloadIcon, Volume2Icon, StopCircleIcon, RefreshCwIcon, ImageIcon, SparklesIcon, ChevronLeftIcon, Share2Icon, FileTextIcon, ZapIcon, LockIcon, PlayIcon, ListChecksIcon, LayersIcon, AlertCircleIcon, TagIcon, XIcon } from '../constants';
 import { generateMemoryAidDrawing, generateMnemonic } from '../services/geminiService';
 import { downloadCapsulePdf, downloadFlashcardsPdf, downloadQuizPdf, downloadBlob } from '../services/pdfService';
@@ -169,14 +168,18 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
     };
 
     const handleGenerateDrawing = async () => {
-        const canGenerateFirstTime = isPremium || capsule.isPremiumContent;
-        const isRegeneration = !!memoryAidImage;
-
-        if (isRegeneration && !isPremium) {
+        const hasExistingImage = !!memoryAidImage;
+        
+        // Logique d'accès :
+        // 1. Première génération autorisée si Pack payant (isPremiumContent) OU utilisateur Premium.
+        // 2. Régénération (si image déjà là) STRICTEMENT réservée aux Premium.
+        
+        if (hasExistingImage && !isPremium) {
             addToast(t('sketch_regenerate_premium'), "info");
             return;
         }
-        if (!canGenerateFirstTime) {
+
+        if (!hasExistingImage && !isPremium && !capsule.isPremiumContent) {
             addToast(t('sketch_premium_only'), "info");
             return;
         }
@@ -186,7 +189,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
             const res = await generateMemoryAidDrawing(capsule, language);
             setMemoryAidImage(`data:image/png;base64,${res.imageData}`);
             onSetMemoryAid(capsule.id, res.imageData, res.description);
-            addToast(isRegeneration ? "Croquis regénéré !" : "Croquis généré !", "success");
+            addToast(hasExistingImage ? "Croquis regénéré !" : "Croquis généré !", "success");
         } catch (e: any) { addToast(t('error_generation'), "error"); } finally { setIsGeneratingImage(false); }
     };
 
@@ -299,9 +302,16 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
                         {canSeeSection ? (
                             <div className="bg-slate-50 dark:bg-zinc-900/50 rounded-3xl border border-slate-100 dark:border-zinc-800 p-4">
                                 {hasSketch ? (
-                                    <div className="space-y-6 animate-fade-in-fast">
-                                        <div className="bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700">
+                                    <div className="space-y-6 animate-fade-in-fast relative">
+                                        <div className="bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 relative group">
                                             <img src={memoryAidImage!} alt="Memory aid sketch" className="w-full h-auto"/>
+                                            <button 
+                                                onClick={handleDownloadOnlyImage} 
+                                                className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                title={t('download_sketch')}
+                                            >
+                                                <DownloadIcon className="w-5 h-5" />
+                                            </button>
                                         </div>
                                         {capsule.memoryAidDescription && (
                                             <div className="bg-white dark:bg-zinc-800 p-5 rounded-2xl border-l-4 border-violet-500 shadow-sm">
@@ -324,10 +334,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
                                                     {isPremium ? t('regenerate') : t('sketch_regenerate_premium')}
                                                 </button>
                                             </div>
-                                            <button onClick={handleDownloadOnlyImage} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-lg text-xs font-bold border border-slate-200 dark:border-zinc-700 hover:bg-slate-50 transition-colors shadow-sm">
-                                                <DownloadIcon className="w-4 h-4" />
-                                                {t('download_sketch')}
-                                            </button>
                                         </div>
                                     </div>
                                 ) : (
