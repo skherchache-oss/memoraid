@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CognitiveCapsule, ChatMessage, CoachingMode, UserProfile } from '../types';
 import { createCoachingSession, getAiClient } from '../services/geminiService';
@@ -113,6 +114,30 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     useEffect(scrollToBottom, [messages]);
 
+    const stopAudio = useCallback(() => {
+        stopRequestRef.current = true;
+        if (audioSourceRef.current) {
+            try { audioSourceRef.current.stop(); } catch(e) {}
+            audioSourceRef.current.disconnect();
+            audioSourceRef.current = null;
+        }
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.playbackState = 'none';
+        }
+    }, []);
+
+    // Audio sync effect
+    useEffect(() => {
+        const handleStopAll = () => {
+            stopAudio();
+        };
+        window.addEventListener('memoraid-stop-audio', handleStopAll);
+        return () => {
+            window.removeEventListener('memoraid-stop-audio', handleStopAll);
+            stopAudio();
+        };
+    }, [stopAudio]);
+
     useEffect(() => {
         if (!audioContextRef.current) {
             try {
@@ -139,7 +164,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
-            // On ne lit l'intro que si le quota permet au moins un fragment
             const availability = checkTtsAvailability(!!userProfile.isPremium);
             if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended' && availability.available) {
                 playTTS(text);
@@ -161,22 +185,12 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         };
     }, [initializeChat]);
 
-    const stopAudio = useCallback(() => {
-        stopRequestRef.current = true;
-        if (audioSourceRef.current) {
-            try { audioSourceRef.current.stop(); } catch(e) {}
-            audioSourceRef.current.disconnect();
-            audioSourceRef.current = null;
-        }
-        if ("mediaSession" in navigator) {
-            navigator.mediaSession.playbackState = 'none';
-        }
-    }, []);
-
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
-        // 1. VÉRIFICATION QUOTA PRÉVENTIVE
+        // Signal global pour arrêter les autres audio
+        window.dispatchEvent(new CustomEvent('memoraid-stop-audio'));
+        
         const availability = checkTtsAvailability(!!userProfile.isPremium);
         if (!availability.available) {
             addToast(availability.reason!, "info");
@@ -239,14 +253,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                     if (!stopRequestRef.current) playChunkSequence(index + 1);
                 };
 
-                // Enregistre le succès
                 recordTtsSuccess();
-                
                 source.start();
                 audioSourceRef.current = source;
 
             } catch (e: any) {
-                // 2. SAFETY LOCK SUR ÉCHEC RÉEL
                 if (e?.message?.includes('429') || e?.message?.includes('RESOURCE_EXHAUSTED')) {
                     triggerTtsSafetyLock();
                     addToast("Vocal saturé. Désactivation temporaire.", "info");
@@ -258,59 +269,32 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         playChunkSequence(0);
     };
 
-    // --- FIX: Added missing speech recognition handlers ---
-
-    // Start voice recognition
     const startRecording = () => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
             addToast(t('micro_not_supported'), "error");
             return;
         }
-
-        if (recognitionRef.current) {
-            recognitionRef.current.abort();
-        }
-
+        if (recognitionRef.current) recognitionRef.current.abort();
         const recognition = new SpeechRecognitionAPI();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
-
         setTempSpeech('');
         setRecognitionState('recording');
-
         recognition.onresult = (event: any) => {
             let transcript = '';
-            for (let i = 0; i < event.results.length; ++i) {
-                transcript += event.results[i][0].transcript;
-            }
+            for (let i = 0; i < event.results.length; ++i) transcript += event.results[i][0].transcript;
             setTempSpeech(transcript);
         };
-
-        recognition.onerror = (event: any) => {
-            console.error("Speech error", event.error);
-            setRecognitionState('error');
-            stopRecording();
-        };
-
-        recognition.onend = () => {
-            setRecognitionState('idle');
-        };
-
+        recognition.onerror = (event: any) => { setRecognitionState('error'); stopRecording(); };
+        recognition.onend = () => setRecognitionState('idle');
         recognitionRef.current = recognition;
-        try {
-            recognition.start();
-        } catch (e) {
-            setRecognitionState('idle');
-        }
+        try { recognition.start(); } catch (e) { setRecognitionState('idle'); }
     };
 
-    // Stop and commit speech to text
     const stopRecording = () => {
-        if (recognitionRef.current) {
-            recognitionRef.current.stop();
-        }
+        if (recognitionRef.current) recognitionRef.current.stop();
         setRecognitionState('idle');
         if (tempSpeech) {
             setUserInput(prev => {
@@ -322,20 +306,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         }
     };
 
-    // Toggle recording state
-    const toggleRecording = () => {
-        if (recognitionState === 'recording') {
-            stopRecording();
-        } else {
-            startRecording();
-        }
-    };
+    const toggleRecording = () => recognitionState === 'recording' ? stopRecording() : startRecording();
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (audioContextRef.current?.state === 'suspended') {
-            audioContextRef.current.resume();
-        }
+        if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
         if (recognitionState === 'recording') stopRecording();
         const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
@@ -347,17 +322,13 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         setIsLoading(true);
         try {
             let messageParts: any[] = [];
-            if (userMessage.image) {
-                messageParts.push({ inlineData: { mimeType: "image/jpeg", data: userMessage.image.split(',')[1] } });
-            }
+            if (userMessage.image) messageParts.push({ inlineData: { mimeType: "image/jpeg", data: userMessage.image.split(',')[1] } });
             if (userMessage.content) messageParts.push({ text: userMessage.content });
             const response = await chatSession.sendMessage({ 
                 message: messageParts.length === 1 && messageParts[0].text ? messageParts[0].text : { parts: messageParts }
             } as any);
             const responseText = response.text;
             setMessages(prev => [...prev, { role: 'model', content: responseText }]);
-            
-            // Check availability before oral auto-play
             if (selectedMode === 'oral' && checkTtsAvailability(!!userProfile.isPremium).available) {
                 playTTS(responseText);
             }

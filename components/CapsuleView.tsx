@@ -73,17 +73,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
     const [isEditingCategory, setIsEditingCategory] = useState(false);
     const [categoryInput, setCategoryInput] = useState(capsule.category || '');
 
-    const fullTextToRead = useMemo(() => {
-        let text = `${capsule.title}. ${capsule.summary}. `;
-        text += language === 'fr' ? "Concepts clés : " : "Key concepts: ";
-        capsule.keyConcepts.forEach(c => { text += `${c.concept}. ${c.explanation}. `; });
-        if (capsule.examples && capsule.examples.length > 0) {
-            text += language === 'fr' ? "Exemples : " : "Examples: ";
-            capsule.examples.forEach(e => { text += `${e}. `; });
-        }
-        return text;
-    }, [capsule, language]);
-
     const stopAudio = useCallback(() => {
         stopRequestRef.current = true;
         activeSourcesRef.current.forEach(source => {
@@ -96,8 +85,37 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
         setIsBuffering(false);
     }, []);
 
+    // Global audio control listener
+    useEffect(() => {
+        const handleStopAll = () => {
+            if (isSpeaking || isBuffering) {
+                stopAudio();
+            }
+        };
+        window.addEventListener('memoraid-stop-audio', handleStopAll);
+        return () => {
+            window.removeEventListener('memoraid-stop-audio', handleStopAll);
+            stopAudio(); // Stop on unmount
+        };
+    }, [isSpeaking, isBuffering, stopAudio]);
+
+    const fullTextToRead = useMemo(() => {
+        let text = `${capsule.title}. ${capsule.summary}. `;
+        text += language === 'fr' ? "Concepts clés : " : "Key concepts: ";
+        capsule.keyConcepts.forEach(c => { text += `${c.concept}. ${c.explanation}. `; });
+        if (capsule.examples && capsule.examples.length > 0) {
+            text += language === 'fr' ? "Exemples : " : "Examples: ";
+            capsule.examples.forEach(e => { text += `${e}. `; });
+        }
+        return text;
+    }, [capsule, language]);
+
     const handleToggleSpeech = async () => {
         if (isSpeaking || isBuffering) { stopAudio(); return; }
+        
+        // Signal à tout autre composant d'arrêter l'audio
+        window.dispatchEvent(new CustomEvent('memoraid-stop-audio'));
+        
         stopAudio();
         stopRequestRef.current = false;
         
@@ -170,10 +188,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
     const handleGenerateDrawing = async () => {
         const hasExistingImage = !!memoryAidImage;
         
-        // Logique d'accès :
-        // 1. Première génération autorisée si Pack payant (isPremiumContent) OU utilisateur Premium.
-        // 2. Régénération (si image déjà là) STRICTEMENT réservée aux Premium.
-        
         if (hasExistingImage && !isPremium) {
             addToast(t('sketch_regenerate_premium'), "info");
             return;
@@ -212,7 +226,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
                 <div className="mb-8">
                     <div className="flex justify-between items-start gap-4 mb-2">
                         <div className="flex-grow">
-                            {/* CATÉGORIE ÉDITABLE */}
                             <div className="mb-3 flex items-center gap-2">
                                 {isEditingCategory ? (
                                     <div className="flex items-center gap-2 animate-fade-in-fast">
