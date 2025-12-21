@@ -134,12 +134,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
             await audioContextRef.current.resume();
         }
 
-        // SIGNALER AU SYSTEME (YouTube/Spotify s'arrêtent ici)
+        // SIGNALER AU SYSTEME (Spotify, YouTube etc s'arrêtent ici)
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: capsule.title,
-                artist: 'Memoraid Reader',
-                album: 'Cognitive Capsule',
+                artist: 'Lecteur Memoraid',
+                album: 'Capsule Cognitive',
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
             navigator.mediaSession.playbackState = 'playing';
@@ -233,7 +233,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
             setMemoryAidImage(`data:image/png;base64,${res.imageData}`);
             onSetMemoryAid(capsule.id, res.imageData, res.description);
             addToast(hasExistingImage ? "Croquis regénéré !" : "Croquis généré !", "success");
-        } catch (e: any) { addToast(t('error_generation'), "error"); } finally { setIsGeneratingImage(false); }
+        } catch (e: any) { 
+            const errorStr = e?.message || "";
+            if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
+                addToast(t('error_quota_reached'), "info");
+            } else {
+                addToast(t('error_generation'), "error"); 
+            }
+        } finally { setIsGeneratingImage(false); }
     };
 
     const handleDownloadOnlyImage = () => {
@@ -290,6 +297,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({ capsule, addToast, onBackToLi
                 <div className="space-y-16">
                     <section><h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-6"><LightbulbIcon className="w-6 h-6 mr-3 text-amber-500" /> {t('key_concepts')}</h3><div className="grid gap-5">{capsule.keyConcepts.map((c, i) => (<div key={i} className="p-6 bg-slate-50 dark:bg-zinc-900/50 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-sm transition-all hover:shadow-md"><p className="font-bold text-xl text-slate-900 dark:text-white mb-2">{c.concept}</p><p className="text-slate-600 dark:text-zinc-300 leading-relaxed mb-4">{c.explanation}</p>{c.deepDive && (<div className="mt-4 pt-4 border-t border-slate-200 dark:border-zinc-700"><p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest mb-2 flex items-center gap-2"><SparklesIcon className="w-3 h-3" /> {t('deep_dive_label')}</p><p className="text-sm text-slate-500 dark:text-zinc-400 italic leading-relaxed">{c.deepDive}</p></div>)}</div>))}</div></section>
                     <section><h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-6"><ZapIcon className="w-6 h-6 mr-3 text-orange-500" /> {t('mnemonic_title')}</h3>{mnemonic ? (<div className="bg-orange-50/50 dark:bg-orange-900/10 p-8 rounded-3xl border border-orange-200 dark:border-orange-800 text-center relative shadow-sm"><p className="text-xl md:text-2xl font-serif italic text-slate-800 dark:text-zinc-100">"{mnemonic}"</p><button onClick={handleGenerateMnemonic} disabled={isGeneratingMnemonic} className="mt-4 text-xs font-bold text-orange-600 hover:underline flex items-center gap-1 mx-auto"><RefreshCwIcon className={`w-3 h-3 ${isGeneratingMnemonic ? 'animate-spin' : ''}`} /> {t('regenerate')}</button></div>) : (<button onClick={handleGenerateMnemonic} disabled={isGeneratingMnemonic} className="w-full py-10 border-2 border-dashed border-orange-200 rounded-3xl text-orange-600 font-bold hover:bg-orange-50 transition-colors">{isGeneratingMnemonic ? t('generating_mnemonic') : t('generate_mnemonic')}</button>)}</section>
+                    {/* Fixed "Cannot find name 'onOpenProfile'" by using 'onNavigateToProfile' which is correctly passed as a prop */}
                     <section><h3 className="flex items-center text-xl font-bold text-slate-800 dark:text-zinc-100 mb-6"><ImageIcon className="w-6 h-6 mr-3 text-violet-500" /> {t('memory_aid_sketch')}</h3>{canSeeSection ? (<div className="bg-slate-50 dark:bg-zinc-900/50 rounded-3xl border border-slate-100 dark:border-zinc-800 p-4">{hasSketch ? (<div className="space-y-6 animate-fade-in-fast relative"><div className="bg-white dark:bg-zinc-800 rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-zinc-700 relative group"><img src={memoryAidImage!} alt="Memory aid sketch" className="w-full h-auto"/><button onClick={handleDownloadOnlyImage} className="absolute top-4 right-4 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" title={t('download_sketch')}><DownloadIcon className="w-5 h-5" /></button></div>{capsule.memoryAidDescription && (<div className="bg-white dark:bg-zinc-800 p-5 rounded-2xl border-l-4 border-violet-500 shadow-sm"><h4 className="text-[10px] font-black uppercase tracking-tighter text-violet-600 dark:text-violet-400 mb-2 flex items-center gap-2"><SparklesIcon className="w-3 h-3" />{t('sketch_summary_label')}</h4><p className="text-sm text-slate-600 dark:text-zinc-300 italic leading-relaxed">{capsule.memoryAidDescription}</p></div>)}<div className="p-3 bg-slate-100 dark:bg-zinc-800 rounded-xl flex items-start gap-2 border border-slate-200 dark:border-zinc-700"><AlertCircleIcon className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" /><p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-tight italic">{t('sketch_warning')}</p></div><div className="flex justify-between items-center gap-4"><div className="flex gap-4"><button onClick={() => setMemoryAidImage(null)} className="text-xs font-bold text-slate-400 hover:text-red-500 uppercase">{t('erase')}</button><button onClick={handleGenerateDrawing} disabled={isGeneratingImage} className={`text-xs font-bold uppercase flex items-center gap-1 transition-colors ${isPremium ? 'text-violet-500 hover:underline' : 'text-slate-400 cursor-not-allowed'}`}><RefreshCwIcon className={`w-3 h-3 ${isGeneratingImage ? 'animate-spin' : ''}`}/> {isPremium ? t('regenerate') : t('sketch_regenerate_premium')}</button></div></div></div>) : (<div className="text-center py-12 px-4"><p className="text-slate-500 dark:text-zinc-400 mb-6">{t('sketch_placeholder_text')}</p><button onClick={handleGenerateDrawing} disabled={isGeneratingImage} className="px-8 py-3 bg-violet-600 text-white rounded-xl font-bold hover:bg-violet-700 transition-all shadow-md flex items-center gap-2 mx-auto">{isGeneratingImage ? <RefreshCwIcon className="w-5 h-5 animate-spin"/> : <SparklesIcon className="w-5 h-5"/>} {t('generate_sketch')}</button></div>)}</div>) : (<div className="bg-amber-50 dark:bg-amber-900/10 p-10 rounded-3xl border border-amber-200 dark:border-amber-800/30 text-center"><LockIcon className="w-12 h-12 text-amber-500 mx-auto mb-4" /><p className="text-sm text-amber-700 mb-6">{t('sketch_premium_only')}</p><button onClick={onNavigateToProfile} className="px-6 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-md hover:bg-amber-600 uppercase transition-colors">{t('activate_in_profile')}</button></div>)}</section>
                     <div className="pt-8 border-t border-slate-100 dark:border-zinc-800"><Quiz questions={capsule.quiz} onComplete={(s) => onMarkAsReviewed(capsule.id, s, 'quiz')} /></div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-6 border-t border-slate-100 dark:border-zinc-800">

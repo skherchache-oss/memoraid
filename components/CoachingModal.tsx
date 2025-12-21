@@ -166,7 +166,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             }
         } catch (error) {
             console.error("Failed to initialize coaching session:", error);
-            const errMsg = language === 'fr' ? "Erreur de connexion au coach." : "Connection error with coach.";
+            const errMsg = language === 'fr' ? "L'IA semble un peu timide ce moment... réessayez dans quelques secondes." : "AI seems a bit shy right now... try again in a few seconds.";
             setMessages([{ role: 'model', content: errMsg }]);
         } finally {
             setIsLoading(false);
@@ -203,11 +203,12 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         // PRENDRE LE FOCUS SYSTEME
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
-                title: 'Coach IA',
+                title: 'Coach IA Memoraid',
                 artist: 'Memoraid',
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
             navigator.mediaSession.playbackState = 'playing';
+            navigator.mediaSession.setActionHandler('stop', stopAudio);
         }
 
         const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
@@ -281,7 +282,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
         playChunkSequence(0);
     };
-
+    
+    // ... Reste du composant (startRecording, handleSendMessage, etc.) ...
     const startRecording = () => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
@@ -346,7 +348,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 playTTS(responseText);
             }
         } catch (error) {
-            setMessages(prev => [...prev, { role: 'model', content: "Erreur de traitement." }]);
+            setMessages(prev => [...prev, { role: 'model', content: "Désolé, j'ai eu un petit trou de mémoire... Réessayez !" }]);
         } finally {
             setIsLoading(false);
         }

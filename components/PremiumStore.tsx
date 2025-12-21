@@ -10,10 +10,12 @@ interface PremiumStoreProps {
 }
 
 // --- ASSETS STATIQUES POUR LES PACKS (SVG Base64) ---
-const SKETCH_BRAIN = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y4ZmFmYyIvPgogIDxwYXRoIGQ9Ik01MCAyMDAgQzEwMCAxMDAgMzAwIDEwMCAzNTAgMjAwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS1kYXNoYXJyYXk9IjUsNSIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iNjAiIGZpbGw9IiNlMWY1ZmUiIHN0cm9rZT0iIzNiODJmNiIvPgogIDx0ZXh0IHg9IjIwMCIgeT0iMTU1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5Db25zY2llbmNlPC90ZXh0PgogIDxwYXRoIGQ9Ik0xNDAgMjEwIEwyNjAgMjEwIEwyMDAgMjgwIFoiIGZpbGw9IiNmZmYzYjAiIHN0cm9rZT0ibm9uZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMjAwIiB5PSIyNTAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBzdHJva2U9Im5vbmUiIGZpbGw9IiM1NTUiPkluY29uc2NpZW50PC90ZXh0Pgo8L3N2Zz4=";
-const SKETCH_SPEAKER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZmZjhmMCIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjEwMCIgcj0iNDAiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTE2MCAxNDAgQzE2MCAyMDAgMjQwIDIwMCAyNDAgMTQwIiBmaWxsPSJub25lIi8+CiAgPGxpbmUgeDE9IjIwMCIgeTE9IjIwMCIgeDI9IjIwMCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPGxpbmUgeDE9IjE1MCIgeTE9IjI4MCIgeDI9IjI1MCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTEwMCAxMDAgTDE1MCAxMDAiIHN0cm9rZT0iI2Y1OWUwYiIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8dGV4dCB4PSI4MCIgeT0iMTA1IiBmb250LXNpemU9IjEyIiBzdHJva2U9Im5vbmUiIGZpbGw9IiMzMzMiIHRleHQtYW5jaG9yPSJlbmQiPlZvaXg8L3RleHQ+Cjwvc3ZnPg==";
+const SKETCH_BRAIN = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y4ZmFmYyIvPgogIDxwYXRoIGQ9Ik01MCAyMDAgQzEwMCAxMDAgMzAwIDEwMCAzNTAgMjAwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS1kYXNoYXJyYXk9IjUsNSIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iNjAiIGZpbGw9IiNlMWY1ZmUiIHN0cm9rZT0iIzNiODJmNiIvPgogID0iMjAwIiB5PSIxNTUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBzdHJva2U9Im5vbmUiIGZpbGw9IiMzMzMiPkNvbnNjaWVuY2U8L3RleHQ+CiAgPHBhdGggZD0iTTE0MCAyMTAgTDI2MCAyMTAgTDIwMCAyODAgWiIgZmlsbD0iI2ZmZjNiMCIgc3Ryb2tlPSJub25lIiBvcGFjaXR5PSIwLjUiLz4KICA8dGV4dCB4PSIyMDAiIHk9IjI1MCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIHN0cm9rZT0ibm9uZSIgZmlsbD0iIzU1NSI+SW5jb25zY2llbnQ8L3RleHQ+Cjwvc3ZnPg==";
+const SKETCH_SPEAKER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZmZjhmMCIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjEwMCIgcj0iNDAiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTE2MCAxNDAgQzE2MCAyMDAgMjQwIDIwMCAyNDAgMTQwIiBmaWxsPSJub25lIi8+CiAgPGxpbmUgeDE9IjIwMCIgeTE9IjIwMCIgeDI9IjIwMCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPGxpbmUgeDE9IjE1IHg9IjI4MCIgeDI9IjI1MCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTEwMCAxMDAgTDE1MCAxMDAiIHN0cm9rZT0iI2Y1OWUwYiIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8dGV4dCB4PSI4MCIgeT0iMTA1IiBmb250LXNpemU9IjEyIiBzdHJva2U9Im5vbmUiIGZpbGw9IiMzMzMiIHRleHQtYW5jaG9yPSJlbmQiPlZvaXg8L3RleHQ+Cjwvc3ZnPg==";
 const SKETCH_CODE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzMwMzAzMCIvPgogIDxyZWN0IHg9IjUwIiB5PSI1MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMxZTFlMWUiIHN0cm9rZT0iIzY2NiIvPgogIDx0ZXh0IHg9IjcwIiB5PSI5MCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxNCIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMTRiOGE2Ij5MaXN0ID0gWzEsIDIsIDNdPC90ZXh0PgogIDx0ZXh0IHg9IjcwIiB5PSIxMzAiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTQiIHN0cm9rZT0ibm9uZSIgZmlsbD0iI2ZmNzAzMyI+VHVwbGUgPSAoMSwgMiwgMyk8L3RleHQ+CiAgPHBhdGggZD0iTTI1MCA5MCBMMzIwIDkwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS1kYXNoYXJyYXk9IjIsMiIvPgogIDx0ZXh0IHg9IjMyNSIgeT0iOTUiIGZvbnQtc2l6ZT0iMTAiIHN0cm9rZT0ibm9uZSIgZmlsbD0iI2FhYSI+TXV0YWJsZTwvdGV4dD4KPC9zdmc+";
-const SKETCH_FORGETTING = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjlmZiIvPgogIDxwYXRoIGQ9Ik01MCA1MCBMNTAgMjUwIEwzNTAgMjUwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxwYXRoIGQ9Ik01MCA1MCBRIDEwMCAyNTAgMzUwIDI1MCIgc3Ryb2tlPSIjZWY0NDQ0IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8dGV4dCB4PSIzNSIgeT0iNjAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIiBzdHJva2U9Im5vbmUiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJlbmQiPjEwMCUgTVNDPC90ZXh0PgogIDx0ZXh0IHg9IjIwMCIgeT0iMjcwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgc3Ryb2tlPSJub25lIiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5UZW1wcyAoSm91cnMpPC90ZXh0Pgo8L3N2Zz4=";
+const SKETCH_FORGETTING = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjlmZiIvPgogIDxwYXRoIGQ9Ik01MCA1MCBMNTAgMjUwIEwzNTAgMjUwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS1kYXNoYXJyYXk9IjUsNSIvPgogIDxwYXRoIGQ9Ik01MCA1MCBRIDEwMCAyNTAgMzUwIDI1MCIgc3Ryb2tlPSIjZWY0NDQ0IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8dGV4dCB4PSIzNSIgeT0iNjAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIiBzdHJva2U9Im5vbmUiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJlbmQiPjEwMCUgTVNDPC90ZXh0PgogIDx0ZXh0IHg9IjIwMCIgeT0iMjcwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgc3Ryb2tlPSJub25lIiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5UZW1wcyAoSm91cnMpPC90ZXh0Pgo8L3N2Zz4=";
+const SKETCH_MEMORY_FLOW = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2VmMmZmZSIvPgogIDxyZWN0IHg9IjIwIiB5PSIxMDAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IndoaXRlIi8+CiAgPHRleHQgeD0iNjAiIHk9IjEyNSIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5TZW5zPC90ZXh0PgogIDxwYXRoIGQ9Ik0xMDAgMTIwIEwxNDAgMTIwIiBzdHJva2U9IiM2NjYiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPHJlY3QgeD0iMTQwIiB5PSIxMDAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IiNkYmU0ZmYiLz4KICA8dGV4dCB4PSIxODAiIHk9IjEyNSIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5UcmF2YWlsPC90ZXh0PgogIDxwYXRoIGQ9Ik0yMjAgMTIwIEwyNjAgMTIwIiBzdHJva2U9IiM2NjYiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPHJlY3QgeD0iMjYwIiB5PSIxMDAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IiNiYmY3ZDQiLz4KICA8dGV4dCB4PSIzMDAiIHk9IjEyNSIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5MLlRlcm1lPC90ZXh0Pgo8L3N2Zz4=";
+const SKETCH_ACTIVE_PASSIVE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZjZmNmYyIvPgogIDxsaW5lIHgxPSIyMDAiIHkxPSI1MCIgeDI9IjIwMCIgeTI9IjI1MCIgc3Ryb2tlPSIjZGRkIiBzdHJva2UtZGFzaGFycmF5PSI0LDQiLz4KICAgIDx0ZXh0IHg9IjEwMCIgeT0iNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzY2NiI+UEFTU0lWRTwvdGV4dD4KICA8cGF0aCBkPSJNNcwIDEwMCBIMTMwIE03MCAxMjAgSDEzMCBNNzAgMTQwIEgxMDAiIHN0cm9rZT0iI2NjYyIvPgogIDxyZWN0IHg9IjcwIiB5PSIxNjAiIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMCIgZmlsbD0iI2ZlZjA4YSIgb3BhY2l0eT0iMC41IiBzdHJva2U9Im5vbmUiLz4KICA8dGV4dCB4PSIxMDAiIHk9IjIyMCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiPkZyYWdpbGU8L3RleHQ+CiAgICA8dGV4dCB4PSIzMDAiIHk9IjQwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMwNTk2NzkiPkFDVElWRTwvdGV4dD4KICA8Y2lyY2xlIGN4PSIzMDAiIGN5PSIxMzAiIHI9IjM1IiBmaWxsPSIjZDFmYWU1IiBzdHJva2U9IiMxMGI5ODEiLz4KICA8cGF0aCBkPSJNMjg1IDEzMCBMMjk1IDE0MCBMMzE1IDEyMCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2Utd2lkdGg9IjMiLz4KICA8dGV4dCB4PSIzMDAiIHk9IjIyMCIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMDU5Njc5Ij5Tb2xpZGU8L3RleHQ+Cjwvc3ZnPg==";
 
 // --- DONNÉES SIMULÉES (MOCK DATA) ---
 
@@ -22,82 +24,122 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
     {
         id: 'learn_1',
         title: 'Pourquoi on oublie ce qu\'on apprend',
-        summary: 'Le cerveau humain est conçu pour trier l’information. Afin d’éviter la surcharge cognitive, il élimine progressivement les données jugées non essentielles ou peu sollicitées. L’oubli n’est donc pas un dysfonctionnement, mais une fonction adaptative.',
+        summary: 'Le cerveau humain est conçu pour trier l’information. Afin d’éviter la surcharge cognitive, il élimine progressivement les données jugées non essentielles.',
         keyConcepts: [
             { 
-              concept: 'L’oubli comme mécanisme naturel du cerveau', 
-              explanation: 'Le cerveau humain est conçu pour trier l’information. Afin d’éviter la surcharge cognitive, il élimine progressivement les données jugées non essentielles ou peu sollicitées. L’oubli n’est donc pas un dysfonctionnement, mais une fonction adaptative qui permet de maintenir une efficacité cognitive optimale.',
-              deepDive: 'Sur le plan neuroscientifique, l’oubli est lié à l’affaiblissement des connexions synaptiques lorsque celles-ci ne sont pas réactivées. Le cerveau privilégie les informations fréquemment utilisées ou associées à une charge émotionnelle. Ce processus est influencé par l’attention, le contexte et la motivation, qui conditionnent la consolidation mnésique.'
+              concept: 'L’oubli comme mécanisme naturel', 
+              explanation: 'Le cerveau humain est conçu pour trier l’information. Afin d’éviter la surcharge cognitive, il élimine progressivement les données jugées non essentielles.',
+              deepDive: 'Sur le plan neuroscientifique, l’oubli est lié à l’affaiblissement des connexions synaptiques...'
             },
             { 
               concept: 'La courbe de l’oubli', 
-              explanation: 'La courbe de l’oubli décrit la perte rapide d’une information après son apprentissage initial. Sans rappel ou réutilisation, une grande partie des connaissances disparaît dans les heures ou les jours qui suivent l’exposition.',
-              deepDive: 'Formalisée par Hermann Ebbinghaus, cette courbe met en évidence que la mémoire décline de manière exponentielle. Toutefois, chaque rappel actif ralentit cette chute et renforce la trace mnésique. La répétition espacée permet ainsi de stabiliser durablement les apprentissages.'
+              explanation: 'La courbe de l’oubli décrit la perte rapide d’une information après son apprentissage initial.',
+              deepDive: 'Formalisée par Hermann Ebbinghaus, cette courbe met en évidence que la mémoire décline de manière exponentielle...'
+            }
+        ],
+        examples: ['Relire plusieurs fois un cours sans se poser de questions', 'Apprendre uniquement la veille d’un contrôle'],
+        flashcards: [{ front: "Oubli", back: "Mécanisme naturel du cerveau qui élimine les informations peu utilisées." }],
+        quiz: [{ question: "Que montre la courbe de l'oubli ?", options: ["Perte rapide sans rappel", "Mémoire infinie"], correctAnswer: "Perte rapide sans rappel", explanation: "..." }],
+        mnemonic: "« Ce que je ne rappelle pas, je l’efface. »",
+        memoryAidImage: SKETCH_FORGETTING.split('base64,')[1], 
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: 'Méthodologie', sourceType: 'text', isPremiumContent: true 
+    },
+    {
+        id: 'learn_2',
+        title: 'Comment fonctionne la mémoire',
+        summary: 'Comprendre les mécanismes de stockage et de rappel des informations pour adapter ses méthodes d’apprentissage.',
+        keyConcepts: [
+            { 
+                concept: 'La mémoire sensorielle', 
+                explanation: 'C’est la première étape du traitement. Elle capte les données de nos sens mais ne les conserve que quelques millisecondes.',
+                deepDive: 'Ce rôle de filtre est essentiel : sans lui, le cerveau serait submergé par un flux constant de données inutiles. Seules les informations auxquelles nous portons attention sont transmises.'
             },
             { 
-              concept: 'La mémoire passive', 
-              explanation: 'La mémoire passive repose sur des actions telles que la relecture, l’écoute ou le surlignage. Ces pratiques donnent une impression de maîtrise, mais sollicitent peu les mécanismes profonds de la mémoire.',
-              deepDive: 'Les études en sciences cognitives montrent que la familiarité créée par la relecture est souvent confondue avec la compréhension réelle. Cette illusion de savoir explique pourquoi les informations apprises passivement sont rapidement oubliées.'
+                concept: 'La mémoire de travail', 
+                explanation: 'Espace mental où nous manipulons activement les informations. Sa capacité est très limitée.',
+                deepDive: 'Elle ne peut traiter qu’un petit nombre d’informations à la fois. Lorsqu’elle est surchargée, la compréhension devient difficile.'
             },
             { 
-              concept: 'La mémoire active', 
-              explanation: 'La mémoire active consiste à se rappeler volontairement une information sans support immédiat. Elle implique un effort cognitif qui renforce la consolidation et la durabilité des connaissances.',
-              deepDive: 'Le rappel actif stimule les réseaux neuronaux associés à l’information et favorise leur stabilisation dans la mémoire à long terme. Cette approche est aujourd’hui reconnue comme l’un des piliers des stratégies d’apprentissage efficaces.'
+                concept: 'La mémoire à long terme', 
+                explanation: 'Système de stockage durable et illimité. Nécessite une organisation et des liens avec des savoirs existants.',
+                deepDive: 'Une information n’y entre pas automatiquement. Elle doit être comprise, reliée à des connaissances déjà existantes et réactivée régulièrement.'
+            },
+            { 
+                concept: 'La consolidation', 
+                explanation: 'Processus par lequel une information devient stable et durable. Le sommeil est un facteur clé.',
+                deepDive: 'Le rappel actif joue un rôle central. Chaque fois que l’on se force à se souvenir, la trace mnésique se renforce.'
+            }
+        ],
+        examples: ['Porter attention en classe pour passer le filtre sensoriel', 'Découper un chapitre complexe pour ne pas saturer la mémoire de travail', 'Utiliser le sommeil pour stabiliser les acquis'],
+        flashcards: [
+            { front: "Mémoire sensorielle", back: "Mémoire très brève qui retient les informations perçues avant l’attention." },
+            { front: "Mémoire de travail", back: "Mémoire temporaire pour manipuler les informations (capacité limitée)." },
+            { front: "Mémoire à long terme", back: "Système de stockage durable des connaissances et compétences." },
+            { front: "Consolidation", back: "Processus qui stabilise une information via le rappel et le sommeil." }
+        ],
+        quiz: [
+            { question: "Quel est le rôle principal de la mémoire sensorielle ?", options: ["Stocker les souvenirs", "Retenir brièvement les infos perçues", "Manipuler les concepts"], correctAnswer: "Retenir brièvement les infos perçues", explanation: "Elle agit comme une porte d'entrée très courte." },
+            { question: "Pourquoi la mémoire de travail est-elle limitée ?", options: ["Elle dépend de l'âge", "Elle ne traite que peu d'infos à la fois", "Elle s'efface en dormant"], correctAnswer: "Elle ne traite que peu d'infos à la fois", explanation: "Sa saturation empêche la compréhension." },
+            { question: "Qu'est-ce qui favorise la mémoire à long terme ?", options: ["Lecture rapide", "Rappel actif et sens", "Surcharge d'infos"], correctAnswer: "Rappel actif et sens", explanation: "Relier l'info au savoir existant est crucial." },
+            { question: "Quel facteur est clé pour la consolidation ?", options: ["Le stress", "Le sommeil", "Le multitâche"], correctAnswer: "Le sommeil", explanation: "Le cerveau réorganise les acquis pendant le repos." }
+        ],
+        mnemonic: "« Ce que j’attentionne, je le comprends ; ce que je rappelle, je le retiens. »",
+        memoryAidImage: SKETCH_MEMORY_FLOW.split('base64,')[1],
+        memoryAidDescription: "Flux de la mémorisation : Sens -> Sensorielle -> Travail -> Long terme.",
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: 'Méthodologie', sourceType: 'text', isPremiumContent: true 
+    },
+    {
+        id: 'learn_3',
+        title: 'Mémoire passive vs mémoire active',
+        summary: 'Comprendre pourquoi certaines méthodes d’apprentissage ne fonctionnent pas et comment transformer ses habitudes.',
+        keyConcepts: [
+            { 
+                concept: 'La mémoire passive', 
+                explanation: 'Mode d’apprentissage où l’apprenant reçoit l’information sans la mobiliser (relecture, écoute, surlignage). Donne une sensation rassurante de familiarité.',
+                deepDive: 'Cependant, cette impression est trompeuse. La mémoire passive sollicite peu les mécanismes profonds. L’information reste fragile car le cerveau n’a pas besoin de fournir un effort de rappel.'
+            },
+            { 
+                concept: 'L’illusion de maîtrise', 
+                explanation: 'Biais cognitif consistant à confondre la familiarité avec une information et la capacité réelle à la restituer sans support.',
+                deepDive: 'Cette illusion peut être dangereuse dans un contexte scolaire. L’apprenant croit être prêt mais échoue lors de l’évaluation car il ne sait que "reconnaître" et non "reproduire".'
+            },
+            { 
+                concept: 'La mémoire active', 
+                explanation: 'Consiste à se rappeler volontairement une information sans aide immédiate. Mobilise un effort cognitif qui oblige le cerveau à reconstruire les connaissances.',
+                deepDive: 'Contrairement à la mémoire passive, elle crée des traces mnésiques solides. Chaque rappel renforce les connexions neuronales et facilite les rappels futurs.'
+            },
+            { 
+                concept: 'L’effort de rappel', 
+                explanation: 'Moteur de l’apprentissage. L’inconfort du rappel est un signal positif indiquant que le cerveau travaille et consolide l’information.',
+                deepDive: 'Plus l’effort de rappel est répété et espacé dans le temps, plus l’apprentissage devient solide. À l’inverse, se contenter de relire entretient l’illusion d’apprentissage.'
             }
         ],
         examples: [
-            'Relire plusieurs fois un cours sans jamais se poser de questions',
-            'Apprendre un contenu uniquement la veille d’un contrôle',
-            'Regarder une vidéo pédagogique sans pause ni reformulation',
-            'Lire un texte sans tenter de le résumer',
-            'Penser avoir compris sans vérifier sa capacité à restituer l’information'
+            'Relire un cours plusieurs fois sans jamais fermer le support (Passif)',
+            'Surligner un texte sans reformuler (Passif)',
+            'Se poser des questions sans regarder ses notes (Actif)',
+            'Expliquer une notion à quelqu’un sans support écrit (Actif)'
         ],
         flashcards: [
-            { front: "Oubli", back: "Mécanisme naturel du cerveau qui élimine les informations peu utilisées afin d’optimiser l’efficacité cognitive." },
-            { front: "Courbe de l’oubli", back: "Modèle montrant la diminution rapide de la mémorisation après un apprentissage sans rappel actif." },
-            { front: "Mémoire passive", back: "Mode d’apprentissage basé sur la relecture ou l’écoute, donnant une illusion de maîtrise sans consolidation durable." },
-            { front: "Mémoire active", back: "Processus qui consiste à se rappeler volontairement une information sans support pour renforcer la mémoire à long terme." },
-            { front: "Rappel actif", back: "Action de retrouver une information en mémoire qui renforce les connexions neuronales associées." }
+            { front: "Mémoire passive", back: "Apprentissage par réception de l'info sans effort de rappel, donnant une illusion de maîtrise." },
+            { front: "Illusion de maîtrise", back: "Confondre familiarité visuelle avec une info et capacité réelle à la restituer." },
+            { front: "Mémoire active", back: "Apprentissage reposant sur le rappel volontaire de l'info sans support immédiat." },
+            { front: "Effort de rappel", back: "Effort cognitif nécessaire pour retrouver une info, renforçant sa consolidation." }
         ],
         quiz: [
-            { 
-                question: "Quel est le rôle principal de l’oubli dans le fonctionnement du cerveau ?", 
-                options: ["Effacer définitivement toutes les informations inutiles", "Réduire l’activité cérébrale pendant le sommeil", "Trier et éliminer les informations peu sollicitées", "Diminuer les capacités intellectuelles avec le temps"], 
-                correctAnswer: "Trier et éliminer les informations peu sollicitées", 
-                explanation: "L’oubli est un mécanisme adaptatif permettant au cerveau de préserver son efficacité en ne conservant que les informations utiles ou régulièrement utilisées." 
-            },
-            { 
-                question: "Que montre la courbe de l’oubli ?", 
-                options: ["La mémoire s’améliore naturellement avec le temps", "Les informations sont stockées de façon permanente dès le premier apprentissage", "La mémoire diminue rapidement sans rappel actif", "L’oubli dépend uniquement de l’âge"], 
-                correctAnswer: "La mémoire diminue rapidement sans rappel actif", 
-                explanation: "La courbe de l’oubli met en évidence la perte rapide d’informations après l’apprentissage si aucun rappel n’est effectué." 
-            },
-            { 
-                question: "Quelle pratique correspond à un apprentissage passif ?", 
-                options: ["Se poser des questions après la lecture", "Reformuler un cours sans support", "Relire plusieurs fois un contenu", "Expliquer à quelqu’un d’autre"], 
-                correctAnswer: "Relire plusieurs fois un contenu", 
-                explanation: "La relecture crée une impression de familiarité mais ne sollicite pas suffisamment la mémoire pour assurer une consolidation durable." 
-            },
-            { 
-                question: "Quel est l’effet principal du rappel actif sur la mémoire ?", 
-                options: ["Il réduit la charge cognitive", "Il donne une illusion de compréhension", "Il renforce les connexions neuronales", "Il supprime l’oubli définitif"], 
-                correctAnswer: "Il renforce les connexions neuronales", 
-                explanation: "Le rappel actif stimule les réseaux neuronaux liés à l’information, favorisant son stockage en mémoire à long terme." 
-            }
+            { question: "Quelle pratique relève principalement de la mémoire passive ?", options: ["Se tester sans notes", "Expliquer un concept", "Relire plusieurs fois un cours"], correctAnswer: "Relire plusieurs fois un cours", explanation: "La relecture sollicite peu le rappel actif." },
+            { question: "Pourquoi la relecture donne-t-elle une illusion de maîtrise ?", options: ["Elle fatigue trop", "Elle crée une familiarité sans rappel réel", "Elle remplace la compréhension"], correctAnswer: "Elle crée une familiarité sans rappel réel", explanation: "Reconnaître n'est pas la même chose que pouvoir restituer." },
+            { question: "Quel est l'effet principal de la mémoire active ?", options: ["Elle réduit l'effort", "Elle renforce les connexions neuronales", "Elle remplace le sommeil"], correctAnswer: "Elle renforce les connexions neuronales", explanation: "Le rappel actif consolide les traces mnésiques durablement." },
+            { question: "Pourquoi l'effort de rappel est-il bénéfique ?", options: ["Il rend l'étude plus rapide", "Il signale au cerveau que l'info est importante", "Il supprime la mémoire passive"], correctAnswer: "Il signale au cerveau que l'info est importante", explanation: "L'effort déclenche les mécanismes biologiques de consolidation." }
         ],
-        mnemonic: "« Ce que je ne rappelle pas, je l’efface. »",
-        memoryAidImage: SKETCH_FORGETTING.split('base64,')[1], 
-        memoryAidDescription: "Visualisation de la Courbe de l'Oubli : sans rappel actif, la mémorisation chute drastiquement en 24h.",
-        createdAt: Date.now(), 
-        lastReviewed: null, 
-        reviewStage: 0, 
-        category: 'Méthodologie', 
-        sourceType: 'text',
-        isPremiumContent: true 
+        mnemonic: "« Reconnaître n’est pas savoir, rappeler c’est apprendre. »",
+        memoryAidImage: SKETCH_ACTIVE_PASSIVE.split('base64,')[1],
+        memoryAidDescription: "Visualisation : Méthodes passives (fragiles/grises) vs Méthodes actives (solides/lumineuses).",
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: 'Méthodologie', sourceType: 'text', isPremiumContent: true 
     }
 ];
 
-// 1. PACK PHILO (Lycée)
+// ... Reste des packs (Philo, Oral, English, Python) ...
 const CAPSULES_PHILO: CognitiveCapsule[] = [
     {
         id: 'philo_1',
@@ -121,7 +163,6 @@ const CAPSULES_PHILO: CognitiveCapsule[] = [
     }
 ];
 
-// 2. PACK GRAND ORAL (Transversal)
 const CAPSULES_ORAL: CognitiveCapsule[] = [
     {
         id: 'oral_1',
@@ -145,7 +186,6 @@ const CAPSULES_ORAL: CognitiveCapsule[] = [
     }
 ];
 
-// 3. PACK ENGLISH BUSINESS
 const CAPSULES_ENGLISH: CognitiveCapsule[] = [
     {
         id: 'eng_1',
@@ -167,7 +207,6 @@ const CAPSULES_ENGLISH: CognitiveCapsule[] = [
     }
 ];
 
-// 4. PACK PYTHON
 const CAPSULES_PYTHON: CognitiveCapsule[] = [
     {
         id: 'py_1',
@@ -198,7 +237,7 @@ const MOCK_PACKS: PremiumPack[] = [
         description: 'La science derrière la mémoire. Maîtrisez les techniques des champions de la mémoire et les neurosciences de l\'apprentissage.',
         category: 'expert',
         price: 3.99,
-        capsuleCount: 1,
+        capsuleCount: 3,
         coverColor: 'bg-indigo-700',
         capsules: CAPSULES_APPRENDRE
     },
