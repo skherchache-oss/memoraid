@@ -11,7 +11,7 @@ interface PremiumStoreProps {
 
 // --- ASSETS STATIQUES POUR LES PACKS (SVG Base64) ---
 const SKETCH_BRAIN = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y4ZmFmYyIvPgogIDxwYXRoIGQ9Ik01MCAyMDAgQzEwMCAxMDAgMzAwIDEwMCAzNTAgMjAwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS1kYXNoYXJyYXk9IjUsNSIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iNjAiIGZpbGw9IiNlMWY1ZmUiIHN0cm9rZT0iIzNiODJmNiIvPgogIDx0ZXh0IHg9IjIwMCIgeT0iMTU1IiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5Db25zY2llbmNlPC90ZXh0PgogIDxwYXRoIGQ9Ik0xNDAgMjEwIEwyNjAgMjEwIEwyMDAgMjgwIFoiIGZpbGw9IiNmZmYzYjAiIHN0cm9rZT0ibm9uZSIgb3BhY2l0eT0iMC41Ii8+CiAgPHRleHQgeD0iMjAwIiB5PSIyNTAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBzdHJva2U9Im5vbmUiIGZpbGw9IiM1NTUiPkluY29uc2NpZW50PC90ZXh0Pgo8L3N2Zz4=";
-const SKETCH_SPEAKER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZmZjhmMCIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjEwMCIgcj0iNDAiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTE2MCAxNDAgQzE2MCAyMDAgMjQwIDIwMCAyNDAgMTQwIiBmaWxsPSJub25lIi8+CiAgPGxpbmUgeDE9IjIwMCIgeTE9IjIwMCIgeDI9IjIwMCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPGxpbmUgeDE9IjE1MCIgeTE9IjI4MCIgeDI9IjI1MCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTEwMCAxMDAgTDE1MCAxMDAiIHN0cm9rZT0iI2Y1OWUwYiIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8dGV4dCB4=";
+const SKETCH_SPEAKER = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZmZjhmMCIvPgogIDxjaXJjbGUgY3g9IjIwMCIgY3k9IjEwMCIgcj0iNDAiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTE2MCAxNDAgQzE2MCAyMDAgMjQwIDIwMCAyNDAgMTQwIiBmaWxsPSJub25lIi8+CiAgPGxpbmUgeDE9IjIwMCIgeTE9IjIwMCIgeDI9IjIwMCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPGxpbmUgeDE9IjE1MCIgeTE9IjI4MCIgeDI9IjI1MCIgeTI9IjI4MCIgc3Ryb2tlLXdpZHRoPSI0Ii8+CiAgPHBhdGggZD0iTTEwMCAxMDAgTDE1MCAxMDAiIHN0cm9rZT0iI2Y1OWUwYiIgbWFya2VyLWVuZD0idXJsKCNhcnJvdykiLz4KICA8dGV4dCB4PSI4MCIgeT0iMTA1IiBmb250LXNpemU9IjEyIiBzdHJva2U9Im5vbmUiIGZpbGw9IiMzMzMiIHRleHQtYW5jaG9yPSJlbmQiPlZvaXg8L3RleHQ+Cjwvc3ZnPg==";
 const SKETCH_CODE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iIzMwMzAzMCIvPgogIDxyZWN0IHg9IjUwIiB5PSI1MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMxZTFlMWUiIHN0cm9rZT0iIzY2NiIvPgogIDx0ZXh0IHg9IjcwIiB5PSI5MCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxNCIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMTRiOGE2Ij5MaXN0ID0gWzEsIDIsIDNdPC90ZXh0PgogIDx0ZXh0IHg9IjcwIiB5PSIxMzAiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTQiIHN0cm9rZT0ibm9uZSIgZmlsbD0iI2ZmNzAzMyI+VHVwbGUgPSAoMSwgMiwgMyk8L3RleHQ+CiAgPHBhdGggZD0iTTI1MCA5MCBMMzIwIDkwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS1kYXNoYXJyYXk9IjIsMiIvPgogIDx0ZXh0IHg9IjMyNSIgeT0iOTUiIGZvbnQtc2l6ZT0iMTAiIHN0cm9rZT0ibm9uZSIgZmlsbD0iI2FhYSI+TXV0YWJsZTwvdGV4dD4KPC9zdmc+";
 const SKETCH_FORGETTING = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjlmZiIvPgogIDxwYXRoIGQ9Ik01MCA1MCBMNTAgMjUwIEwzNTAgMjUwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS13aWR0aD0iMyIvPgogIDxwYXRoIGQ9Ik01MCA1MCBRIDEwMCAyNTAgMzUwIDI1MCIgc3Ryb2tlPSIjZWY0NDQ0IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8dGV4dCB4PSIzNSIgeT0iNjAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIiBzdHJva2U9Im5vbmUiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJlbmQiPjEwMCUgTVNDPC90ZXh0PgogIDx0ZXh0IHg9IjIwMCIgeT0iMjcwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgc3Ryb2tlPSJub25lIiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5UZW1wcyAoSm91cnMpPC90ZXh0Pgo8L3N2Zz4=";
 
@@ -22,38 +22,72 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
     {
         id: 'learn_1',
         title: 'Pourquoi on oublie ce qu\'on apprend',
-        summary: 'L\'oubli n\'est pas un défaut du cerveau, mais un processus de tri biologique. Comprendre la courbe de l\'oubli d\'Ebbinghaus est la première étape pour transformer votre mémoire en forteresse.',
+        summary: 'Le cerveau humain est conçu pour trier l’information. Afin d’éviter la surcharge cognitive, il élimine progressivement les données jugées non essentielles ou peu sollicitées. L’oubli n’est donc pas un dysfonctionnement, mais une fonction adaptative.',
         keyConcepts: [
             { 
-              concept: 'La Courbe d\'Ebbinghaus', 
-              explanation: 'Théorisée en 1885, elle montre que nous perdons environ 70% d\'une information nouvelle en seulement 24 heures si aucun rappel n\'est effectué.',
-              deepDive: 'Ebbinghaus a découvert que l\'oubli est exponentiel : la perte est massive au début, puis se stabilise sur le long terme. Les répétitions permettent de réinitialiser ce compteur et d\'augmenter la durabilité de la trace neuronale.'
+              concept: 'L’oubli comme mécanisme naturel du cerveau', 
+              explanation: 'Le cerveau humain est conçu pour trier l’information. Afin d’éviter la surcharge cognitive, il élimine progressivement les données jugées non essentielles ou peu sollicitées. L’oubli n’est donc pas un dysfonctionnement, mais une fonction adaptative qui permet de maintenir une efficacité cognitive optimale.',
+              deepDive: 'Sur le plan neuroscientifique, l’oubli est lié à l’affaiblissement des connexions synaptiques lorsque celles-ci ne sont pas réactivées. Le cerveau privilégie les informations fréquemment utilisées ou associées à une charge émotionnelle. Ce processus est influencé par l’attention, le contexte et la motivation, qui conditionnent la consolidation mnésique.'
             },
             { 
-              concept: 'Consolidation Synaptique', 
-              explanation: 'Le processus par lequel le cerveau transforme une trace fragile en mémoire stable. Cela demande du temps, du sommeil et de la répétition.',
-              deepDive: 'Au niveau moléculaire, cela implique la synthèse de nouvelles protéines au sein des synapses. Le sommeil profond joue un rôle crucial dans le transfert de l\'information de l\'hippocampe vers le néocortex.'
+              concept: 'La courbe de l’oubli', 
+              explanation: 'La courbe de l’oubli décrit la perte rapide d’une information après son apprentissage initial. Sans rappel ou réutilisation, une grande partie des connaissances disparaît dans les heures ou les jours qui suivent l’exposition.',
+              deepDive: 'Formalisée par Hermann Ebbinghaus, cette courbe met en évidence que la mémoire décline de manière exponentielle. Toutefois, chaque rappel actif ralentit cette chute et renforce la trace mnésique. La répétition espacée permet ainsi de stabiliser durablement les apprentissages.'
             },
             { 
-              concept: 'Indice de Récupération', 
-              explanation: 'Plus une information est difficile à "extraire" de votre mémoire (sans regarder vos notes), plus le renforcement neuronal est puissant lors du rappel réussi.',
-              deepDive: 'C\'est le concept de "difficulté souhaitable". Lire passivement ses notes est inefficace. Se forcer à se souvenir (Active Recall) crée des connexions beaucoup plus robustes.'
+              concept: 'La mémoire passive', 
+              explanation: 'La mémoire passive repose sur des actions telles que la relecture, l’écoute ou le surlignage. Ces pratiques donnent une impression de maîtrise, mais sollicitent peu les mécanismes profonds de la mémoire.',
+              deepDive: 'Les études en sciences cognitives montrent que la familiarité créée par la relecture est souvent confondue avec la compréhension réelle. Cette illusion de savoir explique pourquoi les informations apprises passivement sont rapidement oubliées.'
+            },
+            { 
+              concept: 'La mémoire active', 
+              explanation: 'La mémoire active consiste à se rappeler volontairement une information sans support immédiat. Elle implique un effort cognitif qui renforce la consolidation et la durabilité des connaissances.',
+              deepDive: 'Le rappel actif stimule les réseaux neuronaux associés à l’information et favorise leur stabilisation dans la mémoire à long terme. Cette approche est aujourd’hui reconnue comme l’un des piliers des stratégies d’apprentissage efficaces.'
             }
         ],
         examples: [
-            'Oublier le nom d\'une personne rencontrée la veille par manque de rappel immédiat.',
-            'L\'effet de "page blanche" dû au stress qui paralyse les indices de récupération.',
-            'La révision de dernière minute qui permet de réussir un test mais s\'évapore en 48h.'
+            'Relire plusieurs fois un cours sans jamais se poser de questions',
+            'Apprendre un contenu uniquement la veille d’un contrôle',
+            'Regarder une vidéo pédagogique sans pause ni reformulation',
+            'Lire un texte sans tenter de le résumer',
+            'Penser avoir compris sans vérifier sa capacité à restituer l’information'
+        ],
+        flashcards: [
+            { front: "Oubli", back: "Mécanisme naturel du cerveau qui élimine les informations peu utilisées afin d’optimiser l’efficacité cognitive." },
+            { front: "Courbe de l’oubli", back: "Modèle montrant la diminution rapide de la mémorisation après un apprentissage sans rappel actif." },
+            { front: "Mémoire passive", back: "Mode d’apprentissage basé sur la relecture ou l’écoute, donnant une illusion de maîtrise sans consolidation durable." },
+            { front: "Mémoire active", back: "Processus qui consiste à se rappeler volontairement une information sans support pour renforcer la mémoire à long terme." },
+            { front: "Rappel actif", back: "Action de retrouver une information en mémoire qui renforce les connexions neuronales associées." }
         ],
         quiz: [
-            { question: "Qui a prouvé mathématiquement la vitesse de l'oubli ?", options: ["Pavlov", "Ebbinghaus", "Piaget"], correctAnswer: "Ebbinghaus", explanation: "Hermann Ebbinghaus a mené les premières études rigoureuses sur la mémoire et l'oubli." },
-            { question: "Quel est l'ennemi principal de la consolidation ?", options: ["Le sommeil", "Le manque de rappel", "La lecture"], correctAnswer: "Le manque de rappel", explanation: "Sans rappel actif, le cerveau considère l'information comme inutile et l'efface." },
-            { question: "La difficulté lors d'une révision est-elle une mauvaise chose ?", options: ["Oui, c'est décourageant", "Non, c'est le signe d'un renforcement efficace", "Cela dépend de l'heure"], correctAnswer: "Non, c'est le signe d'un renforcement efficace", explanation: "C'est ce qu'on appelle la 'Difficulté Souhaitable' : plus on fait d'effort pour se souvenir, mieux on retient." },
-            { question: "À quel moment le cerveau consolide-t-il le plus les acquis ?", options: ["Pendant le repas", "Pendant le sommeil", "Pendant le sport"], correctAnswer: "Pendant le sommeil", explanation: "Le sommeil paradoxal et profond jouent un rôle critique dans la réorganisation des souvenirs." }
+            { 
+                question: "Quel est le rôle principal de l’oubli dans le fonctionnement du cerveau ?", 
+                options: ["Effacer définitivement toutes les informations inutiles", "Réduire l’activité cérébrale pendant le sommeil", "Trier et éliminer les informations peu sollicitées", "Diminuer les capacités intellectuelles avec le temps"], 
+                correctAnswer: "Trier et éliminer les informations peu sollicitées", 
+                explanation: "L’oubli est un mécanisme adaptatif permettant au cerveau de préserver son efficacité en ne conservant que les informations utiles ou régulièrement utilisées." 
+            },
+            { 
+                question: "Que montre la courbe de l’oubli ?", 
+                options: ["La mémoire s’améliore naturellement avec le temps", "Les informations sont stockées de façon permanente dès le premier apprentissage", "La mémoire diminue rapidement sans rappel actif", "L’oubli dépend uniquement de l’âge"], 
+                correctAnswer: "La mémoire diminue rapidement sans rappel actif", 
+                explanation: "La courbe de l’oubli met en évidence la perte rapide d’informations après l’apprentissage si aucun rappel n’est effectué." 
+            },
+            { 
+                question: "Quelle pratique correspond à un apprentissage passif ?", 
+                options: ["Se poser des questions après la lecture", "Reformuler un cours sans support", "Relire plusieurs fois un contenu", "Expliquer à quelqu’un d’autre"], 
+                correctAnswer: "Relire plusieurs fois un contenu", 
+                explanation: "La relecture crée une impression de familiarité mais ne sollicite pas suffisamment la mémoire pour assurer une consolidation durable." 
+            },
+            { 
+                question: "Quel est l’effet principal du rappel actif sur la mémoire ?", 
+                options: ["Il réduit la charge cognitive", "Il donne une illusion de compréhension", "Il renforce les connexions neuronales", "Il supprime l’oubli définitif"], 
+                correctAnswer: "Il renforce les connexions neuronales", 
+                explanation: "Le rappel actif stimule les réseaux neuronaux liés à l’information, favorisant son stockage en mémoire à long terme." 
+            }
         ],
-        mnemonic: "R.E.S. : Rappel Actif, Espacement, Sommeil. (Le trio gagnant)",
+        mnemonic: "« Ce que je ne rappelle pas, je l’efface. »",
         memoryAidImage: SKETCH_FORGETTING.split('base64,')[1], 
-        memoryAidDescription: "La Courbe de l'Oubli : Sans révision, la trace mémorielle chute verticalement. Chaque rappel 'remonte' la courbe et l'aplatit.",
+        memoryAidDescription: "Visualisation de la Courbe de l'Oubli : sans rappel actif, la mémorisation chute drastiquement en 24h.",
         createdAt: Date.now(), 
         lastReviewed: null, 
         reviewStage: 0, 
