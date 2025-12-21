@@ -8,6 +8,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import { checkTtsAvailability, recordTtsSuccess, triggerTtsSafetyLock } from '../services/quotaManager';
+import { cleanDictationResult } from '../services/voiceUtils';
 
 // Interfaces for Web Speech API
 interface SpeechRecognitionAlternative {
@@ -283,7 +284,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         playChunkSequence(0);
     };
     
-    // ... Reste du composant (startRecording, handleSendMessage, etc.) ...
     const startRecording = () => {
         const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SpeechRecognitionAPI) {
@@ -295,31 +295,49 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
+        
+        if (textareaRef.current) textareaRef.current.blur();
+        
         setTempSpeech('');
         setRecognitionState('recording');
+        
         recognition.onresult = (event: any) => {
-            let transcript = '';
-            for (let i = 0; i < event.results.length; ++i) transcript += event.results[i][0].transcript;
-            setTempSpeech(transcript);
+            let interimTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                interimTranscript += event.results[i][0].transcript;
+            }
+            setTempSpeech(interimTranscript);
         };
-        recognition.onerror = (event: any) => { setRecognitionState('error'); stopRecording(); };
+        
+        recognition.onerror = (event: any) => { 
+            if (event.error !== 'no-speech') {
+                setRecognitionState('error'); 
+                stopRecording(); 
+            }
+        };
+        
         recognition.onend = () => setRecognitionState('idle');
         recognitionRef.current = recognition;
         try { recognition.start(); } catch (e) { setRecognitionState('idle'); }
     };
 
-    const stopRecording = () => {
+    const stopRecording = useCallback(() => {
         if (recognitionRef.current) recognitionRef.current.stop();
         setRecognitionState('idle');
+        
         if (tempSpeech) {
-            setUserInput(prev => {
-                const prefix = prev.trim();
-                const suffix = tempSpeech.trim();
-                return prefix ? `${prefix} ${suffix}` : suffix;
-            });
+            const cleaned = cleanDictationResult(tempSpeech, language);
+            if (cleaned) {
+                setUserInput(prev => {
+                    const prefix = prev.trim();
+                    if (!prefix) return cleaned;
+                    const separator = !/[.!?]$/.test(prefix) ? ". " : " ";
+                    return prefix + separator + cleaned;
+                });
+            }
             setTempSpeech('');
         }
-    };
+    }, [tempSpeech, language]);
 
     const toggleRecording = () => recognitionState === 'recording' ? stopRecording() : startRecording();
 
@@ -327,14 +345,17 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         e.preventDefault();
         if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
         if (recognitionState === 'recording') stopRecording();
-        const finalInput = (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech).trim();
+        
+        const finalInput = (userInput + (userInput.trim() && tempSpeech ? ' ' : '') + tempSpeech).trim();
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
+        
         const userMessage: ChatMessage = { role: 'user', content: finalInput, image: selectedImage || undefined };
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         setTempSpeech('');
         setSelectedImage(null);
         setIsLoading(true);
+        
         try {
             let messageParts: any[] = [];
             if (userMessage.image) messageParts.push({ inlineData: { mimeType: "image/jpeg", data: userMessage.image.split(',')[1] } });
@@ -355,7 +376,7 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     };
 
     const isRecording = recognitionState === 'recording';
-    const displayValue = isRecording ? (userInput + (userInput && tempSpeech ? ' ' : '') + tempSpeech) : userInput;
+    const displayValue = isRecording ? (userInput + (userInput.trim() && tempSpeech ? ' ' : '') + tempSpeech) : userInput;
     const modes: { id: CoachingMode, label: string, icon: any }[] = [
         { id: 'standard', label: 'Coach', icon: SparklesIcon },
         { id: 'oral', label: 'Oral', icon: MicrophoneIcon },
