@@ -1,7 +1,7 @@
 
 import { db } from './firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, writeBatch, getDoc, where, updateDoc, arrayUnion, getDocs } from "firebase/firestore";
-import type { CognitiveCapsule, Group, GroupMember, Comment, CollaborativeTask, MemberProgress } from '../types';
+import type { CognitiveCapsule, Group, GroupMember, Comment, CollaborativeTask, MemberProgress, UserProfile } from '../types';
 
 // Nom de la collection racine pour les utilisateurs
 const USERS_COLLECTION = 'users';
@@ -23,6 +23,20 @@ export const saveCapsuleToCloud = async (userId: string, capsule: CognitiveCapsu
         }
     } catch (error) {
         console.error("Erreur sauvegarde cloud:", error);
+        throw error;
+    }
+};
+
+/**
+ * Met à jour les données du profil utilisateur dans Firestore (achats, niveau, etc.)
+ */
+export const updateUserProfileInCloud = async (userId: string, profile: Partial<UserProfile>) => {
+    if (!db || !userId) return;
+    try {
+        const userRef = doc(db, USERS_COLLECTION, userId);
+        await setDoc(userRef, profile, { merge: true });
+    } catch (error) {
+        console.error("Erreur mise à jour profil cloud:", error);
         throw error;
     }
 };
@@ -147,14 +161,6 @@ export const joinGroup = async (userId: string, userName: string, inviteCode: st
  */
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
     if (!db) return () => {};
-
-    // Firestore ne permet pas de requêter directement dans un tableau d'objets facilement sans index complexe.
-    // Pour simplifier ici, on récupère tous les groupes (attention scalabilité) ou on restructure.
-    // Solution propre : stocker 'memberIds' array dans le groupe pour requêter.
-    // On va assumer qu'on a peu de groupes pour cette démo et filtrer côté client ou ajouter un champ 'memberIds' lors de la création/join.
-    // Hack pour la démo : On ne peut pas facilement faire "array-contains object".
-    // On va tricher : on n'a pas ajouté memberIds. 
-    // On va récupérer la collection et filtrer (PAS IDEAL POUR PROD).
     
     const q = query(collection(db, GROUPS_COLLECTION));
     
