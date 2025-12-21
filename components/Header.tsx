@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon } from '../constants';
+import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
 import type { GamificationStats } from '../types';
@@ -44,34 +44,40 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     const navItemClass = (view: string) => `
-        flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all
+        group flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all duration-200 uppercase tracking-tight
         ${currentView === view 
-            ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shadow-sm' 
-            : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-800 dark:hover:text-zinc-200'}
+            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200 dark:shadow-none scale-105' 
+            : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100'}
     `;
 
     return (
-        <header className="bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
+        <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex items-center justify-between h-16">
-                    {/* LOGO & TITRE */}
-                    <div className="flex items-center gap-8">
+                <div className="flex items-center h-20">
+                    {/* BLOC GAUCHE : LOGO ET NAVIGATION REGROUPÉS */}
+                    <div className="flex items-center gap-6">
                         <button 
                             onClick={onLogoClick}
-                            className="flex items-center gap-2 sm:gap-3 flex-shrink-0 focus:outline-none hover:opacity-80 transition-opacity"
+                            className="flex items-center gap-3 flex-shrink-0 focus:outline-none group transition-transform active:scale-95"
                             aria-label="Retour à l'accueil"
                         >
-                            <MemoraidLogoIcon className="h-8 w-8 md:h-10 md:w-10 text-emerald-500" />
-                            <h1 className="hidden lg:block text-2xl font-extrabold text-emerald-700 dark:text-emerald-500 tracking-tight">
+                            <div className="p-2 bg-emerald-500 rounded-xl shadow-md group-hover:rotate-6 transition-transform">
+                                <MemoraidLogoIcon className="h-7 w-7 text-white" />
+                            </div>
+                            <h1 className="hidden lg:block text-2xl font-black text-slate-900 dark:text-white tracking-tighter">
                                 Memoraid
                             </h1>
                         </button>
 
-                        {/* DESKTOP NAVIGATION */}
-                        <nav className="hidden md:flex items-center gap-1">
+                        {/* DESKTOP NAVIGATION : Serrée à gauche */}
+                        <nav className="hidden md:flex items-center gap-1.5 ml-4">
                             <button onClick={() => onNavigate('create')} className={navItemClass('create')}>
-                                <PlusIcon className="w-4 h-4" />
+                                <PlusIcon className={`w-4 h-4 transition-transform ${currentView === 'create' ? '' : 'group-hover:rotate-90'}`} />
                                 {t('nav_create')}
+                            </button>
+                            <button onClick={() => onNavigate('base')} className={navItemClass('base')}>
+                                <LayoutGridIcon className="w-4 h-4" />
+                                {t('nav_library')}
                             </button>
                             <button onClick={() => onNavigate('agenda')} className={navItemClass('agenda')}>
                                 <CalendarIcon className="w-4 h-4" />
@@ -84,13 +90,16 @@ const Header: React.FC<HeaderProps> = ({
                         </nav>
                     </div>
                     
-                    <div className="flex items-center gap-3 md:gap-4">
+                    {/* ESPACE CENTRAL VIDE POUR RESPIRER */}
+                    <div className="flex-grow"></div>
+                    
+                    {/* BLOC DROITE : ACTIONS ET PROFIL */}
+                    <div className="flex items-center gap-3 md:gap-4 flex-shrink-0">
                         {/* THEME SWITCHER */}
                         <button
                             onClick={onToggleTheme}
-                            className="flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 transition-all hover:ring-2 hover:ring-emerald-500"
+                            className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border border-slate-100 dark:border-zinc-800 transition-all hover:border-emerald-500 hover:text-emerald-500"
                             title={currentTheme === 'dark' ? "Passer en mode clair" : "Passer en mode sombre"}
-                            aria-label="Changer de thème"
                         >
                             {currentTheme === 'dark' ? <SunIcon className="w-5 h-5 text-amber-400" /> : <MoonIcon className="w-5 h-5 text-indigo-600" />}
                         </button>
@@ -98,38 +107,25 @@ const Header: React.FC<HeaderProps> = ({
                         {/* GAMIFICATION STATS */}
                         {gamification && (
                             <div 
-                                className="flex items-center gap-2 bg-emerald-50 dark:bg-zinc-800/50 rounded-full px-2 py-1 md:px-3 border border-emerald-100 dark:border-zinc-700 cursor-pointer hover:bg-emerald-100 dark:hover:bg-zinc-700 transition-colors"
+                                className="flex items-center gap-3 bg-slate-50 dark:bg-zinc-900 rounded-xl px-3 py-2 border border-slate-100 dark:border-zinc-800 cursor-pointer hover:border-emerald-200 dark:hover:border-zinc-700 transition-all group"
                                 onClick={handleXpClick}
-                                title="Cliquez pour voir les détails"
                             >
-                                <div className="hidden sm:flex items-center gap-1">
-                                    <FlameIcon className={`w-5 h-5 ${gamification.currentStreak > 0 ? 'text-orange-500 animate-pulse' : 'text-slate-400'}`} />
-                                    <span className={`font-bold text-sm ${gamification.currentStreak > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-slate-500'}`}>
+                                <div className="flex items-center gap-1.5">
+                                    <FlameIcon className={`w-5 h-5 ${gamification.currentStreak > 0 ? 'text-orange-500 animate-pulse' : 'text-slate-300'}`} />
+                                    <span className="font-black text-sm text-slate-900 dark:text-white">
                                         {gamification.currentStreak}
                                     </span>
                                 </div>
-                                <div className="hidden sm:block w-px h-4 bg-slate-300 dark:bg-zinc-600"></div>
-                                
-                                <div className="flex items-center gap-2">
-                                    <div className="flex flex-col items-end w-full">
-                                        <div className="md:hidden flex items-center">
-                                            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">
-                                                Lvl {gamification.level}
-                                            </span>
-                                        </div>
-
-                                        <div className="hidden md:block min-w-[100px]">
-                                            <div className="flex justify-between w-full text-[10px] font-bold text-slate-600 dark:text-zinc-300 leading-none mb-1">
-                                                <span>Niv. {gamification.level}</span>
-                                                <span className="text-emerald-600 dark:text-emerald-400">{Math.floor(gamification.xp)} XP</span>
-                                            </div>
-                                            <div className="w-full bg-emerald-100 dark:bg-zinc-700 h-1.5 rounded-full overflow-hidden">
-                                                <div 
-                                                    className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                                                    style={{ width: `${xpProgress}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
+                                <div className="hidden lg:block min-w-[90px]">
+                                    <div className="flex justify-between w-full text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-1.5">
+                                        <span>Lvl {gamification.level}</span>
+                                        <span>{Math.floor(gamification.xp)} XP</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
+                                        <div 
+                                            className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out" 
+                                            style={{ width: `${xpProgress}%` }}
+                                        ></div>
                                     </div>
                                 </div>
                             </div>
@@ -138,63 +134,38 @@ const Header: React.FC<HeaderProps> = ({
                         {/* LANGUAGE SELECTOR */}
                         <button
                             onClick={toggleLanguage}
-                            className="flex items-center justify-center w-8 h-8 md:w-auto md:h-auto md:px-2 md:py-1.5 rounded-full md:rounded-md bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition-colors"
-                            title="Changer de langue / Switch language"
+                            className="flex items-center justify-center w-10 h-10 md:w-auto md:px-3 md:py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800 border border-slate-100 dark:border-zinc-800 transition-all font-black text-xs"
                         >
-                            <GlobeIcon className="w-5 h-5" />
-                            <span className="hidden md:inline ml-1 text-xs font-bold uppercase">{language}</span>
+                            <GlobeIcon className="w-4 h-4 md:mr-2" />
+                            <span className="hidden md:inline uppercase tracking-widest">{language}</span>
                         </button>
 
                         {/* USER SECTION */}
                         {currentUser ? (
                             <button
                                 onClick={onOpenProfile}
-                                className={`group relative w-9 h-9 flex items-center justify-center rounded-full transition-all overflow-hidden border-2 ${
+                                className={`group relative w-11 h-11 flex items-center justify-center rounded-xl transition-all overflow-hidden border-2 ${
                                     isPremium 
-                                        ? 'border-amber-400 ring-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
-                                        : 'border-slate-200 dark:border-zinc-700 hover:border-emerald-500'
-                                }`}
-                                aria-label="Mon Profil"
+                                        ? 'border-amber-400 ring-4 ring-amber-400/20 shadow-lg shadow-amber-200/40' 
+                                        : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-500'
+                                } active:scale-90`}
                             >
                                 {currentUser.photoURL ? (
-                                    <img 
-                                        src={currentUser.photoURL} 
-                                        alt="Profil" 
-                                        className="w-full h-full object-cover"
-                                    />
+                                    <img src={currentUser.photoURL} alt="Profil" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                        <UserIcon className="w-5 h-5" />
+                                        <UserIcon className="w-6 h-6" />
                                     </div>
                                 )}
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                         ) : (
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={onLogin}
-                                    className={`px-3 py-1.5 md:px-4 md:py-2 text-xs sm:text-sm font-bold rounded-full transition-all shadow-sm whitespace-nowrap ${
-                                        isPremium 
-                                            ? 'bg-amber-500 text-white hover:bg-amber-600 ring-2 ring-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.5)]' 
-                                            : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                    }`}
-                                >
-                                    <span className="hidden sm:inline">{t('login_signup')}</span>
-                                    <span className="sm:hidden">{isPremium ? 'Login ★' : 'Login'}</span>
-                                </button>
-                                {/* BOUTON PROFIL POUR INVITÉ */}
-                                <button
-                                    onClick={onOpenProfile}
-                                    className={`hidden md:flex items-center justify-center p-2 rounded-full transition-all border ${
-                                        isPremium 
-                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.3)] hover:scale-105' 
-                                            : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 hover:border-emerald-500'
-                                    }`}
-                                    aria-label="Ouvrir le profil invité"
-                                >
-                                    <UserIcon className="w-5 h-5" />
-                                </button>
-                            </div>
+                            <button
+                                onClick={onLogin}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95"
+                            >
+                                {t('login_signup')}
+                            </button>
                         )}
                     </div>
                 </div>
