@@ -17,16 +17,15 @@ import PremiumStore from './components/PremiumStore';
 import MobileNavBar from './components/MobileNavBar';
 import TeacherDashboard from './components/TeacherDashboard';
 import ConfirmationModal from './components/ConfirmationModal';
-import { generateCognitiveCapsule, generateCognitiveCapsuleFromFile, GeminiError } from './services/geminiService';
-import { isCapsuleDue, analyzeGlobalPerformance, calculateMasteryScore } from './services/srsService';
-import { updateTaskStatus } from './services/planningService';
+import { generateCognitiveCapsule, generateCognitiveCapsuleFromFile } from './services/geminiService';
+import { isCapsuleDue, calculateMasteryScore } from './services/srsService';
 import { processGamificationAction, getInitialGamificationStats } from './services/gamificationService';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { StopIcon, CalendarIcon, ShoppingBagIcon, SchoolIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon, BookOpenIcon } from './constants';
+import { StopIcon, CalendarIcon, ShoppingBagIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon, BookOpenIcon, ClockIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrateLocalDataToCloud, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateGroupCapsule, updateSharedCapsuleProgress, updateUserProfileInCloud } from './services/cloudService';
+import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateUserProfileInCloud } from './services/cloudService';
 import { useLanguage } from './contexts/LanguageContext';
 import { translations } from './i18n/translations';
 
@@ -67,16 +66,13 @@ const AppContent: React.FC = () => {
                 if (!parsedProfile.user.plans) parsedProfile.user.plans = [];
                 return parsedProfile;
             }
-            return {
-                user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [] },
-                capsules: []
-            };
         } catch (e) {
-            return {
-                user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [] },
-                capsules: []
-            };
+            console.error("Failed to load profile from localStorage", e);
         }
+        return {
+            user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [] },
+            capsules: []
+        };
     });
     
     const [activeCapsule, setActiveCapsule] = useState<CognitiveCapsule | null>(null);
@@ -91,7 +87,7 @@ const AppContent: React.FC = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState<boolean>(false);
     const [isPlanningWizardOpen, setIsPlanningWizardOpen] = useState<boolean>(false);
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
-        return typeof Notification !== 'undefined' ? Notification.permission : 'default';
+        return (typeof window !== 'undefined' && 'Notification' in window) ? Notification.permission : 'default';
     });
     const [newlyAddedCapsuleId, setNewlyAddedCapsuleId] = useState<string | null>(null);
     const [selectedCapsuleIds, setSelectedCapsuleIds] = useState<string[]>([]);
@@ -102,7 +98,19 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
 
-    // RETRAIT SÉCURISÉ DU SPLASH SCREEN
+    // Gestion de la connectivité
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // RETRAIT SÉCURISÉ DU SPLASH SCREEN AU MONTAGE
     useEffect(() => {
         const removeSplash = () => {
             const splash = document.getElementById('splash-screen');
@@ -115,17 +123,7 @@ const AppContent: React.FC = () => {
                 }, 600);
             }
         };
-
-        if (document.readyState === 'complete') {
-            removeSplash();
-        } else {
-            window.addEventListener('load', removeSplash);
-            const timer = setTimeout(removeSplash, 1500);
-            return () => {
-                window.removeEventListener('load', removeSplash);
-                clearTimeout(timer);
-            };
-        }
+        removeSplash();
     }, []);
 
     useEffect(() => {
@@ -149,13 +147,14 @@ const AppContent: React.FC = () => {
         return () => unsubscribe();
     }, []);
 
-    useEffect(() => { localStorage.setItem('memoraid_profile', JSON.stringify(profile)); }, [profile]);
+    useEffect(() => { 
+        if (profile) localStorage.setItem('memoraid_profile', JSON.stringify(profile)); 
+    }, [profile]);
 
     const saveCapsuleData = useCallback(async (capsule: CognitiveCapsule) => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
         else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
         
-        // Sécurisation : On ne met à jour activeCapsule que s'il correspond à l'ID traité
         if (activeCapsule?.id === capsule.id) {
             setActiveCapsule(capsule);
         }
@@ -245,7 +244,6 @@ const AppContent: React.FC = () => {
         await saveCapsuleData(updatedCapsule);
         handleGamificationAction(type === 'quiz' ? 'quiz' : (type === 'flashcard' ? 'flashcard' : 'manual_review'), 0, score);
         
-        // Mise à jour sécurisée de la vue active
         if (activeCapsule?.id === id) {
             setActiveCapsule(updatedCapsule);
         }

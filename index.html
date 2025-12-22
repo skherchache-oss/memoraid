@@ -17,6 +17,8 @@
     <title>Memoraid - Assistant d'Apprentissage</title>
     
     <script>
+      // SHIM de sécurité pour éviter le crash "process is not defined"
+      window.process = { env: {} };
       window.deferredPrompt = null;
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -55,14 +57,14 @@
         }
       });
       
-      // Sécurité anti-écran blanc : on force le retrait du splash après 1.5s
+      // Sécurité anti-écran blanc : on force le retrait du splash après 2.5s même si React crash
       setTimeout(() => {
         const splash = document.getElementById('splash-screen');
         if (splash) {
           splash.style.opacity = '0';
           setTimeout(() => splash.remove(), 600);
         }
-      }, 1500);
+      }, 2500);
     </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -14,11 +14,12 @@ import {
   persistentMultipleTabManager 
 } from "firebase/firestore";
 
-// Helper safe pour l'accès aux variables d'environnement
+// Helper ultra-safe pour l'accès aux variables d'environnement dans un navigateur
 const getEnv = (key: string, fallback: string): string => {
   try {
-    // @ts-ignore
-    return (process.env && process.env[key]) ? process.env[key] : fallback;
+    // Vérification de l'existence de l'objet process et de env
+    const envObj = (typeof process !== 'undefined' && process.env) ? process.env : {};
+    return envObj[key] ? envObj[key] : fallback;
   } catch (e) {
     return fallback;
   }
@@ -39,10 +40,8 @@ let db: any = null;
 let googleProvider: any = null;
 
 try {
-  if (firebaseConfig.apiKey.includes("REMPLACER")) {
-    console.warn("⚠️ Clés Firebase manquantes.");
-  } else {
-    // 🔥 Initialise Firebase
+  if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("REMPLACER")) {
+    // 🔥 Initialise Firebase uniquement si les clés semblent valides
     app = initializeApp(firebaseConfig);
 
     // 🔐 Authentification
@@ -55,9 +54,11 @@ try {
         tabManager: persistentMultipleTabManager()
       })
     });
+  } else {
+    console.warn("⚠️ Clés Firebase manquantes ou non configurées. Mode local uniquement.");
   }
 } catch (error) {
-  console.warn("Firebase initialization failed:", error);
+  console.error("Firebase initialization failed:", error);
 }
 
 export { auth, db, googleProvider };
