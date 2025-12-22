@@ -156,48 +156,54 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
     );
 
     // Mode "Liste" (Inside a category or searching)
-    const renderCapsuleList = (title: string, list: CognitiveCapsule[], showBackButton = false) => (
-        <div className="space-y-8 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-6">
-                <div className="flex items-center gap-4">
-                    {showBackButton && (
-                        <button 
-                            onClick={() => setSelectedCategory(null)}
-                            className="p-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"
-                        >
-                            <ChevronLeftIcon className="w-5 h-5" />
-                        </button>
-                    )}
-                    <div>
-                        <h3 className="text-2xl font-black text-slate-800 dark:text-zinc-100 uppercase tracking-tighter flex items-center gap-2">
-                            {title}
-                        </h3>
-                        <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mt-1">
-                            {list.length} module(s) trouvé(s)
-                        </p>
+    const renderCapsuleList = (title: string, list: CognitiveCapsule[], showBackButton = false) => {
+        // TRI CROISSANT : On trie par titre pour respecter la progression (1, 2, 3...)
+        // L'option numeric: true permet de trier correctement "10." après "2."
+        const sortedList = [...list].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
+
+        return (
+            <div className="space-y-8 animate-fade-in">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-6">
+                    <div className="flex items-center gap-4">
+                        {showBackButton && (
+                            <button 
+                                onClick={() => setSelectedCategory(null)}
+                                className="p-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all"
+                            >
+                                <ChevronLeftIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                        <div>
+                            <h3 className="text-2xl font-black text-slate-800 dark:text-zinc-100 uppercase tracking-tighter flex items-center gap-2">
+                                {title}
+                            </h3>
+                            <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mt-1">
+                                {sortedList.length} module(s) trouvé(s)
+                            </p>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {list.map(c => (
-                    <CapsuleListItem 
-                        key={c.id} 
-                        capsule={c} 
-                        isActive={false} 
-                        isExpanded={false} 
-                        isSelected={selectedCapsuleIds.includes(c.id)} 
-                        isDue={isCapsuleDue(c)} 
-                        onToggleExpand={() => onSelectCapsule(c)} 
-                        onToggleSelection={() => handleToggleSelection(c.id)} 
-                        onRequestDelete={onDeleteCapsule} 
-                        newlyAddedCapsuleId={newlyAddedCapsuleId} 
-                        onClearNewCapsule={onClearNewCapsule} 
-                    />
-                ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {sortedList.map(c => (
+                        <CapsuleListItem 
+                            key={c.id} 
+                            capsule={c} 
+                            isActive={false} 
+                            isExpanded={false} 
+                            isSelected={selectedCapsuleIds.includes(c.id)} 
+                            isDue={isCapsuleDue(c)} 
+                            onToggleExpand={() => onSelectCapsule(c)} 
+                            onToggleSelection={() => handleToggleSelection(c.id)} 
+                            onRequestDelete={onDeleteCapsule} 
+                            newlyAddedCapsuleId={newlyAddedCapsuleId} 
+                            onClearNewCapsule={onClearNewCapsule} 
+                        />
+                    ))}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <div className="w-full min-h-screen animate-fade-in relative">
