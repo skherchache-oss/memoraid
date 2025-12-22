@@ -47,7 +47,6 @@ function decode(base64: string) {
 
 /**
  * Fonction de décodage PCM ultra-stable.
- * Utilise DataView pour lire les entiers 16 bits signés, gérant les longueurs impaires.
  */
 async function decodeAudioData(
   data: Uint8Array,
@@ -55,12 +54,13 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  const length = Math.floor(data.byteLength / 2);
+  // On crée une vue sur une copie exacte pour éviter les erreurs d'alignement de buffer
+  const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  const length = Math.floor(safeBuffer.byteLength / 2);
   const dataInt16 = new Int16Array(length);
-  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const view = new DataView(safeBuffer);
 
   for (let i = 0; i < length; i++) {
-    // Lit un Int16 (Little Endian car c'est le standard PCM Gemini)
     dataInt16[i] = view.getInt16(i * 2, true);
   }
 
@@ -70,7 +70,6 @@ async function decodeAudioData(
   for (let channel = 0; channel < numChannels; channel++) {
     const channelData = audioBuffer.getChannelData(channel);
     for (let i = 0; i < frameCount; i++) {
-      // Conversion vers Float32 (-1.0 à 1.0)
       channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
     }
   }
@@ -136,7 +135,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         setIsFullscreenSketch(false);
     }, [capsule.id, capsule.memoryAidImage, capsule.mnemonic, capsule.category]);
 
-    // PROTECTIONS ANTI-CRASH : On s'assure d'avoir des tableaux même si l'IA a renvoyé des champs vides
     const keyConcepts = capsule.keyConcepts || [];
     const examples = capsule.examples || [];
     const quiz = capsule.quiz || [];

@@ -10,24 +10,24 @@ interface PremiumStoreProps {
 }
 
 // --- DONNÉES DU PACK APPRENDRE À APPRENDRE ---
-// Les images sont retirées pour forcer la génération manuelle par l'utilisateur
 const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
     {
         id: 'learn_1',
         title: '1. Pourquoi on oublie ce qu\'on apprend',
         summary: 'Le cerveau humain trie l’information pour éviter la surcharge. Comprendre l\'oubli est le premier pas pour mieux retenir.',
-        keyConcepts: [{ concept: 'L’oubli naturel', explanation: 'Le cerveau élimine les données peu utilisées pour rester performant.' }, { concept: 'La courbe de l’oubli', explanation: 'Sans rappel, l\'information s\'efface de manière exponentielle.' }],
+        keyConcepts: [{ concept: 'L’oubli naturel', explanation: 'Le cerveau élimine les données peu utilisées pour rester performant.', deepDive: 'La théorie de l\'interférence suggère que de nouveaux souvenirs peuvent perturber les anciens.' }, { concept: 'La courbe de l’oubli', explanation: 'Sans rappel, l\'information s\'efface de manière exponentielle.', deepDive: 'Hermann Ebbinghaus a démontré que 70% des informations sont perdues en 24h sans rappel.' }],
         examples: ['Relire sans se questionner', 'Apprendre massivement la veille'],
-        quiz: [{ question: "Que montre la courbe de l'oubli ?", options: ["Perte rapide sans rappel", "Mémoire infinie"], correctAnswer: "Perte rapide sans rappel", explanation: "..." }],
+        quiz: [{ question: "Que montre la courbe de l'oubli ?", options: ["Perte rapide sans rappel", "Mémoire infinie"], correctAnswer: "Perte rapide sans rappel", explanation: "L'oubli est très rapide dans les premières heures suivant l'apprentissage." }],
         createdAt: Date.now() - 100, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_2',
         title: '2. Comment fonctionne la mémoire',
         summary: 'Le trajet de l\'info : sensorielle, de travail, puis long terme.',
-        keyConcepts: [{ concept: 'Mémoire de travail', explanation: 'Espace limité de manipulation des infos.' }, { concept: 'Consolidation', explanation: 'Le sommeil fixe les connaissances.' }],
+        keyConcepts: [{ concept: 'Mémoire de travail', explanation: 'Espace limité de manipulation des infos.', deepDive: 'L\'empan mnésique est d\'environ 7 éléments simultanés (Chiffre magique de Miller).' }, { concept: 'Consolidation', explanation: 'Le sommeil fixe les connaissances.', deepDive: 'L\'hippocampe transfère les données vers le néocortex durant le sommeil lent profond.' }],
         examples: ['Attention focalisée', 'Sommeil réparateur'],
-        createdAt: Date.now() - 90, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 90, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_3',
@@ -35,7 +35,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Lire est passif, se questionner est actif. L\'effort est le moteur de l\'ancrage.',
         keyConcepts: [{ concept: 'Illusion de maîtrise', explanation: 'Confondre familiarité visuelle et savoir réel.' }, { concept: 'Rappel Actif', explanation: 'Forcer le cerveau à reconstruire l\'info.' }],
         examples: ['Se tester plutôt que relire'],
-        createdAt: Date.now() - 80, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 80, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_4',
@@ -43,7 +44,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Mémoriser durablement en révisant à des intervalles croissants.',
         keyConcepts: [{ concept: 'SRS', explanation: 'Spaced Repetition System : revoir juste avant d\'oublier.' }],
         examples: ['J+1, J+4, J+7...'],
-        createdAt: Date.now() - 70, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 70, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_5',
@@ -51,7 +53,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'La relecture simple crée un faux sentiment de confiance sans effort neuronal.',
         keyConcepts: [{ concept: 'Reconnaissance vs Rappel', explanation: 'Reconnaître un texte n\'est pas savoir le définir.' }],
         examples: ['Lire 5 fois le même cours'],
-        createdAt: Date.now() - 60, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 60, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_6',
@@ -59,7 +62,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Le test est un outil d\'apprentissage, pas seulement d\'évaluation.',
         keyConcepts: [{ concept: 'Testing Effect', explanation: 'Chercher une réponse renforce le chemin neuronal.' }],
         examples: ['Quiz avant l\'examen'],
-        createdAt: Date.now() - 50, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 50, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_7',
@@ -67,7 +71,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Le cerveau retient ce qui fait sens. Organiser l\'info facilite le stockage.',
         keyConcepts: [{ concept: 'Encodage sémantique', explanation: 'Relier les nouvelles infos à vos acquis.' }],
         examples: ['Expliquer avec ses propres mots'],
-        createdAt: Date.now() - 40, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 40, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_8',
@@ -75,7 +80,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'La méthode Feynman : enseigner pour clarifier ses propres lacunes.',
         keyConcepts: [{ concept: 'Simplification', explanation: 'Si on ne peut pas l\'expliquer simplement, on n\'a pas compris.' }],
         examples: ['Enseigner à un ami imaginaire'],
-        createdAt: Date.now() - 30, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 30, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_9',
@@ -83,7 +89,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Le double codage : associer mots et visuels pour un ancrage décuplé.',
         keyConcepts: [{ concept: 'Visualisation', explanation: 'Les images sont traitées plus vite que le texte.' }],
         examples: ['Faire un sketchnote'],
-        createdAt: Date.now() - 20, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 20, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_10',
@@ -91,7 +98,8 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Vaincre la surcharge cognitive par le fractionnement et le chunking.',
         keyConcepts: [{ concept: 'Chunking', explanation: 'Regrouper les données en unités de sens cohérentes.' }],
         examples: ['Pomodoro'],
-        createdAt: Date.now() - 10, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
+        quiz: [],
+        createdAt: Date.now() - 10, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     }
 ];
 
@@ -111,12 +119,12 @@ const MOCK_PACKS: PremiumPack[] = [
 const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackIds, isPremiumUser }) => {
     const [loadingPackId, setLoadingPackId] = useState<string | null>(null);
 
-    const handleBuy = (pack: PremiumPack) => {
+    const handleBuyOrRestore = (pack: PremiumPack) => {
         setLoadingPackId(pack.id);
         setTimeout(() => {
             onUnlockPack(pack);
             setLoadingPackId(null);
-        }, 1500);
+        }, 1200);
     };
 
     return (
@@ -127,7 +135,7 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                     Packs de Savoir
                 </h1>
                 <p className="text-slate-300 text-lg max-w-2xl mx-auto font-medium leading-relaxed">
-                    Explorez des parcours structurés pour maîtriser de nouveaux sujets. Contenus enrichis avec mnémotechniques et schémas visuels inclus (ne consomme pas votre quota).
+                    Explorez des parcours structurés pour maîtriser de nouveaux sujets. Contenus enrichis avec mnémotechniques et schémas visuels inclus.
                 </p>
             </div>
 
@@ -151,13 +159,25 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                                     </div>
                                     <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{pack.title}</h3>
                                     <p className="text-sm text-slate-600 dark:text-zinc-400 mb-8 flex-grow leading-relaxed font-medium">{pack.description}</p>
+                                    
                                     <div className="mt-auto pt-6 border-t border-slate-100 dark:border-zinc-700 flex items-center justify-between">
-                                        <span className="text-2xl font-black text-slate-900 dark:text-white">{isPremiumUser ? 'OFFERT' : `${pack.price} €`}</span>
+                                        <div className="flex flex-col">
+                                            <span className="text-2xl font-black text-slate-900 dark:text-white">{isPremiumUser ? 'OFFERT' : `${pack.price} €`}</span>
+                                            {isUnlocked && <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1 flex items-center gap-1"><UnlockIcon className="w-3 h-3"/> Débloqué</span>}
+                                        </div>
+                                        
                                         {isUnlocked ? (
-                                            <span className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 dark:bg-zinc-700 text-slate-500 rounded-xl font-black uppercase text-xs tracking-widest"><UnlockIcon className="w-4 h-4" /> Débloqué</span>
+                                            <button 
+                                                onClick={() => handleBuyOrRestore(pack)} 
+                                                disabled={!!loadingPackId}
+                                                className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-200"
+                                            >
+                                                {loadingPackId === pack.id ? <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" /> : <RefreshCwIcon className="w-3.5 h-3.5" />}
+                                                Réimporter
+                                            </button>
                                         ) : (
-                                            <button onClick={() => handleBuy(pack)} disabled={!!loadingPackId} className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200/50 dark:shadow-none active:scale-95">
-                                                {loadingPackId === pack.id ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : isPremiumUser ? 'Ajouter' : 'Débloquer'}
+                                            <button onClick={() => handleBuyOrRestore(pack)} disabled={!!loadingPackId} className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-black uppercase text-xs tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200/50 dark:shadow-none active:scale-95">
+                                                {loadingPackId === pack.id ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : 'Débloquer'}
                                             </button>
                                         )}
                                     </div>

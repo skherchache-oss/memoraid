@@ -154,6 +154,8 @@ const AppContent: React.FC = () => {
     const saveCapsuleData = useCallback(async (capsule: CognitiveCapsule) => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
         else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
+        
+        // Sécurisation : On ne met à jour activeCapsule que s'il correspond à l'ID traité
         if (activeCapsule?.id === capsule.id) {
             setActiveCapsule(capsule);
         }
@@ -209,14 +211,25 @@ const AppContent: React.FC = () => {
 
     const handleUnlockPack = async (pack: PremiumPack) => {
         try {
-            const newUnlockedIds = Array.from(new Set([...(profile.user.unlockedPackIds || []), pack.id]));
+            const isAlreadyUnlocked = (profile.user.unlockedPackIds || []).includes(pack.id);
+            const newUnlockedIds = isAlreadyUnlocked 
+                ? profile.user.unlockedPackIds 
+                : Array.from(new Set([...(profile.user.unlockedPackIds || []), pack.id]));
+            
             const updatedProfile = { ...profile.user, unlockedPackIds: newUnlockedIds };
             setProfile(prev => ({ ...prev, user: updatedProfile }));
             if (currentUser) await updateUserProfileInCloud(currentUser.uid, updatedProfile);
+            
             for (const capsule of pack.capsules) {
-                await saveCapsuleData({ ...capsule, category: pack.title, isPremiumContent: true, originalPackId: pack.id });
+                await saveCapsuleData({ 
+                    ...capsule, 
+                    category: pack.title, 
+                    isPremiumContent: true, 
+                    originalPackId: pack.id 
+                });
             }
-            addToast(t('pack_added'), 'success');
+            
+            addToast(isAlreadyUnlocked ? "Contenu restauré !" : t('pack_added'), 'success');
             setView('base'); setMobileTab('library');
         } catch (err) { addToast(t('pack_error'), 'error'); }
     };
@@ -231,7 +244,11 @@ const AppContent: React.FC = () => {
         updatedCapsule.masteryLevel = calculateMasteryScore(updatedCapsule);
         await saveCapsuleData(updatedCapsule);
         handleGamificationAction(type === 'quiz' ? 'quiz' : (type === 'flashcard' ? 'flashcard' : 'manual_review'), 0, score);
-        if (activeCapsule?.id === id) setActiveCapsule(updatedCapsule);
+        
+        // Mise à jour sécurisée de la vue active
+        if (activeCapsule?.id === id) {
+            setActiveCapsule(updatedCapsule);
+        }
     };
 
     const displayCapsules = useMemo(() => {
@@ -276,10 +293,22 @@ const AppContent: React.FC = () => {
                                 onStartFlashcards={() => setIsFlashcardMode(true)} 
                                 onStartActiveLearning={() => setIsActiveLearning(true)} 
                                 onMarkAsReviewed={handleMarkAsReviewed} 
-                                onSetCategory={(id, cat) => { const all = [...profile.capsules, ...groupCapsules]; const cap = all.find(c => c.id === id); if (cap) saveCapsuleData({ ...cap, category: cat }); }} 
+                                onSetCategory={(id, cat) => { 
+                                    const all = [...profile.capsules, ...groupCapsules]; 
+                                    const cap = all.find(c => c.id === id); 
+                                    if (cap) saveCapsuleData({ ...cap, category: cat }); 
+                                }} 
                                 allCategories={[]} 
-                                onSetMemoryAid={(id, img, desc) => { const all = [...profile.capsules, ...groupCapsules]; const cap = all.find(c => c.id === id); if (cap) saveCapsuleData({ ...cap, memoryAidImage: img || undefined, memoryAidDescription: desc || undefined }); }} 
-                                onSetMnemonic={(id, m) => { const all = [...profile.capsules, ...groupCapsules]; const cap = all.find(c => c.id === id); if (cap) saveCapsuleData({ ...cap, mnemonic: m }); }} 
+                                onSetMemoryAid={(id, img, desc) => { 
+                                    const all = [...profile.capsules, ...groupCapsules]; 
+                                    const cap = all.find(c => c.id === id); 
+                                    if (cap) saveCapsuleData({ ...cap, memoryAidImage: img || undefined, memoryAidDescription: desc || undefined }); 
+                                }} 
+                                onSetMnemonic={(id, m) => { 
+                                    const all = [...profile.capsules, ...groupCapsules]; 
+                                    const cap = all.find(c => c.id === id); 
+                                    if (cap) saveCapsuleData({ ...cap, mnemonic: m }); 
+                                }} 
                                 onUpdateQuiz={() => {}} 
                                 onBackToList={() => setActiveCapsule(null)} 
                                 onNavigateToProfile={() => setView('profile')} 
