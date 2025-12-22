@@ -138,12 +138,12 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
 
     return (
         <div className="bg-white dark:bg-zinc-900 min-h-screen pb-20">
-            <div className="bg-slate-900 text-white py-14 px-6 text-center">
-                <h1 className="text-4xl md:text-5xl font-black mb-4 flex items-center justify-center gap-3 uppercase tracking-tighter">
-                    <ShoppingBagIcon className="w-10 h-10 text-amber-400" />
+            <div className="bg-slate-900 text-white py-12 md:py-16 px-6 text-center">
+                <h1 className="text-2xl md:text-4xl font-extrabold mb-3 flex items-center justify-center gap-3 tracking-tight">
+                    <ShoppingBagIcon className="w-7 h-7 md:w-9 md:h-9 text-amber-400" />
                     Packs de Savoir
                 </h1>
-                <p className="text-slate-300 text-lg max-w-2xl mx-auto font-medium leading-relaxed">
+                <p className="text-slate-300 text-base md:text-lg max-w-xl mx-auto font-medium leading-relaxed opacity-80">
                     Explorez des parcours structurés pour maîtriser de nouveaux sujets.
                 </p>
             </div>

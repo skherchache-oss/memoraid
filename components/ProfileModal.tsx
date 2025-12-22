@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole, CognitiveCapsule } from '../types';
 import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, ChevronDownIcon, LogOutIcon, CheckCircleIcon, Share2Icon, PlusIcon, GraduationCapIcon, SparklesIcon, SendIcon } from '../constants';
@@ -92,7 +93,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     const content = (
         <div className={`bg-gray-50 dark:bg-zinc-950 flex flex-col ${isOpenAsPage ? 'min-h-[calc(100vh-140px)] pb-10' : 'rounded-3xl shadow-2xl w-full max-w-2xl h-[90vh] overflow-hidden'}`} onClick={e => e.stopPropagation()}>
             <header className={`flex items-center justify-between p-6 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800 flex-shrink-0 ${isOpenAsPage ? '' : 'sticky top-0 z-10'}`}>
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-800 dark:text-white flex items-center gap-2 tracking-tight">
                     <UserIcon className="w-6 h-6 text-emerald-500" />
                     {t('my_space')}
                 </h2>

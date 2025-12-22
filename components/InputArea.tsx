@@ -161,8 +161,8 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, o
     return (
         <div className="w-full pb-8">
             <div className="bg-white dark:bg-zinc-900 p-8 md:p-10 rounded-3xl shadow-xl border border-transparent dark:border-zinc-800 relative z-10 transition-all duration-500">
-                <h2 className="text-3xl font-bold text-emerald-900 dark:text-white mb-2 text-center">{t('create_capsule')}</h2>
-                <p className="text-lg text-slate-500 dark:text-zinc-400 mt-1 mb-6 text-center">{t('input_instruction')}</p>
+                <h2 className="text-2xl md:text-3xl font-black text-emerald-900 dark:text-white mb-2 text-center tracking-tight">{t('create_capsule')}</h2>
+                <p className="text-base md:text-lg text-slate-500 dark:text-zinc-400 mt-1 mb-6 text-center font-medium leading-relaxed">{t('input_instruction')}</p>
                 
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-16 px-6 bg-emerald-50/40 dark:bg-emerald-900/10 rounded-3xl border-2 border-emerald-200 dark:border-emerald-800/50 animate-fade-in shadow-inner">
