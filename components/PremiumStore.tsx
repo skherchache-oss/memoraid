@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { PremiumPack, CognitiveCapsule } from '../types';
 import { ShoppingBagIcon, UnlockIcon, CheckCircleIcon, BrainIcon, RefreshCwIcon } from '../constants';
@@ -8,469 +9,524 @@ interface PremiumStoreProps {
     isPremiumUser: boolean;
 }
 
-// --- CONTENU DÉTAILLÉ DU PACK EXPERT (Toutes les capsules complétées) ---
+// --- CONTENU DÉTAILLÉ ET ENRICHI DU PARCOURS EXPERT ---
 const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
     {
         id: 'learn_1',
-        title: '1. Comment fonctionne la mémoire',
-        summary: 'Comprendre pour mieux apprendre. La mémoire transforme progressivement les informations perçues en connaissances durables.',
+        title: '1. L\'architecture de la mémoire',
+        summary: 'Découvrez comment votre cerveau sélectionne, traite et stabilise les flux d\'informations pour transformer une simple perception éphémère en une connaissance indestructible stockée dans le néocortex.',
         keyConcepts: [
             { 
                 concept: 'La mémoire sensorielle', 
-                explanation: 'La mémoire sensorielle est la toute première étape du processus de mémorisation. Elle capte brièvement les informations issues de nos sens, comme les images, les sons ou les sensations. Cette mémoire est extrêmement courte et ne conserve les informations que quelques fractions de seconde.',
-                deepDive: 'Seules les informations auxquelles nous portons attention passent à l’étape suivante. La majorité des stimuli perçus disparaissent quasi instantanément sans laisser de trace consciente.'
+                explanation: 'C\'est le premier filtre de la réalité. Pendant une fraction de seconde, vos sens captent des gigaoctets de données brutes (images, sons, textures). Si vous ne portez pas une attention sélective immédiate à ce flux, l\'information s\'évapore pour laisser la place aux nouveaux stimuli.',
+                deepDive: 'La mémoire iconique (visuelle) et échoïque (auditive) agissent comme des tampons. Le thalamus joue ici le rôle de "gardien du phare", décidant quelle donnée mérite d\'accéder à la conscience.'
             },
             { 
                 concept: 'La mémoire de travail', 
-                explanation: 'La mémoire de travail est l’espace mental dans lequel nous traitons activement les informations. Elle est utilisée pour comprendre un cours, résoudre un problème ou suivre une explication.',
-                deepDive: 'Sa capacité est limitée (environ 7 éléments). Lorsqu’elle est surchargée par trop d’informations ou de distractions, la compréhension devient difficile et l’apprentissage sature.'
+                explanation: 'Imaginez un établi mental minuscule où vous manipulez activement les idées. C\'est ici que s\'opère la compréhension. Cependant, cet espace est saturable : il ne peut gérer qu\'environ 5 à 7 éléments à la fois avant de perdre les pédales.',
+                deepDive: 'Située dans le cortex préfrontal, elle est le moteur du raisonnement. Sa saturation provoque le sentiment de surcharge cognitive, où plus aucune nouvelle information ne semble "entrer" dans l\'esprit.'
             },
             { 
-                concept: 'La mémoire à long terme', 
-                explanation: 'La mémoire à long terme stocke durablement les connaissances, les souvenirs et les compétences. Elle dispose d’une capacité très importante, mais les informations n’y entrent pas automatiquement.',
-                deepDive: 'Pour y être fixée, une information doit être comprise, reliée à des connaissances existantes et réactivée régulièrement. L’encodage sémantique est la clé de ce stockage.'
+                concept: 'L\'encodage sémantique', 
+                explanation: 'Pour qu\'une info survive, elle doit être "codée" et liée à du sens. Ce processus n\'est pas automatique : il nécessite de relier activement la nouvelle donnée à ce que vous maîtrisez déjà, créant ainsi des chemins d\'accès neuronaux.',
+                deepDive: 'La plasticité synaptique est la base physique de ce processus. Plus une information est associée à des souvenirs émotionnels ou logiques préexistants, plus son ancrage sera résistant à l\'érosion du temps.'
             },
             { 
-                concept: 'La consolidation', 
-                explanation: 'La consolidation est le processus par lequel une information devient stable dans la mémoire à long terme. Elle se produit avec le temps, grâce au rappel actif, aux révisions et au sommeil.',
-                deepDive: 'Chaque rappel renforce la trace mnésique (potentialisation à long terme). Le sommeil, particulièrement lent profond, joue un rôle crucial dans le transfert de l’hippocampe vers le néocortex.'
+                concept: 'La consolidation nocturne', 
+                explanation: 'Le véritable apprentissage se termine pendant que vous dormez. C\'est durant la nuit que le cerveau trie les souvenirs, renforce les connexions synaptiques vitales et élimine les détails insignifiants accumulés durant la journée.',
+                deepDive: 'Le transfert des informations de l\'hippocampe (stockage temporaire) vers le néocortex (stockage définitif) se produit majoritairement pendant le sommeil lent profond via un processus de réactivation neuronale.'
             }
         ],
-        examples: ['Être distrait pendant un cours', 'Découper un apprentissage en étapes', 'Réviser pour consolider', 'Dormir après avoir appris'],
+        examples: [
+            'Essayer de retenir un code de sécurité reçu par SMS tout en étant interrompu par une question d\'un collègue.',
+            'Associer un nouveau concept d\'astronomie à une expérience vécue de camping sous les étoiles pour créer un lien sémantique.',
+            'Prendre une pause de 15 minutes sans écran après une heure d\'étude intense pour laisser le cerveau stabiliser les premières traces.',
+            'Optimiser son cycle de sommeil après avoir appris une langue étrangère pour faciliter l\'intégration du nouveau vocabulaire.'
+        ],
         quiz: [
-            { question: "Quelle mémoire est la plus brève ?", options: ["Mémoire à long terme", "Mémoire sensorielle", "Mémoire émotionnelle", "Mémoire procédurale"], correctAnswer: "Mémoire sensorielle", explanation: "Elle ne dure que quelques fractions de seconde avant de disparaître." },
-            { question: "Quelle mémoire est limitée en capacité ?", options: ["Mémoire de travail", "Mémoire à long terme", "Mémoire autobiographique", "Mémoire sensorielle"], correctAnswer: "Mémoire de travail", explanation: "Elle sature vite si on lui donne trop d'informations em même temps." },
-            { question: "Qu’est-ce qui renforce la consolidation ?", options: ["La distraction", "Le rappel actif", "Le hasard", "La vitesse"], correctAnswer: "Le rappel actif", explanation: "S'efforcer de retrouver l'information solidifie les connexions neuronales." },
-            { question: "Sans attention, que devient l’information ?", options: ["Elle est consolidée", "Elle est stockée", "Elle est perdue", "Elle est comprise"], correctAnswer: "Elle est perdue", explanation: "L'attention est le filtre nécessaire pour faire entrer l'info en mémoire de travail." }
+            { question: "Quelle zone du cerveau gère le stockage temporaire avant consolidation ?", options: ["Le néocortex", "L'hippocampe", "Le cervelet", "Le lobe occipital"], correctAnswer: "L'hippocampe", explanation: "L'hippocampe est la passerelle de la mémoire avant le stockage définitif." },
+            { question: "Combien d'éléments la mémoire de travail peut-elle gérer en moyenne ?", options: ["Entre 2 et 3", "Entre 5 et 9", "Des centaines", "Elle est illimitée"], correctAnswer: "Entre 5 et 9", explanation: "C'est la loi de Miller, qui limite drastiquement notre capacité de traitement conscient immédiat." },
+            { question: "Quand se produit la majorité de la consolidation ?", options: ["Pendant la lecture", "Durant le sommeil", "Pendant le sport", "Durant un repas"], correctAnswer: "Durant le sommeil", explanation: "C'est la nuit que le cerveau fixe physiquement les nouvelles connaissances." },
+            { question: "Qu'est-ce que l'attention sélective ?", options: ["Une technique d'oubli", "Le filtre des sens", "Un type de quiz", "Une maladie"], correctAnswer: "Le filtre des sens", explanation: "Elle choisit ce qui passe de la mémoire sensorielle à la mémoire de travail." }
         ],
         flashcards: [
-            { front: "Mémoire sensorielle", back: "Mémoire très brève qui capte les informations issues des sens" },
-            { front: "Mémoire de travail", back: "Mémoire limitée utilisée pour comprendre et réfléchir" },
-            { front: "Mémoire à long terme", back: "Mémoire qui stocke durablement les connaissances" },
-            { front: "Consolidation", back: "Processus de stabilisation des informations dans le temps" }
+            { front: "Mémoire sensorielle", back: "Tampon éphémère captant les stimuli bruts (vue, ouïe)." },
+            { front: "Attention", back: "Le filtre indispensable pour faire entrer l’info en mémoire de travail." },
+            { front: "Encodage", back: "Transformation d'une info en trace durable via le sens et les liens." },
+            { front: "Consolidation", back: "Processus biologique fixant le souvenir, souvent durant la nuit." }
         ],
-        mnemonic: "Comprendre le chemin aide à ne pas se perdre.",
-        createdAt: Date.now() - 100, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Attention, Travail et Dodo : le trio de la mémorisation pro.",
+        createdAt: Date.now() - 1100, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_2',
-        title: '2. Mémoire passive et mémoire active',
-        summary: 'Choisir la bonne stratégie pour apprendre. Certaines méthodes donnent l’illusion de savoir, tandis que d’autres renforcent réellement la mémoire.',
+        title: '2. Mémoire passive vs active',
+        summary: 'Découvrez pourquoi la relecture est une illusion de compétence et comment le rappel actif muscle vos neurones en forçant la récupération de l\'information.',
         keyConcepts: [
             { 
-                concept: 'La mémoire passive', 
-                explanation: 'La mémoire passive repose sur la reconnaissance de l’information. Relire un cours ou surligner des notes donne souvent l’impression de maîtriser le contenu.',
-                deepDive: 'C’est une impression trompeuse car elle ne sollicite pas l’effort de récupération. L’info est familière à la vue, mais impossible à restituer sans le support sous les yeux.'
+                concept: 'L\'illusion de compétence', 
+                explanation: 'Relire un texte le rend fluide et familier. Le cerveau confond cette aisance visuelle avec une réelle maîtrise. C\'est un piège : vous reconnaissez l\'info, mais vous seriez incapable de la restituer sans vos notes.',
+                deepDive: 'La relecture passive ne sollicite pas l\'effort de récupération synaptique. Sans ce signal de "besoin", le cerveau juge l\'information comme secondaire et ne la stabilise pas.'
             },
             { 
-                concept: 'La mémoire active', 
-                explanation: 'La mémoire active repose sur le rappel sans aide. Elle consiste à tenter de retrouver une information de mémoire, sans regarder le cours.',
-                deepDive: 'Cette recherche mentale force le cerveau à reconstruire les chemins neuronaux. C’est la difficulté désirable qui garantit un ancrage profond et durable.'
+                concept: 'Le rappel actif (Active Recall)', 
+                explanation: 'C\'est l\'action de fermer son livre et de forcer son cerveau à extraire l\'info de mémoire sans aide. Cet effort de "recherche mentale" renforce considérablement le chemin d\'accès vers la connaissance.',
+                deepDive: 'Chaque tentative de rappel est un signal pour le cerveau que l\'info est vitale. Le processus de récupération modifie la trace mnésique elle-même, la rendant plus robuste.'
             },
             { 
-                concept: 'L’illusion de maîtrise', 
-                explanation: 'La révision passive crée souvent une illusion de maîtrise. Le cerveau confond la familiarité avec la connaissance réelle.',
-                deepDive: 'C’est le piège classique des étudiants : croire que l’on connaît car on comprend en relisant. La compréhension immédiate n’est pas la mémorisation long terme.'
+                concept: 'La difficulté désirable', 
+                explanation: 'Un apprentissage facile est souvent superficiel. À l\'inverse, un effort mental modéré (chercher une réponse difficile) garantit un ancrage bien plus solide. L\'effort est la preuve que vous apprenez vraiment.',
+                deepDive: 'Théorisée par Robert Bjork : plus l\'effort de récupération est intense, plus l\'apprentissage est profond. La satisfaction d\'une lecture fluide est souvent inversement proportionnelle à la rétention.'
             },
             { 
-                concept: 'Choisir une stratégie efficace', 
-                explanation: 'Une stratégie efficace d’apprentissage privilégie les méthodes actives, comme le rappel, les quiz ou l’explication.',
-                deepDive: 'Ces méthodes demandent plus d’effort cognitif, mais produisent une mémorisation plus solide. L’effort est un signal pour le cerveau que l’info est petite.'
+                concept: 'L\'effet de test', 
+                explanation: 'Se tester n\'est pas qu\'une évaluation, c\'est un outil d\'apprentissage surpuissant. Le fait de répondre à un quiz modifie votre cerveau plus efficacement que de relire le cours dix fois.',
+                deepDive: 'Le cerveau apprend par la sortie (output) autant que par l\'entrée (input). Utiliser Memoraid pour se tester transforme la révision en création de savoir.'
             }
         ],
-        examples: ['Relire un cours', 'Se tester sans support', 'Faire un quiz', 'Expliquer une notion'],
+        examples: [
+            'Remplacer la troisième relecture d\'un chapitre par un quiz blanc pour identifier immédiatement ses lacunes.',
+            'Expliquer un concept complexe à un ami imaginaire sans regarder ses notes pour vérifier sa clarté.',
+            'Utiliser la technique de la page blanche : écrire tout ce dont on se souvient d\'un cours de mémoire.',
+            'Cacher les réponses de ses flashcards et se forcer à répondre à voix haute avant de retourner la carte.'
+        ],
         quiz: [
-            { question: "Quelle méthode est la plus efficace ?", options: ["Relire", "Surligner", "Rappeler", "Copier"], correctAnswer: "Rappeler", explanation: "L'effort de rappel actif est le moteur principal de la mémorisation." },
-            { question: "La mémoire passive repose sur :", options: ["Le rappel", "La reconnaissance", "L’explication", "La compréhension"], correctAnswer: "La reconnaissance", explanation: "On reconnaît ce qu'on voit, mais on ne sait pas forcément le produire de mémoire." },
-            { question: "Pourquoi la relecture peut être trompeuse ?", options: ["Elle est trop lente", "Elle crée une illusion de maîtrise", "Elle fatigue", "Elle empêche l'attention"], correctAnswer: "Elle crée une illusion de maîtrise", explanation: "On croit savoir parce que le texte nous est familier." },
-            { question: "Quelle méthode renforce le plus la mémoire ?", options: ["Relire", "Se tester", "Regarder", "Écouter"], correctAnswer: "Se tester", explanation: "Se tester oblige le cerveau à faire un effort de récupération, ce qui renforce les neurones." }
+            { question: "Pourquoi la relecture simple est-elle risquée ?", options: ["Elle fatigue les yeux", "Elle crée une illusion de maîtrise", "Elle est interdite", "Elle est trop rapide"], correctAnswer: "Elle crée une illusion de maîtrise", explanation: "Le cerveau confond familiarité avec connaissance réelle." },
+            { question: "Qu’est-ce que le rappel actif ?", options: ["Relire vite", "Se tester sans aide", "Surligner", "Écouter"], correctAnswer: "Se tester sans aide", explanation: "C'est l'effort conscient d'extraire l'info de sa propre mémoire." },
+            { question: "La 'difficulté désirable' suggère que :", options: ["L'effort aide l'ancrage", "Apprendre doit être pénible", "Il faut échouer", "La mémoire est fixe"], correctAnswer: "L'effort aide l'ancrage", explanation: "L'effort synaptique signale l'importance de l'information au cerveau." },
+            { question: "Quel est l'avantage principal des quiz ?", options: ["Donner une note", "Forcer la récupération de l'info", "Perdre du temps", "Se reposer"], correctAnswer: "Forcer la récupération de l'info", explanation: "Le test est un acte d'apprentissage actif qui solidifie les neurones." }
         ],
         flashcards: [
-            { front: "Mémoire passive", back: "Reconnaître une information sans la rappeler" },
-            { front: "Mémoire active", back: "Retrouver une information sans aide" },
-            { front: "Illusion de maîtrise", back: "Impression de savoir sans réelle mémorisation" },
-            { front: "Rappel actif", back: "Recherche volontaire d’une information en mémoire" }
+            { front: "Apprentissage passif", back: "Consommer l'info (lire, écouter) sans action de rappel." },
+            { front: "Apprentissage actif", back: "S'efforcer de produire ou retrouver l'info sans support." },
+            { front: "Difficulté désirable", back: "Effort mental nécessaire qui garantit un ancrage profond." },
+            { front: "Familiarité", back: "Sentiment trompeur de maîtrise lié à la simple reconnaissance visuelle." }
         ],
-        mnemonic: "Ce que je cherche dans ma tête, je le renforce.",
-        createdAt: Date.now() - 90, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Livre fermé, neurones musclés.",
+        createdAt: Date.now() - 1000, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_3',
-        title: '3. L’attention, clé de l’apprentissage',
-        summary: 'Apprendre commence par se concentrer. Sans attention, il n’y a pas de transfert possible vers la mémoire.',
+        title: '3. Maîtriser son attention',
+        summary: 'L\'attention est la ressource la plus rare de notre siècle. Apprenez à dompter votre focus pour franchir le mur des distractions et encoder les informations avec une précision chirurgicale.',
         keyConcepts: [
             { 
-                concept: 'Le rôle de l’attention', 
-                explanation: 'L’attention agit comme un filtre. Elle permet de sélectionner certaines informations parmi toutes celles perçues par nos sens.',
-                deepDive: 'Sans ce filtre, les informations restent à l’état de trace sensorielle et disparaissent en moins d’une seconde sans être traitées par la conscience.'
+                concept: 'Le goulot d\'étranglement', 
+                explanation: 'L\'attention est le conduit étroit d\'un sablier. Toute info doit y passer pour atteindre la mémoire. Si vous saturez ce conduit avec des notifications ou du bruit, le système se bloque et l\'apprentissage s\'arrête.',
+                deepDive: 'L\'attention focalisée mobilise le réseau de contrôle exécutif frontal. Chaque distraction consomme du glucose cérébral et réduit votre réserve d\'énergie cognitive pour la journée.'
             },
             { 
-                concept: 'Les limites de l’attention', 
-                explanation: 'L’attention est limitée et fragile. Elle diminue fortement en cas de fatigue, de surcharge cognitive ou de distractions extérieures.',
-                deepDive: 'Le cerveau est incapable de faire du vrai multitâche sur des tâches complexes. Il ne fait que zapper rapidement d’une tâche à l’autre, ce qui coûte cher en énergie et en précision.'
+                concept: 'Le mythe du multitâche', 
+                explanation: 'Le cerveau humain ne peut pas traiter deux tâches complexes simultanément. Il ne fait que "zapper" ultra-rapidement de l\'une à l\'autre. Ce zapping permanent crée une fatigue intense et empêche toute analyse profonde.',
+                deepDive: 'Le "coût de changement" (Switching Cost) peut réduire votre productivité de 40% et baisser votre QI effectif de 10 points durant la tâche.'
             },
             { 
-                concept: 'Attention et compréhension', 
-                explanation: 'Une attention de qualité favorise la compréhension profonde. Elle permet à la mémoire de travail de traiter l’info efficacement.',
-                deepDive: 'En étant focalisé, on peut établir des liens riches entre la nouvelle info et les acquis, ce qui facilite l’encodage vers la mémoire à long terme.'
+                concept: 'L\'état de Flow', 
+                explanation: 'C\'est une immersion totale dans une tâche où le temps semble disparaître. Dans cet état, l\'attention est si puissante que l\'apprentissage devient presque sans effort et extrêmement rapide.',
+                deepDive: 'Atteindre le Flow nécessite un équilibre parfait entre le niveau de difficulté du défi et vos compétences actuelles, dans un environnement calme.'
             },
             { 
-                concept: 'Créer les conditions de l’attention', 
-                explanation: 'Améliorer son attention passe par des conditions adaptées : environnement calme, pauses régulières et objectifs clairs.',
-                deepDive: 'L’hygiène de l’attention inclut la suppression des notifications et la gestion de la fatigue (méthode Pomodoro par exemple).'
+                concept: 'La restauration attentionnelle', 
+                explanation: 'L\'attention est une ressource épuisable. Après 25 à 50 minutes de focus, votre capacité chute. Des pauses réelles (sans écrans) sont nécessaires pour recharger vos capacités exécutives.',
+                deepDive: 'Regarder la nature ou simplement laisser son esprit vagabonder permet au "mode par défaut" du cerveau de s\'activer, favorisant la récupération.'
             }
         ],
-        examples: ['Apprendre dans le calme', 'Éviter le multitâche', 'Faire des pauses', 'Se fixer un objectif clair'],
+        examples: [
+            'Placer son téléphone dans une autre pièce pendant 25 minutes de travail (Méthode Pomodoro).',
+            'Désactiver toutes les notifications système pour rédiger un rapport sans coupure mentale.',
+            'Utiliser une musique instrumentale calme ou un bruit blanc pour masquer les bruits ambiants.',
+            'Se fixer un objectif unique et simple pour les 10 premières minutes pour "lancer la machine".'
+        ],
         quiz: [
-            { question: "Sans attention, que devient l’information ?", options: ["Elle est consolidée", "Elle est oubliée", "Elle est comprise", "Elle est stockée"], correctAnswer: "Elle est oubliée", explanation: "L'info ne franchit même pas la porte de la conscience sans attention." },
-            { question: "Le multitâche :", options: ["Améliore l’apprentissage", "Est neutre", "Réduit l’efficacité", "Facilite la mémorisation"], correctAnswer: "Réduit l’efficacité", explanation: "Le cerveau perd du temps et de l'énergie à chaque changement de focus." },
-            { question: "L’attention permet surtout :", options: ["De mémoriser sans comprendre", "De filtrer les informations", "D’apprendre sans effort", "D’éviter la répétition"], correctAnswer: "De filtrer les informations", explanation: "Elle sélectionne ce qui mérite d'être traité par le cerveau." },
-            { question: "Pour mieux apprendre, il faut :", options: ["Plus de vitesse", "Plus de distractions", "De bonnes conditions d’attention", "Moins de pauses"], correctAnswer: "De bonnes conditions d’attention", explanation: "Un environnement propice au calme est indispensable." }
+            { question: "Peut-on être efficace en faisant deux choses complexes à la fois ?", options: ["Oui, avec l'habitude", "Non, le cerveau zappe au lieu de traiter", "Seulement les génies", "Oui, le soir"], correctAnswer: "Non, le cerveau zappe au lieu de traiter", explanation: "Le cerveau change de focus mais ne traite pas les deux flux en parallèle." },
+            { question: "Qu'est-ce que le 'coût de changement' ?", options: ["Le prix d'un livre", "Le temps perdu à se reconcentrer", "L'oubli d'une info", "La fatigue physique"], correctAnswer: "Le temps perdu à se reconcentrer", explanation: "Chaque interruption demande un effort pour revenir au niveau de focus initial." },
+            { question: "Comment favoriser l'état de Flow ?", options: ["Écouter la radio", "Supprimer les distractions", "Faire des pauses de 1s", "Lire très vite"], correctAnswer: "Supprimer les distractions", explanation: "Le calme et la continuité sont les ingrédients de base de l'immersion." },
+            { question: "L'attention ressemble à :", options: ["Une éponge", "Un goulot d'étranglement", "Un miroir", "Un disque dur"], correctAnswer: "Un goulot d'étranglement", explanation: "Elle limite strictement la quantité d'infos traitables à un instant T." }
         ],
         flashcards: [
-            { front: "Attention", back: "Capacité à se concentrer sur une information" },
-            { front: "Multitâche", back: "Tentative de faire plusieurs tâches en même temps (inefficace)" },
-            { front: "Distraction", back: "Élément qui détourne l’attention" },
-            { front: "Concentration", back: "Attention maintenue dans le temps" }
+            { front: "Attention focalisée", back: "Focus exclusif sur une seule tâche sans distraction." },
+            { front: "Multitâche", back: "Action de changer de focus rapidement (inefficace)." },
+            { front: "Coût de changement", back: "Perte de temps et d'énergie lors du passage d'une tâche à l'autre." },
+            { front: "Flow", back: "État d'immersion totale et optimale dans une activité." }
         ],
-        mnemonic: "Ce à quoi je fais attention laisse une trace.",
-        createdAt: Date.now() - 80, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Un focus à la fois, le savoir est roi.",
+        createdAt: Date.now() - 900, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_4',
-        title: '4. Mémoire à court terme et mémoire à long terme',
-        summary: 'Comprendre le passage de l’oubli à la connaissance durable.',
+        title: '4. MCT vs MLT : Le passage',
+        summary: 'Naviguez entre l\'éphémère et le durable. Comprenez comment le cerveau transfère les informations critiques de la zone de transit consciente vers le réservoir permanent.',
         keyConcepts: [
             { 
-                concept: 'La mémoire à court terme', 
-                explanation: 'La mémoire à court terme permet de conserver temporairement des informations pendant quelques secondes ou minutes. Elle est étroitement liée à la mémoire de travail et sert à maintenir une information disponible pour une tâche immédiate.',
-                deepDive: 'Sa capacité est limitée et les informations qu’elle contient sont rapidement perdues si elles ne sont pas retravaillées. Elle sert de zone tampon avant l\'encodage sémantique.'
+                concept: 'La Mémoire à Court Terme', 
+                explanation: 'Elle garde une info disponible pendant 15 à 30 secondes seulement. C\'est votre espace de travail immédiat. Si l\'info n\'est pas répétée ou associée à un sens, elle est effacée pour libérer de l\'espace.',
+                deepDive: 'Sa capacité est de 7 items environ. Elle est gérée par des boucles neuronales temporaires dans le lobe frontal.'
             },
             { 
-                concept: 'La mémoire à long terme', 
-                explanation: 'La mémoire à long terme stocke les informations sur une durée prolongée, parfois toute la vie. Elle se construit progressivement et nécessite un travail actif de compréhension et de consolidation.',
-                deepDive: 'Une information intégrée à la mémoire à long terme devient plus stable et plus facilement accessible. C\'est ici que réside notre savoir encyclopédique.'
+                concept: 'La Mémoire à Long Terme', 
+                explanation: 'C\'est le disque dur de votre vie. Sa capacité est virtuellement illimitée. Une info y entre après un travail de consolidation sémantique. Une fois stockée, elle nécessite des indices pour être retrouvée.',
+                deepDive: 'Le stockage est décentralisé dans tout le cortex après un passage par l’hippocampe, véritable bibliothécaire du cerveau.'
             },
             { 
-                concept: 'Le rôle de la répétition', 
-                explanation: 'La répétition permet de maintenir une information active et d’augmenter ses chances d’être stockée durablement. Cependant, répéter sans comprendre reste peu efficace.',
-                deepDive: 'La répétition est réellement bénéfique lorsqu’elle est associée à la compréhension et au rappel actif. La répétition élaborée crée des liens de sens profonds.'
+                concept: 'L\'indice de récupération', 
+                explanation: 'Avoir l\'info en MLT ne suffit pas, il faut pouvoir la ressortir ! Les indices sont des "crochets mentaux" (un mot, une image, un lieu) qui permettent de tirer le souvenir hors de la bibliothèque.',
+                deepDive: 'Plus le contexte de rappel ressemble au contexte d\'apprentissage (émotion, lieu), plus il est facile de retrouver l\'information.'
             },
             { 
-                concept: 'Le passage vers la durabilité', 
-                explanation: 'Le passage de la mémoire à court terme vers la mémoire à long terme dépend du temps, de l’attention et de la consolidation.',
-                deepDive: 'Plus une information est retravaillée de manière active, plus elle a de chances de devenir durable grâce au renforcement des connexions synaptiques.'
+                concept: 'Le rôle de l\'élaboration', 
+                explanation: 'L\'élaboration consiste à enrichir une nouvelle info en y ajoutant des détails personnels ou des liens logiques. C\'est le meilleur moyen de garantir son passage vers le stockage longue durée.',
+                deepDive: 'En créant des associations riches, vous multipliez les indices de récupération disponibles pour le futur.'
             }
         ],
-        examples: ['Retenir un numéro quelques secondes', 'Oublier une information non révisée', 'Réactiver un cours plusieurs fois', 'Faire des rappels réguliers'],
+        examples: [
+            'Répéter un numéro de téléphone en boucle jusqu\'à trouver un stylo (usage de la MCT).',
+            'Se souvenir du nom de son premier enseignant des années plus tard grâce à une vieille photo (usage de la MLT).',
+            'Associer une nouvelle définition scientifique à un personnage de film pour créer un crochet mental fort.',
+            'Utiliser une odeur ou une musique spécifique pour déclencher la remontée d\'un souvenir enfoui.'
+        ],
         quiz: [
-            { question: "La mémoire à court terme est :", options: ["Illimitée", "Temporaire", "Permanente", "Automatique"], correctAnswer: "Temporaire", explanation: "Elle ne conserve les informations que quelques secondes sans répétition." },
-            { question: "Pour stocker durablement une information, il faut :", options: ["La vitesse", "La distraction", "La consolidation", "Le hasard"], correctAnswer: "La consolidation", explanation: "C'est le processus qui stabilise la trace mémorielle sur le long terme." },
-            { question: "La répétition est efficace surtout si elle est :", options: ["Rapide", "Passive", "Associée à la compréhension", "Unique"], correctAnswer: "Associée à la compréhension", explanation: "Le sens est le meilleur liant pour la mémoire à long terme." },
-            { question: "Une information non retravaillée :", options: ["Se consolide", "Devient durable", "Est souvent oubliée", "S’améliore"], correctAnswer: "Est souvent oubliée", explanation: "Sans réactivation, les connexions neuronales s'affaiblissent rapidement." }
+            { question: "Combien de temps dure une info en MCT sans action ?", options: ["Quelques secondes", "Une heure", "Toute la vie", "Une nuit"], correctAnswer: "Quelques secondes", explanation: "Sans répétition, l'info s'évapore en moins de 30 secondes." },
+            { question: "La capacité de la mémoire à long terme est :", options: ["Limitée à 1000 infos", "Inconnue mais immense", "Très petite", "Limitée par l'âge"], correctAnswer: "Inconnue mais immense", explanation: "On ne connaît pas de limite physique au stockage cérébral." },
+            { question: "Qu'est-ce qu'un indice de récupération ?", options: ["Une erreur", "Un crochet mental pour retrouver l'info", "Une technique d'oubli", "Un type de quiz"], correctAnswer: "Un crochet mental pour retrouver l'info", explanation: "C'est un élément lié au souvenir qui aide à le faire remonter." },
+            { question: "Le passage de la MCT à la MLT s'appelle :", options: ["La digestion", "La consolidation", "La respiration", "La lecture"], correctAnswer: "La consolidation", explanation: "C'est la stabilisation physique du souvenir." }
         ],
         flashcards: [
-            { front: "Mémoire à court terme", back: "Mémoire temporaire et limitée" },
-            { front: "Mémoire à long terme", back: "Mémoire durable des connaissances" },
-            { front: "Répétition", back: "Réactivation d’une information" },
-            { front: "Durabilité", back: "Capacité d’une information à rester en mémoire" }
+            { front: "MCT", back: "Mémoire à court terme : stockage temporaire et limité." },
+            { front: "MLT", back: "Mémoire à long terme : réservoir permanent des connaissances." },
+            { front: "Oubli", back: "Échec de récupération ou effacement naturel d'une trace." },
+            { front: "Rappel", back: "Action d'extraire une info de la MLT vers la MCT." }
         ],
-        mnemonic: "Ce que je retravaille devient durable.",
-        createdAt: Date.now() - 70, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Court pour agir, Long pour savoir.",
+        createdAt: Date.now() - 800, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_5',
-        title: '5. Comprendre avant de mémoriser',
-        summary: 'Donner du sens pour mieux retenir. Comprendre est une étape indispensable.',
+        title: '5. Comprendre pour retenir',
+        summary: 'Pourquoi le "par cœur" pur est une impasse pédagogique. Apprenez à transformer des données abstraites en piliers de votre intelligence en utilisant la force du sens.',
         keyConcepts: [
             { 
-                concept: 'Comprendre, c’est organiser', 
-                explanation: 'Comprendre une information signifie l’organiser mentalement. Lorsqu’une notion est comprise, elle est structurée, hiérarchisée et reliée à d’autres connaissances.',
-                deepDive: 'Cette organisation facilite le stockage en mémoire et le rappel ultérieur. Une structure logique permet au cerveau d\'accéder à l\'info par plusieurs chemins.'
+                concept: 'L\'organisation sémantique', 
+                explanation: 'Comprendre, c\'est créer un réseau. Une information isolée tombe dans l\'oubli. Une info comprise est reliée à 10 autres. C\'est cette structure qui la maintient en place.',
+                deepDive: 'L\'encodage sémantique est le niveau de traitement le plus profond. Le cerveau traite les infos par leur signification plutôt que par leur forme.'
             },
             { 
-                concept: 'Le rôle du sens', 
-                explanation: 'Le cerveau retient plus facilement ce qui a du sens. Donner du sens permet de répondre aux questions pourquoi, comment et à quoi cela sert.',
-                deepDive: 'Une information comprise est moins dépendante de la mémorisation mécanique. L\'encodage sémantique est le niveau de traitement le plus profond.'
+                concept: 'Le pouvoir du "Pourquoi"', 
+                explanation: 'Le cerveau cherche de la logique partout. En comprenant le mécanisme derrière un fait, vous n\'avez plus besoin de vous souvenir de chaque détail, car vous pouvez reconstruire la logique.',
+                deepDive: 'La compréhension réduit la charge cognitive. Une règle logique est plus économique à stocker qu\'une suite de mots arbitraires.'
             },
             { 
-                concept: 'Compréhension et transfert', 
-                explanation: 'Comprendre une notion permet de l’utiliser dans des situations nouvelles. Ce transfert des connaissances est impossible lorsque l’apprentissage repose uniquement sur le par cœur.',
-                deepDive: 'La flexibilité cognitive dépend de la compréhension des principes sous-jacents plutôt que de la simple forme apparente.'
+                concept: 'La transférabilité', 
+                explanation: 'Une notion vraiment comprise peut être appliquée dans un contexte nouveau. Le par cœur pur vous rend prisonnier de la formulation exacte de votre cours.',
+                deepDive: 'C\'est la différence entre le savoir (connaître le fait) et la compétence (savoir utiliser le fait dans diverses situations).'
             },
             { 
-                concept: 'Mémoriser après comprendre', 
-                explanation: 'La mémorisation est plus efficace lorsqu’elle intervient après la compréhension. Comprendre prépare le terrain pour une consolidation durable.',
-                deepDive: 'La compréhension réduit drastiquement la charge cognitive lors de la phase de mémorisation technique.'
+                concept: 'L\'auto-explication', 
+                explanation: 'S\'expliquer à soi-même comment une nouvelle idée s\'intègre à ce que l\'on sait déjà force le cerveau à créer des ponts neuronaux solides.',
+                deepDive: 'Cette technique améliore la rétention car elle oblige à un encodage génératif : vous "générez" votre version du savoir.'
             }
         ],
-        examples: ['Apprendre une définition sans sens', 'Expliquer une notion avec ses mots', 'Appliquer une règle dans un exercice', 'Relier une notion à un exemple'],
+        examples: [
+            'Apprendre une formule de physique en comprenant son origine plutôt que de retenir les lettres.',
+            'Expliquer un événement historique en cherchant les causes profondes plutôt que de mémoriser des dates sèches.',
+            'Faire un schéma (Mind Map) pour visualiser les liens logiques entre les chapitres.',
+            'Utiliser une métaphore culinaire pour comprendre un processus informatique complexe.'
+        ],
         quiz: [
-            { question: "Pourquoi la compréhension aide la mémoire ?", options: ["Elle supprime l’effort", "Elle organise l’information", "Elle évite la répétition", "Elle remplace l’apprentissage"], correctAnswer: "Elle organise l’information", explanation: "L'organisation facilite le stockage et la récupération des données." },
-            { question: "Le transfert est possible quand :", options: ["On récite", "On relit", "On comprend", "On surligne"], correctAnswer: "On comprend", explanation: "Comprendre permet d'adapter la connaissance à de nouveaux contextes." },
-            { question: "Le par cœur est souvent :", options: ["Durable", "Flexible", "Fragile", "Automatique"], correctAnswer: "Fragile", explanation: "Sans sens, le moindre oubli d'un mot peut bloquer toute la restitution." },
-            { question: "Quand faut-il mémoriser ?", options: ["Avant comprendre", "Sans comprendre", "Après comprendre", "Sans répéter"], correctAnswer: "Après comprendre", explanation: "C'est l'ordre optimal pour un ancrage solide et utile." }
+            { question: "Pourquoi la compréhension aide la mémoire ?", options: ["Elle évite de dormir", "Elle crée des liens entre les infos", "Elle remplace l'effort", "Elle est plus rapide"], correctAnswer: "Elle crée des liens entre les infos", explanation: "Le savoir structuré est beaucoup plus stable." },
+            { question: "Le 'par cœur' sans sens est :", options: ["Recommandé", "Fragile et vite oublié", "La base de tout", "Impossible"], correctAnswer: "Fragile et vite oublié", explanation: "Sans attaches logiques, l'info s'échappe au moindre trou de mémoire." },
+            { question: "Comprendre permet de :", options: ["Reconstruire l'info", "Copier plus vite", "Ne plus réviser", "Lire moins"], correctAnswer: "Reconstruire l'info", explanation: "La logique interne sert de guide pour retrouver les faits." },
+            { question: "L'encodage sémantique traite :", options: ["Le son", "La forme des lettres", "Le sens profond", "La couleur"], correctAnswer: "Le sens profond", explanation: "C'est la forme la plus efficace de mémorisation." }
         ],
         flashcards: [
-            { front: "Compréhension", back: "Organisation et mise en sens d’une information" },
-            { front: "Sens", back: "Signification donnée à une information" },
-            { front: "Transfert", back: "Utilisation d’une connaissance dans un autre contexte" },
-            { front: "Par cœur", back: "Mémorisation mécanique sans compréhension" }
+            { front: "Sens", back: "La signification qui sert de colle entre les neurones." },
+            { front: "Structure", back: "L'organisation logique d'un ensemble de connaissances." },
+            { front: "Par cœur", back: "Mémorisation mécanique sans compréhension." },
+            { front: "Transfert", back: "Capacité à utiliser un savoir dans une situation nouvelle." }
         ],
-        mnemonic: "Ce que je comprends, je peux le reconstruire.",
-        createdAt: Date.now() - 60, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Comprendre d'abord, retenir sans effort.",
+        createdAt: Date.now() - 700, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_6',
-        title: '6. La répétition efficace',
-        summary: 'Répéter pour consolider, pas pour bachoter. Renforcer la mémoire intelligemment.',
+        title: '6. Répétition Espacée',
+        summary: 'Maîtrisez le timing parfait pour réviser juste avant d\'oublier. Découvrez comment la répétition espacée rend vos connaissances indestructibles.',
         keyConcepts: [
             { 
-                concept: 'Répéter n’est pas relire', 
-                explanation: 'Répéter efficacement ne consiste pas à relire passivement un cours. La relecture sollicite peu la mémoire et produit une illusion de maîtrise.',
-                deepDive: 'Une répétition efficace repose sur le rappel actif. Fermer le livre et essayer de reconstruire l’information soi-même est la clé.'
+                concept: 'La courbe de l’oubli', 
+                explanation: 'Dès que vous apprenez, vous commencez à oublier. La perte est massive dans les premières 24 heures. La répétition agit comme un rappel qui remonte l’info au sommet.',
+                deepDive: 'Théorisée par Ebbinghaus, la courbe montre que chaque révision rend la pente de l\'oubli moins raide. On oublie de moins en moins vite.'
             },
             { 
-                concept: 'Le rappel renforce la mémoire', 
-                explanation: 'Chaque fois que l’on tente de rappeler une information, la trace mnésique se renforce. Même un rappel imparfait est bénéfique.',
-                deepDive: 'C’est l’effort de recherche qui consolide la mémoire. C\'est l\'effet de test : l\'acte de récupérer modifie la mémoire.'
+                concept: 'L’espacement (Spaced Repetition)', 
+                explanation: 'Réviser 1 heure en une fois (bachotage) est inefficace. Réviser 4 fois 15 minutes réparties sur une semaine force le cerveau à consolider chimiquement les souvenirs.',
+                deepDive: 'L\'effet d\'espacement permet au cerveau de sortir de la MCT pour forcer un rappel profond en MLT. C\'est le principe de Memoraid.'
             },
             { 
-                concept: 'L’importance de l’espacement', 
-                explanation: 'Répéter une information à des moments espacés dans le temps est plus efficace que de tout revoir en une seule fois.',
-                deepDive: 'L’espacement permet une meilleure consolidation à long terme en laissant au cerveau le temps de fixer chimiquement les souvenirs.'
+                concept: 'Le Bachotage (Cramming)', 
+                explanation: 'C’est une stratégie court terme. Vous saturez la mémoire pour l\'examen, mais 48 heures après, tout a disparu. C\'est un gaspillage de temps.',
+                deepDive: 'Le bachotage sature les neurotransmetteurs sans laisser le temps à la synthèse protéique nécessaire à la MLT.'
             },
             { 
-                concept: 'Éviter le bachotage', 
-                explanation: 'Le bachotage consiste à concentrer les révisions sur une courte période. Cette méthode peut fonctionner à très court terme.',
-                deepDive: 'Elle entraîne un oubli massif après l’évaluation car les infos ne sont pas stabilisées dans la mémoire à long terme.'
+                concept: 'L\'intervalle croissant', 
+                explanation: 'Plus vous connaissez une info, plus vous pouvez espacer les révisions (J+1, J+4, J+10...). C\'est la méthode la plus optimisée pour maintenir un savoir.',
+                deepDive: 'Le but est de réviser exactement au moment où l\'on est sur le point d\'oublier (Difficulté Désirable).'
             }
         ],
-        examples: ['Se tester régulièrement', 'Utiliser des flashcards', 'Espacer les révisions', 'Éviter les longues séances uniques'],
+        examples: [
+            'Réviser son cours 10 minutes le soir même, puis 5 minutes le surlendemain, puis 2 minutes une semaine après.',
+            'Utiliser Memoraid qui calcule automatiquement votre prochain moment de révision optimal.',
+            'Éviter les nuits blanches avant un examen pour ne pas bloquer la consolidation chimique.',
+            'Se tester sur un ancien chapitre une fois par mois pour entretenir les bases.'
+        ],
         quiz: [
-            { question: "Quelle répétition est la plus efficace ?", options: ["Relire", "Copier", "Rappeler", "Regarder"], correctAnswer: "Rappeler", explanation: "Le rappel actif est bien plus puissant que la relecture passive." },
-            { question: "Pourquoi l’espacement est utile ?", options: ["Il fatigue", "Il ralentit", "Il consolide", "Il distrait"], correctAnswer: "Il consolide", explanation: "Il laisse au cerveau le temps de fixer chimiquement les souvenirs." },
-            { question: "Le bachotage provoque souvent :", options: ["Une mémoire durable", "Un oubli rapide", "Une meilleure compréhension", "Une motivation forte"], correctAnswer: "Un oubli rapide", explanation: "Les informations sont traitées superficiellement et s'effacent après l'usage." },
-            { question: "Le rappel est efficace car :", options: ["Il est facile", "Il évite l’effort", "Il renforce la trace", "Il suppression l’oubli"], correctAnswer: "Il renforce la trace", explanation: "C'est l'effort cognitif de récupération qui solidifie la trace mnésique." }
+            { question: "Quand l'oubli est-il le plus fort ?", options: ["Après un an", "Dans les 24h après l'apprentissage", "Pendant le sommeil", "Jamais"], correctAnswer: "Dans les 24h après l'apprentissage", explanation: "Le cerveau fait un grand tri sélectif immédiat." },
+            { question: "Qu'est-ce que la répétition espacée ?", options: ["Lire 10 fois", "Réviser à intervalles croissants", "Apprendre par cœur", "Ne jamais réviser"], correctAnswer: "Réviser à intervalles croissants", explanation: "On attend que l'oubli commence pour renforcer le souvenir." },
+            { question: "Le bachotage est efficace pour :", options: ["Le long terme", "Le très court terme", "Absolument rien", "L'expertise"], correctAnswer: "Le très court terme", explanation: "On retient pour l'examen, mais l'info disparaît après." },
+            { question: "Pourquoi espacer les séances ?", options: ["Pour se reposer", "Pour permettre la consolidation chimique", "Parce que c'est plus lent", "Pour jouer"], correctAnswer: "Pour permettre la consolidation chimique", explanation: "Le cerveau a besoin de temps de repos pour fixer les neurones." }
         ],
         flashcards: [
-            { front: "Répétition", back: "Réactivation d’une information" },
-            { front: "Rappel actif", back: "Recherche volontaire d’une information" },
-            { front: "Espacement", back: "Révision répartie dans le temps" },
-            { front: "Bachotage", back: "Révision intensive de courte durée" }
+            { front: "Courbe de l'oubli", back: "Vitesse à laquelle on perd une info non révisée." },
+            { front: "Spaced Repetition", back: "Technique consistant à réviser juste avant le point d'oubli." },
+            { front: "Bachotage", back: "Révision intensive de dernière minute (peu efficace)." },
+            { front: "Réactivation", back: "Action de ramener une info MLT vers la MCT pour la renforcer." }
         ],
-        mnemonic: "Chaque rappel renforce la trace.",
-        createdAt: Date.now() - 50, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Un peu souvent vaut mieux que beaucoup d'un coup.",
+        createdAt: Date.now() - 600, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_7',
-        title: '7. Comprendre avant d’apprendre',
-        summary: 'Donner du sens pour mieux mémoriser. Pourquoi comprendre est indispensable pour apprendre durablement.',
+        title: '7. Encodage Approfondi',
+        summary: 'Allez au-delà de la surface. Apprenez à manipuler l\'information sous plusieurs angles pour créer des ancrages mémoriels multiples et ultra-résistants.',
         keyConcepts: [
             { 
-                concept: 'Comprendre, c’est organiser l’information', 
-                explanation: 'Comprendre une information signifie l’organiser mentalement. Lorsqu’une notion est comprise, elle est structurée, hiérarchisée et reliée à d’autres connaissances.',
-                deepDive: 'Cette organisation facilite le stockage en mémoire et le rappel ultérieur. C\'est la création d\'un réseau sémantique riche.'
+                concept: 'Le traitement profond', 
+                explanation: 'Plus vous réfléchissez activement à une info, mieux elle s\'ancre. Se demander comment une info est liée à une autre est un traitement bien plus puissant que de simplement lire la phrase.',
+                deepDive: 'L\'expérience de Craik et Lockhart montre que traiter le sens d\'un mot ancre l\'info 10 fois mieux que d\'en traiter la sonorité ou la forme.'
             },
             { 
-                concept: 'Le rôle du sens', 
-                explanation: 'Le cerveau retient plus facilement ce qui a du sens. Donner du sens permet de répondre aux questions pourquoi, comment et à quoi cela sert.',
-                deepDive: 'Une information comprise est moins dépendante de la mémorisation mécanique, elle devient une part de votre logique propre.'
+                concept: 'La contextualisation', 
+                explanation: 'Placer une info dans son contexte historique ou scientifique lui donne une "maison" mentale. Une info sans contexte est comme un mot dans une langue inconnue.',
+                deepDive: 'Le cerveau utilise des cadres de référence (schemas). Apprendre consiste à greffer de nouvelles données sur ces cadres.'
             },
             { 
-                concept: 'Compréhension et transfert', 
-                explanation: 'Comprendre une notion permet de l’utiliser dans des situations nouvelles. Ce transfert des connaissances montre que l’apprentissage est réel et solide.',
-                deepDive: 'La capacité à appliquer un concept dans un contexte différent est la preuve ultime de la maîtrise intellectuelle.'
+                concept: 'La structure hiérarchique', 
+                explanation: 'Organiser le savoir du général au précis aide la mémoire à naviguer. C\'est comme avoir un plan de ville plutôt qu\'une liste de rues au hasard.',
+                deepDive: 'Les cartes mentales sollicitent la mémoire spatiale pour soutenir la mémoire sémantique.'
             },
             { 
-                concept: 'Mémoriser après comprendre', 
-                explanation: 'La mémorisation est plus efficace lorsqu’elle intervient après la compréhension. Comprendre prépare le terrain pour une consolidation durable.',
-                deepDive: 'Le travail de compréhension réduit l\'effort nécessaire pour la phase de rétention pure.'
+                concept: 'La réduction de l\'arbitraire', 
+                explanation: 'Moins une info semble liée au hasard, mieux elle est apprise. Chercher la raison d\'être d\'une règle permet de la mémoriser sans effort.',
+                deepDive: 'La logique agit comme une règle de calcul : si vous oubliez le résultat, vous pouvez le retrouver.'
             }
         ],
-        examples: ['Expliquer une notion avec ses mots', 'Relier un concept à un exemple', 'Appliquer une règle dans un exercice nouveau', 'Comparer deux notions'],
+        examples: [
+            'Apprendre le fonctionnement d\'un moteur en comprenant le principe de l\'explosion contrôlée.',
+            'Expliquer un concept avec une métaphore culinaire pour "sentir" la logique du mouvement.',
+            'Réécrire une définition complexe avec ses propres mots simples.',
+            'Relier le cours de biologie d\'aujourd\'hui au cours de chimie de la semaine dernière.'
+        ],
         quiz: [
-            { question: "Pourquoi la compréhension aide la mémoire ?", options: ["Elle supprime l’effort", "Elle organise l’information", "Elle remplace la répétition", "Elle évite l’apprentissage"], correctAnswer: "Elle organise l’information", explanation: "Structurer l'info aide le cerveau à la stocker et à la retrouver plus tard." },
-            { question: "Le transfert est possible lorsque :", options: ["On récite", "On relit", "On comprend", "On surligne"], correctAnswer: "On comprend", explanation: "Comprendre permet d'extraire la règle pour l'appliquer ailleurs." },
-            { question: "Le par cœur est souvent :", options: ["Durable", "Flexible", "Fragile", "Automatique"], correctAnswer: "Fragile", explanation: "Sans sens, oublier un seul mot peut bloquer tout le rappel." },
-            { question: "Quand faut-il mémoriser ?", options: ["Avant comprendre", "Sans comprendre", "Après comprendre", "Sans répéter"], correctAnswer: "Après comprendre", explanation: "L'ancrage est bien plus puissant sur un support déjà compris." }
+            { question: "Peut-on apprendre durablement sans comprendre ?", options: ["Oui", "C'est très fragile", "C'est impossible", "Uniquement le matin"], correctAnswer: "C'est très fragile", explanation: "Sans sens, l'info est isolée et vulnérable à l'oubli." },
+            { question: "Qu'est-ce que le traitement profond ?", options: ["Lire 10 fois", "Réfléchir au sens", "Écrire petit", "Surligner"], correctAnswer: "Réfléchir au sens", explanation: "C'est l'analyse de la signification qui ancre l'info." },
+            { question: "Un schéma aide car :", options: ["C'est joli", "Il utilise la mémoire spatiale", "Il prend du temps", "Il est en couleur"], correctAnswer: "Il utilise la mémoire spatiale", explanation: "Positionner les infos dans l'espace facilite le rappel." },
+            { question: "La contextualisation sert à :", options: ["Allonger le cours", "Donner une place mentale à l'info", "Perdre du temps", "Vérifier l'orthographe"], correctAnswer: "Donner une place mentale à l'info", explanation: "Une info isolée est presque impossible à retenir." }
         ],
         flashcards: [
-            { front: "Compréhension", back: "Organisation et mise en sens d’une information" },
-            { front: "Sens", back: "Signification donnée à une information" },
-            { front: "Transfert", back: "Utilisation d’une connaissance dans un autre contexte" },
-            { front: "Par cœur", back: "Mémorisation mécanique sans compréhension" }
+            { front: "Traitement profond", back: "Analyse du sens pour un ancrage maximal." },
+            { front: "Contextualisation", back: "Lien avec l'environnement ou l'histoire de l'info." },
+            { front: "Hiérarchie", back: "Organisation du général vers le particulier." },
+            { front: "Arbitraire", back: "Caractère d'une info sans lien logique (difficile à retenir)." }
         ],
-        mnemonic: "Ce que je comprends, je peux le reconstruire.",
-        createdAt: Date.now() - 40, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Pas de sens, pas d'essence pour la mémoire.",
+        createdAt: Date.now() - 500, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_8',
-        title: '8. Apprendre en expliquant',
-        summary: 'Renforcer sa mémoire en enseignant. Organiser ses idées et vérifier sa compréhension par l\'explication.',
+        title: '8. Enseigner pour apprendre',
+        summary: 'Devenez le professeur pour devenir le maître du sujet. Utilisez la puissance de la reformulation pour débusquer vos lacunes et clarifier votre pensée.',
         keyConcepts: [
             { 
-                concept: 'Expliquer pour structurer', 
-                explanation: 'Expliquer une notion oblige à organiser les informations et à identifier l’essentiel. Les zones floues apparaissent rapidement.',
-                deepDive: 'Cela permet de corriger et de consolider ses connaissances en temps réel. C\'est l\'autocorrection par le discours.'
+                concept: 'La Méthode Feynman', 
+                explanation: 'Si vous ne pouvez pas expliquer un concept à un enfant de 8 ans, c\'est que vous ne l\'avez pas compris. Enseigner vous oblige à simplifier et à boucher vos trous de mémoire.',
+                deepDive: 'Ce processus active la métacognition : vous prenez conscience de l\'étendue de votre savoir et de vos zones d\'ombre.'
             },
             { 
-                concept: 'L’effet d’enseignement', 
-                explanation: 'Le fait d’enseigner améliore la mémorisation de celui qui explique. Anticiper les questions renforce la compréhension.',
-                deepDive: 'Préparer une explication active des circuits neuronaux différents de la simple réception d\'information.'
+                concept: 'L\'illusion de clarté', 
+                explanation: 'On croit avoir compris tant qu\'on reste dans sa tête. C\'est au moment de formuler une phrase que l\'on réalise que certains liens sont encore flous.',
+                deepDive: 'Le passage de la pensée interne (non-linéaire) à la parole (linéaire) force une structuration rigoureuse.'
             },
             { 
-                concept: 'Reformuler pour comprendre', 
-                explanation: 'Reformuler consiste à exprimer une idée avec ses propres mots. Si une notion ne peut pas être reformulée simplement, elle n’est pas maîtrisée.',
-                deepDive: 'La reformulation est le filtre qui sépare la connaissance superficielle de la maîtrise profonde.'
+                concept: 'L\'effet d\'enseignement', 
+                explanation: 'Préparer un cours pour autrui produit une mémorisation supérieure à celle obtenue en préparant un test pour soi-même. La responsabilité booste l\'attention.',
+                deepDive: 'Le cerveau s\'engage davantage lorsqu\'il perçoit une utilité sociale à l\'information.'
             },
             { 
-                concept: 'Expliquer même seul', 
-                explanation: 'Il est possible d’apprendre en expliquant seul, à voix haute ou par écrit. Cette méthode transforme l’apprentissage passif en apprentissage actif.',
-                deepDive: 'Parler à haute voix (ou s\'enregistrer) force le cerveau à une linéarité de pensée qui clarifie les concepts complexes.'
+                concept: 'La simplification créative', 
+                explanation: 'Trouver des analogies simples pour un sujet complexe ancre l\'information dans des zones cérébrales variées et créatives.',
+                deepDive: 'La création d\'analogies sollicite le raisonnement par transfert, forme sophistiquée d\'intelligence.'
             }
         ],
-        examples: ['Expliquer un cours à un camarade', 'Faire un résumé oral', 'Écrire une explication simple', 'S’enregistrer en expliquant'],
+        examples: [
+            'Faire un exposé imaginaire devant son miroir pour vérifier la fluidité de son argumentation.',
+            'Expliquer les règles d\'un nouveau jeu de société sans jamais regarder la notice.',
+            'Écrire un article de blog simplifié sur un sujet technique difficile.',
+            'Enregistrer une note vocale de 2 minutes résumant l\'essentiel d\'une conférence.'
+        ],
         quiz: [
-            { question: "Pourquoi expliquer aide à mémoriser ?", options: ["Cela remplace la répétition", "Cela oblige à organiser", "Cela évite l’effort", "Cela supprime l’erreur"], correctAnswer: "Cela oblige à organiser", explanation: "L'effort de structure nécessaire à l'explication fixe les concepts." },
-            { question: "L’effet d’enseignement concerne :", options: ["L’auditeur", "Le professeur", "Celui qui explique", "Le support"], correctAnswer: "Celui qui explique", explanation: "Celui qui fait l'effort d'expliquer est celui qui apprend le mieux." },
-            { question: "Reformuler permet :", options: ["De gagner du temps", "De copier", "De vérifier la compréhension", "De relire"], correctAnswer: "De vérifier la compréhension", explanation: "On ne peut reformuler correctement que si l'on a vraiment saisi le sens." },
-            { question: "Peut-on apprendre en expliquant seul ?", options: ["Non", "Oui", "Uniquement à l’oral", "Uniquement à l’écrit"], correctAnswer: "Oui", explanation: "C'est une excellente technique d'auto-apprentissage (méthode Feynman)." }
+            { question: "Qui a popularisé l'enseignement comme outil d'étude ?", options: ["Einstein", "Feynman", "Socrates", "Darwin"], correctAnswer: "Feynman", explanation: "Richard Feynman utilisait la simplification pour maîtriser la physique quantique." },
+            { question: "Pourquoi expliquer à un enfant aide-t-il ?", options: ["Pour être gentil", "Pour forcer la simplification", "Pour perdre du temps", "Pour s'amuser"], correctAnswer: "Pour forcer la simplification", explanation: "La simplification débusque les concepts mal compris." },
+            { question: "La métacognition c'est :", options: ["Réfléchir sur sa pensée", "Apprendre par cœur", "Lire vite", "Oublier"], correctAnswer: "Réfléchir sur sa pensée", explanation: "C'est l'analyse de son propre niveau de compréhension." },
+            { question: "Enseigner booste la mémoire car :", options: ["On parle fort", "On structure activement l'info", "On est debout", "On écrit au tableau"], correctAnswer: "On structure activement l'info", explanation: "L'effort d'organisation pour autrui fixe le savoir." }
         ],
         flashcards: [
-            { front: "Effet d’enseignement", back: "Amélioration de la mémoire par l’explication" },
-            { front: "Reformulation", back: "Expression d’une idée avec ses mots" },
-            { front: "Explication active", back: "Explication sans support immédiat" },
-            { front: "Apprentissage autonome", back: "Capacité à apprendre seul efficacement" }
+            { front: "Méthode Feynman", back: "Expliquer simplement pour vérifier sa compréhension." },
+            { front: "Métacognition", back: "Conscience de ses propres processus de pensée." },
+            { front: "Analogie", back: "Comparaison simplificatrice pour éclairer un concept." },
+            { front: "Effet d'enseignement", back: "Mémorisation accrue liée au fait d'enseigner." }
         ],
-        mnemonic: "Si je peux l’expliquer simplement, je l’ai compris.",
-        createdAt: Date.now() - 30, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Si tu peux l'enseigner, tu l'as gagné.",
+        createdAt: Date.now() - 400, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_9',
-        title: '9. Utiliser les images et les schémas',
-        summary: 'Mémoriser grâce au visuel. Associer des mots à des images renforce la mémorisation.',
+        title: '9. Le pouvoir du visuel',
+        summary: 'Activez le super-pouvoir visuel de votre cerveau. Découvrez comment le double codage et la spatialisation transforment des notes ennuyeuses en cartes mémorables.',
         keyConcepts: [
             { 
                 concept: 'Le double codage', 
-                explanation: 'Le double codage consiste à associer une information verbale à une représentation visuelle. Cette double entrée en mémoire facilite le rappel.',
-                deepDive: 'En créant deux chemins d\'accès (un visuel, un textuel), vous doublez statistiquement vos chances de retrouver l\'info.'
+                explanation: 'Le cerveau traite les images et les mots via deux canaux sensoriels indépendants. Associer une définition à un schéma crée deux chemins d\'accès.',
+                deepDive: 'Si l\'un des chemins (ex: le mot) faiblit, l\'autre (l\'image) peut prendre le relais pour restaurer le souvenir.'
             },
             { 
-                concept: 'Les schémas pour organiser', 
-                explanation: 'Un schéma permet de simplifier et d’organiser l’information. Il met en évidence les liens essentiels.',
-                deepDive: 'Il réduit la surcharge cognitive en présentant les relations entre concepts de manière spatiale et immédiate.'
+                concept: 'La spatialisation', 
+                explanation: 'Placer des infos dans l\'espace utilise nos capacités de survie liées à l\'orientation. C\'est plus efficace qu\'une liste de points linéaire.',
+                deepDive: 'Le cerveau possède des "cellules de lieu" dans l\'hippocampe. Un schéma transforme un savoir abstrait en un "territoire" mental.'
             },
             { 
-                concept: 'Les croquis faits main', 
-                explanation: 'Dessiner un croquis oblige à sélectionner l’essentiel et à transformer l’information. Ce processus renforce la mémorisation.',
-                deepDive: 'L\'acte physique de dessiner engage davantage de zones cérébrales que la simple lecture.'
+                concept: 'Le Sketchnoting', 
+                explanation: 'Prendre des notes avec petits dessins, flèches et texte court force à sélectionner l\'essentiel et à transformer activement l\'info.',
+                deepDive: 'L\'acte physique de dessiner engage des zones motrices et créatives, renforçant la trace mnésique.'
             },
             { 
-                concept: 'Images utiles et décoratives', 
-                explanation: 'Les images utiles soutiennent la compréhension. Les images décoratives peuvent distraire et nuire à l’apprentissage.',
-                deepDive: 'Il faut privilégier les visuels qui portent une information structurelle plutôt que de simples illustrations esthétiques.'
+                concept: 'Les cartes mentales', 
+                explanation: 'Partir d\'un centre et rayonner vers les détails imite la structure arborescente de nos neurones. Cela facilite l\'association d\'idées.',
+                deepDive: 'Les Mind Maps permettent de gérer la complexité sans saturer la mémoire de travail.'
             }
         ],
-        examples: ['Transformer un texte en schéma', 'Dessiner un résumé visuel', 'Associer un concept à une image mentale', 'Utiliser des flèches et symboles'],
+        examples: [
+            'Dessiner une flèche rouge entre deux concepts pour marquer une relation de cause à effet.',
+            'Utiliser des couleurs différentes pour distinguer les faits des exemples dans une carte mentale.',
+            'Remplacer une liste de dates par une frise chronologique illustrée de symboles.',
+            'Créer une icône personnalisée pour chaque mot-clé difficile à retenir.'
+        ],
         quiz: [
-            { question: "Pourquoi le double codage est efficace ?", options: ["Il est plus rapide", "Il crée deux accès mémoire", "Il remplace le texte", "Il évite la compréhension"], correctAnswer: "Il crée deux accès mémoire", explanation: "Le cerveau stocke l'info sous deux formes complémentaires." },
-            { question: "Un schéma sert surtout à :", options: ["Décorer", "Simplifier", "Allonger", "Copier"], correctAnswer: "Simplifier", explanation: "Il extrait la structure essentielle d'une information complexe." },
-            { question: "Le croquis est efficace car :", options: ["Il est esthétique", "Il évite la répétition", "Il transforme l’information", "Il remplace l’étude"], correctAnswer: "Il transforme l’information", explanation: "Traduire des mots en dessins demande un travail mental actif." },
-            { question: "Quelle image aide le plus à apprendre ?", options: ["Décorative", "Sans lien", "Utile au contenu", "Très détaillée"], correctAnswer: "Utile au contenu", explanation: "L'image doit être un support direct à la compréhension du concept." }
+            { question: "Qu'est-ce que le double codage ?", options: ["Apprendre deux fois", "Utiliser texte et image", "Lire à deux", "Écrire deux fois"], correctAnswer: "Utiliser texte et image", explanation: "C'est l'association de deux canaux sensoriels pour une trace plus forte." },
+            { question: "Pourquoi la spatialisation aide-t-elle ?", options: ["C'est joli", "Elle utilise les cellules de lieu du cerveau", "Elle est plus longue", "Elle est moderne"], correctAnswer: "Elle utilise les cellules de lieu du cerveau", explanation: "Notre cerveau est programmé pour retenir des positions dans l'espace." },
+            { question: "Une carte mentale imite :", options: ["Un arbre", "Les neurones", "Un fleuve", "Une route"], correctAnswer: "Les neurones", explanation: "Sa structure rayonnante correspond au mode d'association naturel du cerveau." },
+            { question: "Le sketchnoting force à :", options: ["Bien dessiner", "Sélectionner l'essentiel", "Écrire beaucoup", "Utiliser un ordinateur"], correctAnswer: "Sélectionner l'essentiel", explanation: "On ne peut pas tout dessiner, donc on filtre l'info importante." }
         ],
         flashcards: [
-            { front: "Double codage", back: "Association de mots et d’images" },
-            { front: "Schéma", back: "Organisation visuelle de l’information" },
-            { front: "Croquis", back: "Dessin simple pour mémoriser" },
-            { front: "Image décorative", back: "Image sans lien direct avec le contenu" }
+            { front: "Double codage", back: "Association de mots et d’images." },
+            { front: "Spatialisation", back: "Organisation visuelle des infos dans l'espace." },
+            { front: "Sketchnoting", back: "Prise de notes visuelle et synthétique." },
+            { front: "Mind Map", back: "Carte rayonnante facilitant l'association d'idées." }
         ],
-        mnemonic: "Voir, c’est déjà comprendre.",
-        createdAt: Date.now() - 20, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Voir, c'est déjà savoir.",
+        createdAt: Date.now() - 300, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_10',
         title: '10. Apprendre en petites doses',
-        summary: 'Fractionner pour mieux mémoriser. Apprendre de grandes quantités d’informations en une seule fois surcharge le cerveau.',
+        summary: 'Évitez l\'indigestion mentale. Apprenez à diviser vos savoirs pour mieux régner sur votre mémoire de travail et progresser sans fatigue.',
         keyConcepts: [
             { 
-                concept: 'La surcharge cognitive', 
-                explanation: 'La surcharge cognitive apparaît lorsque la mémoire de travail reçoit trop d’informations simultanément. Dans ce cas, la compréhension diminue et l’apprentissage devient inefficace.',
-                deepDive: 'Le cerveau n’est pas conçu pour traiter de grandes quantités de nouvelles informations en même temps. La charge cognitive totale est la somme de la charge intrinsèque, extrinsèque et essentielle.'
+                concept: 'Le Chunking', 
+                explanation: 'C’est l’art de regrouper des petites infos isolées en blocs de sens. Un numéro de téléphone est impossible à retenir chiffre par chiffre, mais facile en 5 blocs.',
+                deepDive: 'Le cerveau traite un "chunk" comme une seule unité. Cela décuple votre capacité de réflexion immédiate.'
             },
             { 
-                concept: 'Le principe du chunking', 
-                explanation: 'Le chunking consiste à regrouper les informations en unités cohérentes et significatives. Plutôt que de mémoriser une longue liste, le cerveau retient plus facilement quelques groupes.',
-                deepDive: 'Le nombre magique de Miller (7 +/- 2) s’applique aux items isolés. Le chunking permet de traiter des structures complexes comme une seule unité, libérant ainsi de l’espace mental.'
+                concept: 'La charge cognitive', 
+                explanation: 'Chaque nouvelle info consomme de l\'énergie. Si vous apprenez trop d\'un coup, la mémoire de travail sature et vous ne retenez plus rien.',
+                deepDive: 'On distingue la charge intrinsèque (difficulté) et extrinsèque (mauvaise présentation). Fractionner minimise l\'extrinsèque.'
             },
             { 
-                concept: 'L’apprentissage progressif', 
-                explanation: 'L’apprentissage progressif repose sur une construction étape par étape des connaissances. Chaque nouvelle information s’appuie sur des bases déjà comprises.',
-                deepDive: 'Cette approche en "échafaudage" (scaffolding) permet de maintenir l\'apprenant dans sa zone proximale de développement, garantissant un succès croissant.'
+                concept: 'La méthode Pomodoro', 
+                explanation: 'Travailler par blocs de 25 minutes respecte les cycles naturels de l\'attention et évite l\'épuisement cognitif.',
+                deepDive: 'Les pauses permettent au cerveau de passer en mode "diffus", propice à la créativité et à la résolution de problèmes.'
             },
             { 
-                concept: 'Régularité plutôt qu’intensité', 
-                explanation: 'Apprendre un peu mais régulièrement est plus efficace qu’apprendre beaucoup en une seule fois. Les séances courtes favorisent la consolidation.',
-                deepDive: 'L\'effet de primauté et de récence est optimisé lors de sessions courtes : on retient mieux le début et la fin d\'un bloc. Plus de blocs = plus de débuts et de fins.'
+                concept: 'Le micro-learning', 
+                explanation: 'Apprendre une seule notion clé par jour est plus efficace sur le long terme que d\'étudier 10 heures une fois par mois.',
+                deepDive: 'La régularité crée des habitudes neuronales qui abaissent la résistance initiale au travail.'
             }
         ],
-        examples: ['Diviser un chapitre', 'Apprendre une notion par séance', 'Faire des pauses régulières', 'Réviser souvent mais brièvement'],
+        examples: [
+            'Découper un chapitre de 40 pages en 4 sessions de 10 pages focalisées sur des sous-thèmes.',
+            'Apprendre une liste de 20 mots en les regroupant par "famille d\'usage" (ex: cuisine).',
+            'Utiliser les temps morts (transports) pour réviser une seule flashcard intensivement.',
+            'Se fixer pour objectif de maîtriser un seul concept difficile par matinée.'
+        ],
         quiz: [
-            { question: "Pourquoi apprendre en petites doses est efficace ?", options: ["Cela supprime l’effort", "Cela respecte la mémoire", "Cela évite la répétition", "Cela accélère tout"], correctAnswer: "Cela respecte la mémoire", explanation: "On évite de saturer la mémoire de travail qui a une capacité limitée." },
-            { question: "Le chunking consiste à :", options: ["Copier", "Regrouper", "Relire", "Répéter"], correctAnswer: "Regrouper", explanation: "On regroupe les petits éléments en unités de sens plus larges." },
-            { question: "L’apprentissage progressif permet :", options: ["D’aller plus vite", "De consolider", "D’éviter l’erreur", "De supprimer la révision"], correctAnswer: "De consolider", explanation: "Construire sur des bases solides assure la stabilité du savoir." },
-            { question: "Quelle stratégie est la plus efficace ?", options: ["Une longue séance", "Une séance unique", "Des séances régulières", "Une révision finale"], correctAnswer: "Des séances régulières", explanation: "La régularité est la clé de l'ancrage profond." }
+            { question: "Qu'est-ce que le chunking ?", options: ["Manger en révisant", "Regrouper les infos par blocs", "Lire vite", "Oublier"], correctAnswer: "Regrouper les infos par blocs", explanation: "On crée des unités logiques pour contourner les limites de la mémoire." },
+            { question: "La charge cognitive excessive provoque :", options: ["La saturation", "Le génie", "Le rire", "Le sommeil profond"], correctAnswer: "La saturation", explanation: "Le cerveau ne peut plus rien encoder de nouveau." },
+            { question: "Pourquoi la pause Pomodoro est-elle vitale ?", options: ["Pour manger", "Pour passer en mode diffus", "Pour s'arrêter de travailler", "Pour dormir"], correctAnswer: "Pour passer en mode diffus", explanation: "Le mode diffus permet de consolider les infos en arrière-plan." },
+            { question: "Le micro-learning favorise :", options: ["La vitesse", "La régularité", "La paresse", "La confusion"], correctAnswer: "La régularité", explanation: "Apprendre peu mais souvent est la clé du savoir durable." }
         ],
         flashcards: [
-            { front: "Surcharge cognitive", back: "Trop d’informations simultanées en mémoire" },
-            { front: "Chunking", back: "Regroupement d’informations en unités de sens" },
-            { front: "Apprentissage progressif", back: "Construction étape par étape des savoirs" },
-            { front: "Régularité", back: "Fréquence stable des révisions plutôt que l'intensité" }
+            { front: "Chunking", back: "Regroupement d’infos en unités de sens." },
+            { front: "Charge cognitive", back: "Quantité d'effort mental utilisé en mémoire de travail." },
+            { front: "Mode diffus", back: "État de relaxation propice à la créativité et l'ancrage." },
+            { front: "Pomodoro", back: "Technique de travail par blocs de temps (25 min)." }
         ],
-        mnemonic: "Moins à la fois, mieux dans le temps.",
-        createdAt: Date.now() - 10, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        mnemonic: "Diviser pour mieux ancrer.",
+        createdAt: Date.now() - 200, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     },
     {
         id: 'learn_11',
-        title: '11. Réviser intelligemment',
-        summary: 'Transformer la révision en apprentissage. Une révision intelligente repose sur des stratégies actives.',
+        title: '11. Stratégies de révision',
+        summary: 'Transformez vos révisions en un jeu stratégique. Apprenez à cibler vos points faibles et à utiliser le feedback pour une progression fulgurante.',
         keyConcepts: [
             { 
-                concept: 'La révision passive', 
-                explanation: 'Relire un cours ou surligner des notes donne une impression trompeuse de maîtrise. Ces méthodes reposent sur la reconnaissance.',
-                deepDive: 'C’est l’illusion de maîtrise : le cerveau confond la fluidité de lecture avec la capacité de rappel autonome. C\'est l\'une des méthodes les plus utilisées mais les moins productives.'
+                concept: 'L\'auto-correction', 
+                explanation: 'Ne vous contentez pas de faire un quiz. Analysez vos erreurs. Une erreur comprise s\'ancre plus profondément qu\'une réponse juste par chance.',
+                deepDive: 'L\'erreur crée un signal de "décalage" qui force le cerveau à une mise à jour prioritaire de la connexion neuronale.'
             },
             { 
-                concept: 'Le rappel actif', 
-                explanation: 'Le rappel actif consiste à chercher une information sans support. Cette recherche renforce la trace mnésique.',
-                deepDive: 'Chaque tentative de récupération modifie la structure du souvenir, le rendant plus résistant à l\'oubli. C\'est le principe du "Testing Effect".'
+                concept: 'La métacognition', 
+                explanation: 'C\'est "penser sur sa propre pensée". Identifier précisément ce que l\'on ignore permet de gagner des heures en ciblant les bonnes zones.',
+                deepDive: 'Les meilleurs apprenants planifient et évaluent leur propre compréhension constamment.'
             },
             { 
-                concept: 'La répétition espacée', 
-                explanation: 'La répétition espacée consiste à revoir une information à intervalles réguliers dans le temps. Cela favorise la consolidation à long terme.',
-                deepDive: 'En révisant juste avant le point d\'oubli, on force le cerveau à un effort de récupération maximal qui maximise la stabilité du souvenir.'
+                concept: 'Le feedback immédiat', 
+                explanation: 'Plus le délai entre votre réponse et la correction est court, plus l\'apprentissage est efficace. Le cerveau a besoin de savoir tout de suite.',
+                deepDive: 'C\'est pourquoi les flashcards et les quiz interactifs sont supérieurs aux tests avec correction différée.'
             },
             { 
-                concept: 'Adapter sa révision', 
-                explanation: 'Une révision efficace doit être adaptée à l’objectif poursuivi : comprendre, appliquer ou restituer nécessite des stratégies différentes.',
-                deepDive: 'L\'auto-explication est idéale pour la compréhension, tandis que les flashcards excellent pour le rappel factuel et les exercices pour l\'application.'
+                concept: 'La révision sélective', 
+                explanation: 'Ne révisez pas tout à chaque fois. Concentrez-vous à 80% sur ce qui est encore flou ou difficile (Méthode Leitner).',
+                deepDive: 'Optimiser ses révisions permet de maintenir un vaste savoir sans y passer des journées entières.'
             }
         ],
-        examples: ['Se tester sans support', 'Utiliser des flashcards', 'Espacer les révisions', 'Expliquer une notion'],
+        examples: [
+            'Reprendre ses erreurs de quiz et chercher activement "pourquoi" l\'option était fausse.',
+            'Utiliser des codes couleurs (vert, orange, rouge) pour marquer les notions à revoir.',
+            'Se demander après chaque session : "Qu\'est-ce qui a été le plus difficile aujourd\'hui ?"',
+            'Pratiquer avec un partenaire et se corriger mutuellement en argumentant.'
+        ],
         quiz: [
-            { question: "Pourquoi la révision passive est peu efficace ?", options: ["Elle est trop longue", "Elle repose sur la reconnaissance", "Elle fatigue", "Elle évite la compréhension"], correctAnswer: "Elle repose sur la reconnaissance", explanation: "On reconnaît le texte, mais on ne sait pas le produire sans aide." },
-            { question: "Le rappel actif consiste à :", options: ["Relire", "Copier", "Chercher de mémoire", "Surligner"], correctAnswer: "Chercher de mémoire", explanation: "C'est l'effort de recherche mentale qui crée l'apprentissage." },
-            { question: "La répétition espacée permet :", options: ["D’apprendre vite", "D’éviter l’oubli à long terme", "De réviser une fois", "De supprimer l’effort"], correctAnswer: "D’éviter l’oubli à long terme", explanation: "L'espacement transforme le savoir éphémère en savoir permanent." },
-            { question: "Une révision efficace doit être :", options: ["Identique pour tous", "Intensive", "Adaptée à l’objectif", "Sans méthode"], correctAnswer: "Adaptée à l’objectif", explanation: "Le choix de l'outil (quiz, schéma, texte) dépend de ce qu'on veut maîtriser." }
+            { question: "Quelle est la meilleure réaction face à une erreur ?", options: ["L'ignorer", "L'analyser et la corriger", "S'arrêter", "Recommencer tout"], correctAnswer: "L'analyser et la corriger", explanation: "L'erreur est le moteur le plus puissant de l'apprentissage." },
+            { question: "La métacognition permet de :", options: ["Cibler ses points faibles", "Apprendre plus de mots", "Lire plus vite", "Dormir moins"], correctAnswer: "Cibler ses points faibles", explanation: "Savoir ce que l'on ne sait pas est le début de la maîtrise." },
+            { question: "Le feedback immédiat est utile car :", options: ["Il rassure", "Il corrige le chemin neuronal aussitôt", "Il donne une note", "Il est rapide"], correctAnswer: "Il corrige le chemin neuronal aussitôt", explanation: "Le cerveau ajuste ses connexions pendant que l'info est encore active." },
+            { question: "La méthode Leitner utilise :", options: ["Des livres", "Des boîtes de flashcards", "Des schémas", "Des chansons"], correctAnswer: "Des boîtes de flashcards", explanation: "Elle permet de réviser plus souvent les cartes difficiles." }
         ],
         flashcards: [
-            { front: "Révision passive", back: "Relecture sans effort de rappel" },
-            { front: "Rappel actif", back: "Recherche d’une information sans support aide" },
-            { front: "Répétition espacée", back: "Révision répartie dans le temps (SRS)" },
-            { front: "Bachotage", back: "Révision intensive de courte durée (peu efficace)" }
+            { front: "Auto-correction", back: "Analyse et correction immédiate de ses propres erreurs." },
+            { front: "Feedback", back: "Information en retour sur la justesse d'une action." },
+            { front: "Sélectivité", back: "Action de prioriser les notions non maîtrisées." },
+            { front: "Analyse d'erreur", back: "Moteur de mise à jour des réseaux neuronaux." }
         ],
         mnemonic: "Si je dois chercher, c’est que j’apprends.",
-        createdAt: Date.now(), category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
+        createdAt: Date.now() - 100, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, sourceType: 'text', isPremiumContent: true
     }
 ];
 
@@ -478,7 +534,7 @@ const MOCK_PACKS: PremiumPack[] = [
     {
         id: 'pack_methode_apprentissage',
         title: 'Apprendre à apprendre',
-        description: 'Parcours complet en 11 modules : de la science de l\'oubli à la révision stratégique. Devenez un expert de votre propre mémoire.',
+        description: 'Le parcours de référence pour maîtriser votre propre cerveau. 11 modules enrichis pour passer de l\'étudiant passif à l\'expert de la mémorisation stratégique.',
         category: 'expert',
         price: 3.99,
         capsuleCount: 11,
@@ -522,7 +578,7 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                                 </div>
                                 <div className="p-8 flex-grow flex flex-col">
                                     <div className="flex justify-between items-start mb-4">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-zinc-700 px-2.5 py-1 rounded-full">FONDAMENTAUX</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-zinc-700 px-2.5 py-1 rounded-full">PARCOURS EXPERT</span>
                                         <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{pack.capsuleCount} modules</span>
                                     </div>
                                     <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-3 tracking-tight">{pack.title}</h3>
@@ -540,7 +596,7 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                                             disabled={!!loadingPackId}
                                             className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-200 shadow-sm"
                                         >
-                                            {loadingPackId === pack.id ? <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" /> : (isUnlocked ? 'Réimporter' : 'Débloquer')}
+                                            {loadingPackId === pack.id ? <RefreshCwIcon className="w-3.5 h-3.5 animate-spin" /> : (isUnlocked ? 'Réimporter' : 'Acheter')}
                                         </button>
                                     </div>
                                 </div>
