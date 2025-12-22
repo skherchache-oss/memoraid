@@ -211,16 +211,30 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             </header>
 
             {dueCapsules.length > 0 && !selectedCategory && !searchTerm && (
-                <div className="mb-14 flex items-center justify-between p-8 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-[40px] shadow-2xl shadow-emerald-200/40 dark:shadow-none overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-12 opacity-10 rotate-12 transform scale-150"><ClockIcon className="w-32 h-32" /></div>
-                    <div className="flex items-center gap-6 relative z-10">
-                        <div className="p-5 bg-white/20 backdrop-blur-xl rounded-3xl border border-white/20"><ClockIcon className="w-10 h-10" /></div>
-                        <div>
-                            <p className="text-2xl font-black uppercase tracking-tighter">{dueCapsules.length} modules à réviser</p>
-                            <p className="text-sm font-bold text-emerald-100 opacity-80 uppercase tracking-widest">Optimisez votre mémorisation maintenant</p>
+                <div className="mb-14 flex flex-col sm:flex-row items-center justify-between p-5 sm:p-8 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-[32px] sm:rounded-[40px] shadow-2xl shadow-emerald-200/40 dark:shadow-none overflow-hidden relative gap-6 sm:gap-4">
+                    {/* Decorative background icon */}
+                    <div className="absolute top-0 right-0 p-8 sm:p-12 opacity-10 rotate-12 transform scale-150 pointer-events-none"><ClockIcon className="w-24 h-24 sm:w-32 sm:h-32" /></div>
+                    
+                    <div className="flex items-center gap-4 sm:gap-6 relative z-10 w-full sm:w-auto">
+                        <div className="p-3 sm:p-5 bg-white/20 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 flex-shrink-0">
+                            <ClockIcon className="w-6 h-6 sm:w-10 sm:h-10" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-xl sm:text-2xl font-black uppercase tracking-tighter truncate">
+                                {dueCapsules.length} modules à réviser
+                            </p>
+                            <p className="text-[10px] sm:text-sm font-bold text-emerald-100 opacity-80 uppercase tracking-widest truncate">
+                                Optimisez votre mémorisation
+                            </p>
                         </div>
                     </div>
-                    <button onClick={() => setIsReviewConfirmOpen(true)} className="px-10 py-4 bg-white text-emerald-600 rounded-[20px] text-xs font-black uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl active:scale-95 relative z-10">Démarrer</button>
+                    
+                    <button 
+                        onClick={() => setIsReviewConfirmOpen(true)} 
+                        className="w-full sm:w-auto px-8 py-3.5 sm:px-10 sm:py-4 bg-white text-emerald-600 rounded-xl sm:rounded-[20px] text-xs font-black uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl active:scale-95 relative z-10 flex-shrink-0 whitespace-nowrap"
+                    >
+                        Démarrer
+                    </button>
                 </div>
             )}
 
