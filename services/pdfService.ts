@@ -173,7 +173,6 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
             const pageHeight = sketchPage.getHeight();
             let currentY = pageHeight - 60;
 
-            // Titre de la page
             sketchPage.drawText('SYNTHÈSE VISUELLE', {
                 x: MARGIN,
                 y: currentY,
@@ -183,7 +182,6 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
             });
             currentY -= 30;
 
-            // Nettoyage base64
             const base64Data = capsule.memoryAidImage.includes('base64,') 
                 ? capsule.memoryAidImage.split('base64,')[1] 
                 : capsule.memoryAidImage;
@@ -193,8 +191,6 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
             for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
             
             const image = await doc.embedPng(bytes);
-            
-            // On laisse de la place pour la signature en bas
             const dims = image.scaleToFit(pageWidth - 2 * MARGIN, pageHeight - 200);
             
             sketchPage.drawImage(image, {
@@ -204,7 +200,6 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
                 height: dims.height,
             });
 
-            // DESCRIPTION DE L'ILLUSTRATION (Sera "Illustration Memoraid" par défaut)
             if (capsule.memoryAidDescription) {
                 const descLines = wrapText(capsule.memoryAidDescription, fontBold, 10, pageWidth - 2 * MARGIN);
                 let descY = currentY - dims.height - 30;
@@ -219,7 +214,6 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
                     descY -= 14;
                 });
             }
-
         } catch (e) {
             console.error("Erreur insertion page croquis PDF", e);
         }

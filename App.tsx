@@ -30,9 +30,6 @@ import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, migrat
 import { useLanguage } from './contexts/LanguageContext';
 import { translations } from './i18n/translations';
 
-type View = 'create' | 'base' | 'agenda' | 'store' | 'profile' | 'classes';
-type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
-
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -105,8 +102,37 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
 
+    // RETRAIT SÉCURISÉ DU SPLASH SCREEN
     useEffect(() => {
-        if (!auth) return;
+        const removeSplash = () => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.style.opacity = '0';
+                splash.style.pointerEvents = 'none';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    splash.remove();
+                }, 600);
+            }
+        };
+
+        if (document.readyState === 'complete') {
+            removeSplash();
+        } else {
+            window.addEventListener('load', removeSplash);
+            const timer = setTimeout(removeSplash, 1500);
+            return () => {
+                window.removeEventListener('load', removeSplash);
+                clearTimeout(timer);
+            };
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!auth) {
+            setIsAuthInitializing(false);
+            return;
+        }
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             setIsAuthInitializing(false);
@@ -124,6 +150,14 @@ const AppContent: React.FC = () => {
     }, []);
 
     useEffect(() => { localStorage.setItem('memoraid_profile', JSON.stringify(profile)); }, [profile]);
+
+    const saveCapsuleData = useCallback(async (capsule: CognitiveCapsule) => {
+        if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
+        else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
+        if (activeCapsule?.id === capsule.id) {
+            setActiveCapsule(capsule);
+        }
+    }, [currentUser, activeCapsule]);
 
     const handleGenerate = useCallback(async (inputText: string, sourceType?: SourceType) => {
         if (!isOnline) { setError(t('gen_needs_online')); return; }
@@ -143,7 +177,7 @@ const AppContent: React.FC = () => {
             if (generationController.current.isCancelled) return;
             setError(t('error_generation'));
         } finally { if (!generationController.current.isCancelled) setIsLoading(false); }
-    }, [addToast, profile, isOnline, language, t, isLoading, cooldownUntil]);
+    }, [addToast, profile, isOnline, language, t, isLoading, cooldownUntil, saveCapsuleData]);
 
     const handleGenerateFromFile = useCallback(async (file: File, sourceType?: SourceType) => {
         if (!isOnline) { setError(t('file_needs_online')); return; }
@@ -164,12 +198,7 @@ const AppContent: React.FC = () => {
             if (generationController.current.isCancelled) return;
             setError(t('error_generation'));
         } finally { if (!generationController.current.isCancelled) setIsLoading(false); }
-    }, [addToast, profile, isOnline, language, t, isLoading, cooldownUntil]);
-
-    const saveCapsuleData = async (capsule: CognitiveCapsule) => {
-        if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
-        else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
-    };
+    }, [addToast, profile, isOnline, language, t, isLoading, cooldownUntil, saveCapsuleData]);
 
     const handleGamificationAction = (action: any, count = 1, score?: number) => {
         const { stats, newBadges, levelUp } = processGamificationAction(profile.user.gamification || getInitialGamificationStats(), action, profile.capsules.length + count, score);
@@ -193,7 +222,8 @@ const AppContent: React.FC = () => {
     };
 
     const handleMarkAsReviewed = async (id: string, score?: number, type: 'quiz' | 'flashcard' | 'manual' = 'manual') => {
-        const capsule = displayCapsules.find(c => c.id === id);
+        const all = [...profile.capsules, ...groupCapsules];
+        const capsule = all.find(c => c.id === id);
         if (!capsule) return;
         const now = Date.now();
         const newLog: ReviewLog = { date: now, type, score: score || 100 };
@@ -202,20 +232,6 @@ const AppContent: React.FC = () => {
         await saveCapsuleData(updatedCapsule);
         handleGamificationAction(type === 'quiz' ? 'quiz' : (type === 'flashcard' ? 'flashcard' : 'manual_review'), 0, score);
         if (activeCapsule?.id === id) setActiveCapsule(updatedCapsule);
-    };
-
-    const handleBulkSetCategory = async (ids: string[], category: string) => {
-        try {
-            for (const id of ids) {
-                const capsule = displayCapsules.find(c => c.id === id);
-                if (capsule) {
-                    await saveCapsuleData({ ...capsule, category });
-                }
-            }
-            addToast(`${ids.length} modules classés en "${category}"`, "success");
-        } catch (e) {
-            addToast("Erreur lors du classement groupé", "error");
-        }
     };
 
     const displayCapsules = useMemo(() => {
@@ -260,16 +276,16 @@ const AppContent: React.FC = () => {
                                 onStartFlashcards={() => setIsFlashcardMode(true)} 
                                 onStartActiveLearning={() => setIsActiveLearning(true)} 
                                 onMarkAsReviewed={handleMarkAsReviewed} 
-                                onSetCategory={(id, cat) => saveCapsuleData({ ...displayCapsules.find(c => c.id === id)!, category: cat })} 
+                                onSetCategory={(id, cat) => { const all = [...profile.capsules, ...groupCapsules]; const cap = all.find(c => c.id === id); if (cap) saveCapsuleData({ ...cap, category: cat }); }} 
                                 allCategories={[]} 
-                                onSetMemoryAid={(id, img, desc) => saveCapsuleData({ ...displayCapsules.find(c => c.id === id)!, memoryAidImage: img || undefined, memoryAidDescription: desc || undefined })} 
-                                onSetMnemonic={(id, m) => saveCapsuleData({ ...displayCapsules.find(c => c.id === id)!, mnemonic: m })} 
+                                onSetMemoryAid={(id, img, desc) => { const all = [...profile.capsules, ...groupCapsules]; const cap = all.find(c => c.id === id); if (cap) saveCapsuleData({ ...cap, memoryAidImage: img || undefined, memoryAidDescription: desc || undefined }); }} 
+                                onSetMnemonic={(id, m) => { const all = [...profile.capsules, ...groupCapsules]; const cap = all.find(c => c.id === id); if (cap) saveCapsuleData({ ...cap, mnemonic: m }); }} 
                                 onUpdateQuiz={() => {}} 
                                 onBackToList={() => setActiveCapsule(null)} 
                                 onNavigateToProfile={() => setView('profile')} 
                                 addToast={addToast} 
                                 userGroups={userGroups} 
-                                onShareCapsule={(g, c) => shareCapsuleToGroup(currentUser!.uid, g, c)} 
+                                onShareCapsule={(g, c) => { if (currentUser) shareCapsuleToGroup(currentUser.uid, g, c); }} 
                                 isPremium={profile.user.isPremium} 
                             />
                         ) : (
@@ -286,12 +302,17 @@ const AppContent: React.FC = () => {
                                 selectedCapsuleIds={selectedCapsuleIds} 
                                 setSelectedCapsuleIds={setSelectedCapsuleIds} 
                                 onOpenStore={() => setView('store')} 
-                                onBulkSetCategory={handleBulkSetCategory}
+                                onBulkSetCategory={async (ids, cat) => {
+                                    for (const id of ids) {
+                                        const cap = displayCapsules.find(c => c.id === id);
+                                        if (cap) await saveCapsuleData({ ...cap, category: cat });
+                                    }
+                                    addToast(`${ids.length} modules classés.`, "success");
+                                }}
                             />
                         )}
                     </div>
                 )}
-                {/* Fixed syntax errors in AgendaView props assignment below */}
                 {view === 'agenda' && (
                     <AgendaView 
                         plans={profile.user.plans || []} 
@@ -299,7 +320,10 @@ const AppContent: React.FC = () => {
                         onSetActivePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, activePlanId: id } }))} 
                         onUpdatePlan={p => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.map(pl => pl.id === p.id ? p : pl) } }))} 
                         onDeletePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.filter(pl => pl.id !== id) } }))} 
-                        onOpenCapsule={id => { setActiveCapsule(displayCapsules.find(c => c.id === id)!); setView('base'); }} 
+                        onOpenCapsule={id => { 
+                            const target = displayCapsules.find(c => c.id === id);
+                            if (target) { setActiveCapsule(target); setView('base'); }
+                        }} 
                         onCreateNew={() => setIsPlanningWizardOpen(true)} 
                     />
                 )}
@@ -320,6 +344,9 @@ const AppContent: React.FC = () => {
         </div>
     );
 };
+
+type View = 'create' | 'base' | 'agenda' | 'store' | 'profile' | 'classes';
+type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
 
 const App: React.FC = () => <ToastProvider><AppContent /></ToastProvider>;
 export default App;

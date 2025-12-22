@@ -9,13 +9,8 @@ interface PremiumStoreProps {
     isPremiumUser: boolean;
 }
 
-// --- ASSETS STATIQUES POUR LES PACKS (SVG Base64) ---
-const SKETCH_FORGETTING = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YwZjlmZiIvPgogIDxwYXRoIGQ9Ik01MCA1MCBMNTAgMjUwIEwzNTAgMjUwIiBzdHJva2U9IiM0NzU1NjkiIHN0cm9rZS1kYXNoYXJyYXk9IjUsNSIvPgogIDxwYXRoIGQ9Ik01MCA1MCBRIDEwMCAyNTAgMzUwIDI1MCIgc3Ryb2tlPSIjZWY0NDQ0IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8dGV4dCB4PSIzNSIgeT0iNjAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIiBzdHJva2U9Im5vbmUiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJlbmQiPjEwMCUgTVNDPC90ZXh0PgogIDx0ZXh0IHg9IjIwMCIgeT0iMjcwIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgc3Ryb2tlPSJub25lIiBmaWxsPSIjNjY2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5UZW1wcyAoSm91cnMpPC90ZXh0Pgo8L3N2Zz4=";
-const SKETCH_MEMORY_FLOW = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2VmMmZmZSIvPgogIDxyZWN0IHg9IjIwIiB5PSIxMDAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IndoaXRlIi8+CiAgPHRleHQgeD0iNjAiIHk9IjEyNSIgZm9udC1zaXplPSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5TZW5zPC90ZXh0PgogIDxwYXRoIGQ9Ik0xMDAgMTIwIEwxNDAgMTIwIiBzdHJva2U9IiM2NjYiIG1hcmtlci1lbmQ9InVybCgjYXJyb3cpIi8+CiAgPHJlY3QgeD0iMTQwIiB5PSIxMDAiIHdpZHRoPSI4MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IiNkYmU0ZmYiLz4KICA8dGV4dCB4PSIxODAiIHk9IjEyNSIgZm9udC1zaXplPSIxMCIgaGVpZ2h0PSIxMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgc3Ryb2tlPSJub25lIiBmaWxsPSIjMzMzIj5UcmF2YWlsPC90ZXh0Pgo8L3N2Zz4=";
-const SKETCH_ACTIVE_PASSIVE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZjZmNmYyIvPgogIDxsaW5lIHgxPSIyMDAiIHkxPSI1MCIgeDI9IjIwMCIgeTI9IjI1MCIgc3Ryb2tlPSIjZGRkIiBzdHJva2UtZGFzaGFycmF5PSI0LDQiLz4KICAgIDx0ZXh0IHg9IjEwMCIgeT0iNDAiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzY2NiI+UEFTU0lWRTwvdGV4dD4KICA8Y2lyY2xlIGN4PSIzMDAiIGN5PSIxMzAiIHI9IjM1IiBmaWxsPSIjZDFmYWU1IiBzdHJva2U9IiMxMGI5ODEiLz4KICA8cGF0aCBkPSJNMjg1IDEzMCBMMjk1IDE0MCBMMzE1IDEyMCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2Utd2lkdGg9IjMiLz4KPC9zdmc+";
-const SKETCH_CHUNKING = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgMzAwIiBmaWxsPSJub25lIiBzdHJva2U9IiMzMzMiIHN0cm9rZS13aWR0aD0iMiI+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2Y4ZmFmYyIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIzMCwgNzApIj4KICAgIDxyZWN0IHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcng9IjUiIGZpbGw9IiNkMWZhZTUiIHN0cm9rZT0iIzEwYjk4MSIvPgogICAgPHRleHQgeD0iMTAiIHk9IjU1IiBmb250LXNpemU9IjEwIiBmaWxsPSIjMDU5Njc5Ij5DaHVuazwvdGV4dD4KICA8L2c+Cjwvc3ZnPg==";
-
 // --- DONNÉES DU PACK APPRENDRE À APPRENDRE ---
+// Les images sont retirées pour forcer la génération manuelle par l'utilisateur
 const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
     {
         id: 'learn_1',
@@ -24,7 +19,6 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         keyConcepts: [{ concept: 'L’oubli naturel', explanation: 'Le cerveau élimine les données peu utilisées pour rester performant.' }, { concept: 'La courbe de l’oubli', explanation: 'Sans rappel, l\'information s\'efface de manière exponentielle.' }],
         examples: ['Relire sans se questionner', 'Apprendre massivement la veille'],
         quiz: [{ question: "Que montre la courbe de l'oubli ?", options: ["Perte rapide sans rappel", "Mémoire infinie"], correctAnswer: "Perte rapide sans rappel", explanation: "..." }],
-        memoryAidImage: SKETCH_FORGETTING.split('base64,')[1],
         createdAt: Date.now() - 100, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
@@ -33,7 +27,6 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Le trajet de l\'info : sensorielle, de travail, puis long terme.',
         keyConcepts: [{ concept: 'Mémoire de travail', explanation: 'Espace limité de manipulation des infos.' }, { concept: 'Consolidation', explanation: 'Le sommeil fixe les connaissances.' }],
         examples: ['Attention focalisée', 'Sommeil réparateur'],
-        memoryAidImage: SKETCH_MEMORY_FLOW.split('base64,')[1],
         createdAt: Date.now() - 90, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
@@ -42,7 +35,6 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Lire est passif, se questionner est actif. L\'effort est le moteur de l\'ancrage.',
         keyConcepts: [{ concept: 'Illusion de maîtrise', explanation: 'Confondre familiarité visuelle et savoir réel.' }, { concept: 'Rappel Actif', explanation: 'Forcer le cerveau à reconstruire l\'info.' }],
         examples: ['Se tester plutôt que relire'],
-        memoryAidImage: SKETCH_ACTIVE_PASSIVE.split('base64,')[1],
         createdAt: Date.now() - 80, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
     },
     {
@@ -99,7 +91,6 @@ const CAPSULES_APPRENDRE: CognitiveCapsule[] = [
         summary: 'Vaincre la surcharge cognitive par le fractionnement et le chunking.',
         keyConcepts: [{ concept: 'Chunking', explanation: 'Regrouper les données en unités de sens cohérentes.' }],
         examples: ['Pomodoro'],
-        memoryAidImage: SKETCH_CHUNKING.split('base64,')[1],
         createdAt: Date.now() - 10, category: 'Apprendre à apprendre', reviewStage: 0, lastReviewed: null, quiz: [], flashcards: [], sourceType: 'text', isPremiumContent: true
     }
 ];
@@ -144,7 +135,6 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {MOCK_PACKS.map(pack => {
                         const isUnlocked = unlockedPackIds.includes(pack.id);
-                        // Changement : "expert" devient "Fondamentaux"
                         const categoryLabel = pack.category === 'expert' ? 'Fondamentaux' : pack.category.toUpperCase();
                         
                         return (
