@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { CognitiveCapsule, AppData, UserProfile, QuizQuestion, ReviewLog, Group, StudyPlan, MemberProgress, PremiumPack, Badge, SourceType } from './types';
 import Header from './components/Header';
@@ -98,7 +97,6 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
 
-    // Gestion de la connectivité
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
@@ -110,7 +108,6 @@ const AppContent: React.FC = () => {
         };
     }, []);
 
-    // RETRAIT SÉCURISÉ DU SPLASH SCREEN AU MONTAGE
     useEffect(() => {
         const removeSplash = () => {
             const splash = document.getElementById('splash-screen');
@@ -155,10 +152,8 @@ const AppContent: React.FC = () => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
         else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
         
-        if (activeCapsule?.id === capsule.id) {
-            setActiveCapsule(capsule);
-        }
-    }, [currentUser, activeCapsule]);
+        setActiveCapsule(prev => prev?.id === capsule.id ? capsule : prev);
+    }, [currentUser]);
 
     const handleGenerate = useCallback(async (inputText: string, sourceType?: SourceType) => {
         if (!isOnline) { setError(t('gen_needs_online')); return; }
@@ -243,10 +238,6 @@ const AppContent: React.FC = () => {
         updatedCapsule.masteryLevel = calculateMasteryScore(updatedCapsule);
         await saveCapsuleData(updatedCapsule);
         handleGamificationAction(type === 'quiz' ? 'quiz' : (type === 'flashcard' ? 'flashcard' : 'manual_review'), 0, score);
-        
-        if (activeCapsule?.id === id) {
-            setActiveCapsule(updatedCapsule);
-        }
     };
 
     const displayCapsules = useMemo(() => {
@@ -285,7 +276,7 @@ const AppContent: React.FC = () => {
                             <CapsuleView 
                                 key={activeCapsule.id} 
                                 capsule={activeCapsule} 
-                                allCapsules={profile.capsules} 
+                                allCapsules={displayCapsules} 
                                 selectedCapsuleIds={selectedCapsuleIds} 
                                 onStartCoaching={() => setIsCoaching(true)} 
                                 onStartFlashcards={() => setIsFlashcardMode(true)} 
@@ -310,6 +301,7 @@ const AppContent: React.FC = () => {
                                 onUpdateQuiz={() => {}} 
                                 onBackToList={() => setActiveCapsule(null)} 
                                 onNavigateToProfile={() => setView('profile')} 
+                                onSelectCapsule={setActiveCapsule}
                                 addToast={addToast} 
                                 userGroups={userGroups} 
                                 onShareCapsule={(g, c) => { if (currentUser) shareCapsuleToGroup(currentUser.uid, g, c); }} 

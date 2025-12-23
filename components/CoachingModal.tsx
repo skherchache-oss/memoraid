@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CognitiveCapsule, ChatMessage, CoachingMode, UserProfile } from '../types';
 import { createCoachingSession, getAiClient } from '../services/geminiService';
@@ -106,8 +105,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
     const stopRequestRef = useRef<boolean>(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    // Référence pour le flux silencieux de focus persistant
+    const silentAudioRef = useRef<HTMLAudioElement | null>(null);
     
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -122,6 +122,12 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             audioSourceRef.current.disconnect();
             audioSourceRef.current = null;
         }
+        
+        if (silentAudioRef.current) {
+            silentAudioRef.current.pause();
+            silentAudioRef.current.currentTime = 0;
+        }
+
         if ("mediaSession" in navigator) {
             navigator.mediaSession.playbackState = 'none';
         }
@@ -185,7 +191,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const playTTS = async (text: string) => {
         if (!audioContextRef.current) return;
         
-        // Signal global pour arrêter les autres audio internes
         window.dispatchEvent(new CustomEvent('memoraid-stop-audio', { detail: { origin: 'coach-ai' } }));
         
         const availability = checkTtsAvailability(!!userProfile.isPremium);
@@ -201,15 +206,22 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             await audioContextRef.current.resume();
         }
 
-        // PRENDRE LE FOCUS SYSTEME
+        // --- PERSISTENT FOCUS ---
+        if (!silentAudioRef.current) {
+            silentAudioRef.current = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==');
+            silentAudioRef.current.loop = true;
+        }
+        try { await silentAudioRef.current.play(); } catch (e) {}
+
         if ('mediaSession' in navigator) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: 'Coach IA Memoraid',
-                artist: 'Memoraid',
+                artist: 'Coach IA',
                 artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
             });
             navigator.mediaSession.playbackState = 'playing';
             navigator.mediaSession.setActionHandler('stop', stopAudio);
+            navigator.mediaSession.setActionHandler('pause', stopAudio);
         }
 
         const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
@@ -255,9 +267,14 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 source.connect(audioContextRef.current!.destination);
                 
                 source.onended = () => {
-                    if (!stopRequestRef.current) playChunkSequence(index + 1);
-                    else if (index === chunks.length - 1 && 'mediaSession' in navigator) {
-                        navigator.mediaSession.playbackState = 'none';
+                    if (!stopRequestRef.current) {
+                        playChunkSequence(index + 1);
+                    } else if (index === chunks.length - 1) {
+                        if (silentAudioRef.current) {
+                            silentAudioRef.current.pause();
+                            silentAudioRef.current.currentTime = 0;
+                        }
+                        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
                     }
                 };
 
@@ -296,7 +313,8 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
         
-        if (textareaRef.current) textareaRef.current.blur();
+        const textarea = document.activeElement as HTMLElement;
+        if (textarea) textarea.blur();
         
         setTempSpeech('');
         setRecognitionState('recording');
@@ -447,16 +465,15 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                                 <MicrophoneIcon className="w-5 h-5" />
                              </button>
                              <textarea
-                                ref={textareaRef}
                                 value={displayValue}
                                 onChange={(e) => !isRecording && setUserInput(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage(e))}
                                 placeholder={isRecording ? "Écoute..." : "Message..."}
-                                className="w-full pl-11 pr-10 py-3 bg-slate-100 dark:bg-zinc-800 rounded-xl resize-none"
+                                className="w-full pl-11 pr-10 py-3 bg-slate-100 dark:bg-zinc-800 rounded-xl resize-none outline-none focus:ring-2 focus:ring-blue-500"
                                 rows={1}
                             />
                         </div>
-                        <button type="submit" disabled={isLoading} className="p-3 bg-blue-600 text-white rounded-xl"><SendIcon className="w-5 h-5" /></button>
+                        <button type="submit" disabled={isLoading} className="p-3 bg-blue-600 text-white rounded-xl active:scale-95 transition-transform"><SendIcon className="w-5 h-5" /></button>
                     </form>
                 </footer>
             </div>

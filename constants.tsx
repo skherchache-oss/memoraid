@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const MemoraidLogoIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -11,32 +10,20 @@ export const MemoraidLogoIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 export const MemoraidStickerIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        {/* Background Sticker Circle */}
         <circle cx="12" cy="12" r="11" className="fill-emerald-50 dark:fill-emerald-900/20 stroke-emerald-100 dark:stroke-emerald-800" strokeWidth="1" />
-        
-        {/* Left Shield Part (Emerald) */}
         <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        
-        {/* Right Shield Part (Emerald) */}
         <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        
-        {/* Internal Circuitry / Ideas (Amber) */}
         <path d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" className="stroke-amber-500 dark:stroke-amber-400" strokeWidth="1.2" fill="none" strokeLinecap="round" />
     </svg>
 );
 
 export const LearningIllustration = (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="300" height="200" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        {/* Glow effect behind */}
         <circle cx="150" cy="90" r="75" className="fill-emerald-100/40 dark:fill-emerald-900/10 animate-pulse" />
-
-        {/* The Base (Socket/Platform) - Kept as requested */}
         <rect x="135" y="155" width="30" height="8" rx="1" className="fill-slate-400 dark:fill-slate-600" />
         <rect x="138" y="165" width="24" height="6" rx="1" className="fill-slate-300 dark:fill-slate-500" />
         <rect x="138" y="173" width="24" height="6" rx="1" className="fill-slate-300 dark:fill-slate-500" />
         <path d="M142 180 L150 188 L158 180" className="fill-slate-400 dark:fill-slate-600" />
-
-        {/* Rays of Light/Ideas */}
         <g className="stroke-amber-400 dark:stroke-amber-500" strokeWidth="2.5" strokeLinecap="round">
             <line x1="150" y1="5" x2="150" y2="-5" />
             <line x1="90" y1="30" x2="80" y2="20" />
@@ -44,47 +31,22 @@ export const LearningIllustration = (props: React.SVGProps<SVGSVGElement>) => (
             <line x1="70" y1="90" x2="60" y2="90" />
             <line x1="230" y1="90" x2="240" y2="90" />
         </g>
-
-        {/* THE MEMORAID LOGO on the pedestal */}
         <g transform="translate(90, 35) scale(5)">
-            {/* Left Shield Part */}
-            <path 
-                d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" 
-                className="stroke-emerald-600 dark:stroke-emerald-400" 
-                strokeWidth="0.5" 
-                fill="white" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-            />
-            {/* Right Shield Part */}
-            <path 
-                d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" 
-                className="stroke-emerald-600 dark:stroke-emerald-400" 
-                strokeWidth="0.5" 
-                fill="white" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-            />
-            {/* Internal Circuitry (The Idea) */}
-            <path 
-                d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" 
-                className="stroke-amber-500 dark:stroke-amber-400 animate-pulse" 
-                strokeWidth="0.5" 
-                fill="none" 
-                strokeLinecap="round" 
-            />
+            <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="0.5" fill="white" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="0.5" fill="white" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" className="stroke-amber-500 dark:stroke-amber-400 animate-pulse" strokeWidth="0.5" fill="none" strokeLinecap="round" />
         </g>
-        
-        {/* Little bubbles/particles */}
         <circle cx="120" cy="50" r="2" className="fill-emerald-300 animate-bounce" style={{animationDuration: '3s'}} />
         <circle cx="180" cy="120" r="2" className="fill-blue-300 animate-bounce" style={{animationDuration: '2.5s', animationDelay: '0.5s'}} />
-
     </svg>
 );
 
-
 export const PlusIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+);
+
+export const ArrowRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
 );
 
 export const BookOpenIcon = (props: React.SVGProps<SVGSVGElement>) => (
