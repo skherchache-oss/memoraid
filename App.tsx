@@ -63,13 +63,14 @@ const AppContent: React.FC = () => {
                 if (!parsedProfile.user.gamification) parsedProfile.user.gamification = getInitialGamificationStats();
                 if (!parsedProfile.user.role) parsedProfile.user.role = 'student';
                 if (!parsedProfile.user.plans) parsedProfile.user.plans = [];
+                if (!parsedProfile.user.unlockedPackIds) parsedProfile.user.unlockedPackIds = [];
                 return parsedProfile;
             }
         } catch (e) {
             console.error("Failed to load profile from localStorage", e);
         }
         return {
-            user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [] },
+            user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [], unlockedPackIds: [] },
             capsules: []
         };
     });
@@ -346,7 +347,7 @@ const AppContent: React.FC = () => {
                         onCreateNew={() => setIsPlanningWizardOpen(true)} 
                     />
                 )}
-                {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} isPremiumUser={!!profile.user.isPremium} />}
+                {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} />}
                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={p => setProfile(prev => ({ ...prev, user: p }))} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
                 {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={userGroups.filter(g => g.ownerId === currentUser?.uid)} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
             </main>
