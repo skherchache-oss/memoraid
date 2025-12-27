@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon } from '../constants';
 import type { User } from 'firebase/auth';
@@ -40,7 +39,7 @@ const Header: React.FC<HeaderProps> = ({
     const xpProgress = gamification ? getLevelProgress(gamification.xp) : 0;
 
     const handleXpClick = () => {
-        addToast("Points d'Expérience (XP) : Créez des capsules et faites des quiz pour progresser !", 'info');
+        addToast("Points d'Expérience (XP) : Créez des modules et faites des quiz pour progresser !", 'info');
     };
 
     const navItemClass = (view: string) => `
@@ -95,6 +94,19 @@ const Header: React.FC<HeaderProps> = ({
                     
                     {/* BLOC DROITE : ACTIONS ET PROFIL */}
                     <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+                        
+                        {/* LANGUAGE SWITCHER */}
+                        <button
+                            onClick={toggleLanguage}
+                            className="relative flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border border-slate-100 dark:border-zinc-800 transition-all hover:border-emerald-500 hover:text-emerald-500 group"
+                            title={language === 'fr' ? "Switch to English" : "Passer en Français"}
+                        >
+                            <GlobeIcon className="w-4 h-4 md:w-5 md:h-5" />
+                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[8px] font-black text-white uppercase border-2 border-white dark:border-zinc-950">
+                                {language}
+                            </span>
+                        </button>
+
                         {/* THEME SWITCHER */}
                         <button
                             onClick={onToggleTheme}

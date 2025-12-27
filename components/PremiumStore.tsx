@@ -129,7 +129,7 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                                         : 'bg-indigo-600 text-white shadow-xl shadow-indigo-200 dark:shadow-none hover:bg-indigo-700'
                                     }`}
                                 >
-                                    {isApprendreUnlocked ? 'Contenu débloqué' : 'Débloquer ce pack'}
+                                    {isApprendreUnlocked ? 'Accéder au contenu' : 'Débloquer ce pack'}
                                 </button>
                             </div>
                         </div>

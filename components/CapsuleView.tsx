@@ -25,7 +25,8 @@ import {
     CrownIcon,
     MaximizeIcon,
     MinimizeIcon,
-    ArrowRightIcon
+    ArrowRightIcon,
+    ChevronDownIcon
 } from '../constants';
 import { generateMemoryAidDrawing, generateMnemonic } from '../services/geminiService';
 import { downloadCapsulePdf, downloadFlashcardsPdf, downloadQuizPdf, downloadBlob } from '../services/pdfService';
@@ -125,12 +126,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
     const [isEditingCategory, setIsEditingCategory] = useState(false);
     const [categoryInput, setCategoryInput] = useState(capsule.category || '');
 
-    // On calcule la capsule suivante de manière stable
+    // Logique pour trouver la capsule suivante dans la même catégorie
     const nextCapsule = useMemo(() => {
         if (!allCapsules || allCapsules.length <= 1) return null;
-        const currentCategory = capsule.category || t('uncategorized');
+        const currentCategory = (capsule.category || t('uncategorized')).trim().toLowerCase();
+        
+        // On filtre les capsules de la même collection et on les trie par titre (pour la série)
         const collection = allCapsules
-            .filter(c => (c.category || t('uncategorized')) === currentCategory)
+            .filter(c => (c.category || t('uncategorized')).trim().toLowerCase() === currentCategory)
             .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
         
         const currentIndex = collection.findIndex(c => c.id === capsule.id);
@@ -150,37 +153,20 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         nextStartTimeRef.current = 0;
         setIsSpeaking(false);
         setIsBuffering(false);
-        if (silentAudioRef.current) {
-            silentAudioRef.current.pause();
-        }
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = 'none';
-        }
+        if (silentAudioRef.current) silentAudioRef.current.pause();
     }, []);
 
-    // EFFET 1 : Reset lors du changement de capsule (Identité)
     useEffect(() => {
         setShowNextSuggestion(false);
         stopAudio();
-        // On remonte en haut de page pour la nouvelle capsule
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [capsule.id, stopAudio]);
 
-    // EFFET 2 : Sync des données locales quand les props changent (Metadata)
     useEffect(() => {
         setMemoryAidImage(capsule.memoryAidImage ? `data:image/png;base64,${capsule.memoryAidImage}` : null);
         setMnemonic(capsule.mnemonic || null);
         setCategoryInput(capsule.category || '');
     }, [capsule.memoryAidImage, capsule.mnemonic, capsule.category]);
-
-    useEffect(() => {
-        const handleStopAll = (e: any) => {
-            if (e.detail?.origin === 'capsule-reader') return;
-            stopAudio();
-        };
-        window.addEventListener('memoraid-stop-audio', handleStopAll);
-        return () => window.removeEventListener('memoraid-stop-audio', handleStopAll);
-    }, [stopAudio]);
 
     const handleToggleSpeech = async () => {
         if (isSpeaking || isBuffering) { stopAudio(); return; }
@@ -210,7 +196,13 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
         const queueChunk = async (index: number) => {
-            if (index >= chunks.length || stopRequestRef.current) return;
+            if (index >= chunks.length || stopRequestRef.current) {
+                if (index >= chunks.length) {
+                    setIsSpeaking(false);
+                    if (silentAudioRef.current) silentAudioRef.current.pause();
+                }
+                return;
+            }
             try {
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
@@ -227,21 +219,20 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                 const source = audioContextRef.current!.createBufferSource();
                 source.buffer = buffer; 
                 source.connect(audioContextRef.current!.destination);
-                const startTime = Math.max(nextStartTimeRef.current, audioContextRef.current!.currentTime);
-                source.start(startTime);
-                nextStartTimeRef.current = startTime + buffer.duration;
-                activeSourcesRef.current.add(source);
                 
                 source.onended = () => {
                     activeSourcesRef.current.delete(source);
-                    if (activeSourcesRef.current.size === 0 && index === chunks.length - 1) {
-                        setIsSpeaking(false);
-                        if (silentAudioRef.current) silentAudioRef.current.pause();
-                        if (nextCapsule) setShowNextSuggestion(true);
-                    }
+                    if (!stopRequestRef.current) queueChunk(index + 1);
                 };
-                setIsBuffering(false); setIsSpeaking(true); recordTtsSuccess();
-                queueChunk(index + 1);
+
+                const playTime = Math.max(nextStartTimeRef.current, audioContextRef.current!.currentTime);
+                source.start(playTime);
+                nextStartTimeRef.current = playTime + buffer.duration;
+                activeSourcesRef.current.add(source);
+                
+                setIsBuffering(false); 
+                setIsSpeaking(true); 
+                recordTtsSuccess();
             } catch (e) { stopAudio(); }
         };
         queueChunk(0);
@@ -249,55 +240,56 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
 
     const handleQuizComplete = (score: number) => {
         onMarkAsReviewed(capsule.id, score, 'quiz');
-        if (nextCapsule) {
+        // Si le score est suffisant, on suggère la suite
+        if (score >= 60 && nextCapsule) {
             setTimeout(() => {
                 setShowNextSuggestion(true);
-                const quizSection = document.getElementById('quiz-section');
-                if (quizSection) quizSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 1000);
+            }, 800);
         }
     };
 
-    const handleNextCapsule = () => {
-        if (nextCapsule) {
-            setShowNextSuggestion(false);
-            onSelectCapsule(nextCapsule);
-        }
-    };
-
-    const handleSaveCategory = () => {
-        onSetCategory(capsule.id, categoryInput.trim());
-        setIsEditingCategory(false);
-        addToast(t('category_updated'), "success");
-    };
-
-    const handleGenerateMnemonic = async () => {
-        setIsGeneratingMnemonic(true);
-        try {
-            const res = await generateMnemonic(capsule, language);
-            setMnemonic(res);
-            onSetMnemonic(capsule.id, res);
-            addToast("Mnémotechnique générée !", "success");
-        } catch (e) { addToast(t('error_generation'), "error"); } finally { setIsGeneratingMnemonic(false); }
-    };
-
-    const handleGenerateDrawing = async () => {
-        if (!isPremium && !capsule.isPremiumContent) { addToast(t('sketch_premium_only'), "info"); return; }
+    const handleGenerateImage = async () => {
         setIsGeneratingImage(true);
         try {
             const res = await generateMemoryAidDrawing(capsule, language);
             setMemoryAidImage(`data:image/png;base64,${res.imageData}`);
             onSetMemoryAid(capsule.id, res.imageData, res.description);
-            addToast("Croquis généré !", "success");
-        } catch (e) { addToast(t('error_generation'), "error"); } finally { setIsGeneratingImage(false); }
+            addToast("Croquis généré !", 'success');
+        } catch (e) { addToast(t('error_generation'), 'error'); } finally { setIsGeneratingImage(false); }
+    };
+
+    const handleGenerateMnemonic = async () => {
+        setIsGeneratingMnemonic(true);
+        try {
+            const m = await generateMnemonic(capsule, language);
+            setMnemonic(m);
+            onSetMnemonic(capsule.id, m);
+            addToast("Astuce générée !", 'success');
+        } catch (e) { addToast(t('error_generation'), 'error'); } finally { setIsGeneratingMnemonic(false); }
+    };
+
+    const handleSaveCategory = () => {
+        if (categoryInput.trim()) {
+            onSetCategory(capsule.id, categoryInput);
+            setIsEditingCategory(false);
+            addToast(t('category_updated'), 'success');
+        }
+    };
+
+    // ACTION DE NAVIGATION - VERSION CORRIGÉE
+    const handleGoToNext = () => {
+        if (nextCapsule) {
+            setShowNextSuggestion(false);
+            onSelectCapsule(nextCapsule); // Appelle le handler du parent
+        }
     };
 
     return (
-        <div className="bg-white dark:bg-zinc-900 md:rounded-[40px] shadow-2xl border border-slate-100 dark:border-zinc-800 overflow-hidden animate-fade-in w-full max-w-none relative">
+        <div className="w-full max-w-5xl mx-auto space-y-8 pb-20 animate-fade-in relative">
             
-            {/* SUGGESTION CAPSULE SUIVANTE - Fixé pour être toujours cliquable */}
+            {/* SUGGESTION CAPSULE SUIVANTE - FIXÉE */}
             {showNextSuggestion && nextCapsule && (
-                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-lg z-[70] animate-toast-enter">
+                <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-lg z-[100] animate-toast-enter pointer-events-auto">
                     <div className="bg-slate-900 dark:bg-zinc-800 text-white p-5 rounded-[32px] shadow-2xl border border-white/10 flex items-center gap-5 ring-4 ring-emerald-500/20">
                         <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex-shrink-0 flex items-center justify-center shadow-lg">
                             <ArrowRightIcon className="w-8 h-8 text-white" />
@@ -308,15 +300,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                         </div>
                         <div className="flex items-center gap-2">
                             <button 
-                                onClick={handleNextCapsule}
-                                className="px-5 py-3 bg-white text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all active:scale-95"
+                                onClick={handleGoToNext}
+                                className="px-6 py-3 bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-400 transition-all active:scale-95 shadow-xl cursor-pointer"
                             >
                                 Aller
                             </button>
-                            <button 
-                                onClick={() => setShowNextSuggestion(false)} 
-                                className="p-2.5 hover:bg-white/10 rounded-full transition-colors"
-                            >
+                            <button onClick={() => setShowNextSuggestion(false)} className="p-2.5 hover:bg-white/10 rounded-full transition-colors cursor-pointer">
                                 <XIcon className="w-5 h-5 text-white/40" />
                             </button>
                         </div>
@@ -324,192 +313,194 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                 </div>
             )}
 
-            {/* Navigation Header */}
-            <div className="flex items-center justify-between p-5 md:p-8 border-b border-slate-50 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-                <button 
-                    onClick={onBackToList} 
-                    className="flex items-center gap-2 text-xs font-black text-emerald-600 uppercase tracking-widest hover:translate-x-1 transition-transform"
-                >
-                    <ChevronLeftIcon className="w-5 h-5" />
-                    {t('back_list')}
+            {/* Navigation & Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <button onClick={onBackToList} className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-bold transition-colors uppercase text-xs tracking-widest">
+                    <ChevronLeftIcon className="w-5 h-5" /> {t('back_list')}
                 </button>
-                <button 
-                    onClick={async () => {
-                        const shareData = { title: `Memoraid - ${capsule.title}`, text: `Découvre ma capsule d'apprentissage sur "${capsule.title}" avec Memoraid !`, url: window.location.href };
-                        try { if (navigator.share) await navigator.share(shareData); else { await navigator.clipboard.writeText(window.location.href); addToast("Lien copié !", "success"); } } catch (err) {}
-                    }}
-                    className="p-3 bg-slate-50 dark:bg-zinc-800 text-slate-500 hover:text-emerald-600 rounded-2xl transition-all"
-                >
-                    <Share2Icon className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                    {isEditingCategory ? (
+                        <div className="flex items-center gap-2">
+                            <input value={categoryInput} onChange={e => setCategoryInput(e.target.value)} className="px-3 py-1 text-xs border rounded-lg dark:bg-zinc-800 dark:border-zinc-700 outline-none focus:ring-1 focus:ring-emerald-500" autoFocus />
+                            <button onClick={handleSaveCategory} className="p-1.5 bg-emerald-500 text-white rounded-lg"><CheckCircleIcon className="w-4 h-4" /></button>
+                            <button onClick={() => setIsEditingCategory(false)} className="p-1.5 bg-slate-200 text-slate-600 rounded-lg"><XIcon className="w-4 h-4" /></button>
+                        </div>
+                    ) : (
+                        <button onClick={() => setIsEditingCategory(true)} className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 rounded-full text-xs font-bold hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                            <TagIcon className="w-3.5 h-3.5" />
+                            {capsule.category || t('uncategorized')}
+                        </button>
+                    )}
+                </div>
             </div>
 
-            <div className="p-6 md:p-12 space-y-12">
-                {/* Header Section */}
-                <header className="text-center max-w-4xl mx-auto space-y-6">
-                    <div className="flex justify-center">
-                        {isEditingCategory ? (
-                            <div className="flex items-center gap-2">
-                                <input type="text" value={categoryInput} onChange={(e) => setCategoryInput(e.target.value)} className="px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border-2 border-emerald-500 bg-white dark:bg-zinc-800 outline-none" autoFocus />
-                                <button onClick={handleSaveCategory} className="text-emerald-600"><CheckCircleIcon className="w-5 h-5"/></button>
-                            </div>
-                        ) : (
-                            <button onClick={() => setIsEditingCategory(true)} className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform flex items-center gap-2">
-                                <TagIcon className="w-3 h-3" />
-                                {capsule.category || t('uncategorized')}
-                            </button>
-                        )}
-                    </div>
-                    <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tighter">{capsule.title}</h1>
-                    <p className="text-xl md:text-2xl text-slate-500 dark:text-zinc-400 font-medium max-w-3xl mx-auto leading-relaxed">{capsule.summary}</p>
-                </header>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Content */}
+                <div className="lg:col-span-2 space-y-8">
+                    <div className="bg-white dark:bg-zinc-900 rounded-[40px] p-8 md:p-12 shadow-xl border border-slate-100 dark:border-zinc-800">
+                        <header className="mb-10">
+                            <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white leading-tight tracking-tighter mb-6">{capsule.title}</h1>
+                            <p className="text-lg md:text-xl text-slate-600 dark:text-zinc-400 leading-relaxed font-medium italic">{capsule.summary}</p>
+                        </header>
 
-                {/* Modes Control Bar */}
-                <div className="max-w-5xl mx-auto">
-                    <div className="bg-slate-50 dark:bg-zinc-800/40 p-4 md:p-6 rounded-[32px] border border-slate-100 dark:border-zinc-800">
-                        <div className="flex flex-col md:flex-row items-center gap-6">
-                            <div className="w-full md:w-64">
-                                <button onClick={handleToggleSpeech} className={`w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all ${isSpeaking ? 'bg-red-500 text-white shadow-lg shadow-red-200' : 'bg-white dark:bg-zinc-900 text-emerald-600 shadow-sm border border-slate-100 dark:border-zinc-700'}`}>
-                                    {isBuffering ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : isSpeaking ? <StopCircleIcon className="w-5 h-5" /> : <Volume2Icon className="w-5 h-5" />}
-                                    <span>{isBuffering ? t('voice_preparing') : isSpeaking ? t('stop') : t('listen_all')}</span>
-                                </button>
-                            </div>
-                            <div className="hidden md:block w-px h-10 bg-slate-200 dark:bg-zinc-700"></div>
-                            <div className="flex-grow grid grid-cols-2 md:grid-cols-3 gap-3 w-full">
-                                <button onClick={onStartActiveLearning} className="col-span-2 md:col-span-1 flex items-center justify-center gap-3 p-4 bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200/50">
-                                    <PlayIcon className="w-4 h-4" />
-                                    <span>{t('active_learning_start')}</span>
-                                </button>
-                                <button onClick={onStartCoaching} className="flex items-center justify-center gap-3 p-4 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 rounded-2xl border border-slate-200 dark:border-zinc-700 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50">
-                                    <SparklesIcon className="w-4 h-4 text-amber-500" />
-                                    <span>Coach</span>
-                                </button>
-                                <button onClick={onStartFlashcards} className="flex items-center justify-center gap-3 p-4 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 rounded-2xl border border-slate-200 dark:border-zinc-700 font-black uppercase text-[10px] tracking-widest hover:bg-slate-50">
-                                    <LayersIcon className="w-4 h-4 text-blue-500" />
-                                    <span>Flashcards</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 max-w-7xl mx-auto">
-                    <div className="lg:col-span-8 space-y-12">
-                        <section>
-                            <h2 className="flex items-center gap-4 text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-10">
-                                <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl"><LightbulbIcon className="w-7 h-7" /></div>
-                                {t('key_concepts')}
-                            </h2>
-                            <div className="space-y-8">
-                                {capsule.keyConcepts.map((concept, idx) => (
-                                    <div key={idx} className="group bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-slate-50 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all border-l-8 border-l-amber-400">
-                                        <h3 className="text-2xl font-black text-slate-900 dark:text-white mb-4">{concept.concept}</h3>
-                                        <p className="text-slate-600 dark:text-zinc-300 text-lg leading-relaxed">{concept.explanation}</p>
-                                        {concept.deepDive && (
-                                            <details className="mt-8 group/deep">
-                                                <summary className="list-none cursor-pointer flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-600">
-                                                    <ZapIcon className="w-4 h-4" /> {t('deep_dive_label')} <ChevronRightIcon className="w-4 h-4 group-open/deep:rotate-90 transition-transform" />
-                                                </summary>
-                                                <div className="mt-4 p-6 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-2xl text-slate-700 dark:text-zinc-300 italic border-l-4 border-emerald-500 animate-fade-in-fast">{concept.deepDive}</div>
-                                            </details>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                        {capsule.examples.length > 0 && (
+                        <div className="space-y-12">
                             <section>
-                                <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-8">{t('examples')}</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {capsule.examples.map((ex, idx) => (
-                                        <div key={idx} className="p-6 bg-slate-50 dark:bg-zinc-800/30 rounded-2xl border border-slate-100 dark:border-zinc-800 flex items-start gap-4">
-                                            <span className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-black">{idx + 1}</span>
-                                            <span className="text-slate-700 dark:text-zinc-300 font-medium leading-relaxed">{ex}</span>
+                                <h2 className="flex items-center gap-3 text-sm font-black text-emerald-600 uppercase tracking-[0.2em] mb-8">
+                                    <div className="h-px bg-emerald-100 dark:bg-emerald-900/30 flex-grow"></div>
+                                    {t('key_concepts')}
+                                    <div className="h-px bg-emerald-100 dark:bg-emerald-900/30 flex-grow"></div>
+                                </h2>
+                                <div className="space-y-10">
+                                    {capsule.keyConcepts.map((concept, idx) => (
+                                        <div key={idx} className="group">
+                                            <h3 className="text-xl md:text-2xl font-black text-slate-800 dark:text-white mb-3 group-hover:text-emerald-600 transition-colors flex items-center gap-3">
+                                                <span className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 flex items-center justify-center text-sm">{idx + 1}</span>
+                                                {concept.concept}
+                                            </h3>
+                                            <p className="text-slate-600 dark:text-zinc-300 leading-relaxed text-base md:text-lg pl-11 mb-2">{concept.explanation}</p>
+                                            {concept.deepDive && (
+                                                <details className="ml-11 group/details">
+                                                    <summary className="text-xs font-bold text-slate-400 hover:text-emerald-500 cursor-pointer list-none uppercase tracking-widest transition-colors flex items-center gap-2">
+                                                        {t('expand')} <ChevronDownIcon className="w-3 h-3 group-open/details:rotate-180 transition-transform" />
+                                                    </summary>
+                                                    <p className="mt-2 text-sm text-slate-500 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-slate-100 dark:border-zinc-800">{concept.deepDive}</p>
+                                                </details>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
                             </section>
-                        )}
-                    </div>
-                    <div className="lg:col-span-4 space-y-8">
-                        <section className="bg-slate-900 rounded-[40px] overflow-hidden shadow-2xl relative group/sketch">
-                            <div className="p-6 pb-0 flex items-center justify-between">
-                                <h3 className="text-xs font-black text-amber-400 uppercase tracking-widest flex items-center gap-2"><ImageIcon className="w-4 h-4" />{t('memory_aid_sketch')}</h3>
-                                {memoryAidImage && <button onClick={(e) => { e.stopPropagation(); downloadBlob(new Blob([decode(memoryAidImage.split(',')[1])], {type:'image/png'}), `Sketch_${capsule.title}.png`); }} className="p-2 text-white/40 hover:text-white"><DownloadIcon className="w-5 h-5" /></button>}
-                            </div>
-                            <div className="aspect-square relative p-4 flex items-center justify-center cursor-zoom-in" onClick={() => setIsFullscreenSketch(true)}>
-                                {isGeneratingImage ? (
-                                    <div className="flex flex-col items-center gap-4 text-emerald-400"><RefreshCwIcon className="w-12 h-12 animate-spin" /><span className="text-[10px] font-black uppercase tracking-widest">Memoraid dessine...</span></div>
-                                ) : memoryAidImage ? (
-                                    <div className="relative w-full h-full rounded-3xl overflow-hidden group/img">
-                                        <img src={memoryAidImage} alt="Synthèse" className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-105" />
-                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center"><MaximizeIcon className="w-10 h-10 text-white" /></div>
+
+                            {capsule.examples && capsule.examples.length > 0 && (
+                                <section>
+                                    <h2 className="text-sm font-black text-blue-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-4">
+                                        <LayersIcon className="w-5 h-5" /> {t('examples')}
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {capsule.examples.map((ex, i) => (
+                                            <div key={i} className="p-5 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl text-slate-700 dark:text-zinc-300 text-sm font-medium">
+                                                {ex}
+                                            </div>
+                                        ))}
                                     </div>
-                                ) : (
-                                    <div className="flex flex-col items-center text-center p-10 border-2 border-dashed border-white/10 rounded-[40px] h-full w-full">
-                                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mb-6">Visualisez vos concepts</p>
-                                        {(isPremium || capsule.isPremiumContent) ? <button onClick={handleGenerateDrawing} className="px-8 py-3 bg-amber-500 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-widest">Générer le croquis</button> : <button onClick={onNavigateToProfile} className="flex items-center gap-2 px-8 py-3 bg-white/10 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest"><CrownIcon className="w-4 h-4" /> Premium</button>}
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                        <section className="bg-emerald-600 rounded-[40px] p-8 text-white shadow-xl">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest mb-6 flex items-center gap-2 opacity-80"><ZapIcon className="w-4 h-4" /> {t('mnemonic_label')}</h3>
-                            {isGeneratingMnemonic ? <div className="flex items-center gap-3 py-4"><RefreshCwIcon className="w-6 h-6 animate-spin" /><span className="font-bold">Inspiration...</span></div> : mnemonic ? <div className="space-y-6"><p className="text-2xl font-black leading-tight">"{mnemonic}"</p><button onClick={handleGenerateMnemonic} className="text-[10px] font-black uppercase tracking-widest underline decoration-2 underline-offset-4 opacity-70 hover:opacity-100">Regénérer</button></div> : <button onClick={handleGenerateMnemonic} className="w-full py-4 bg-white/20 hover:bg-white/30 rounded-2xl font-black uppercase text-[10px] tracking-widest">Générer l'astuce</button>}
-                        </section>
+                                </section>
+                            )}
+                        </div>
                     </div>
+
+                    <div id="quiz-section">
+                        <Quiz questions={capsule.quiz} onComplete={handleQuizComplete} />
+                    </div>
+
+                    {showNextSuggestion && nextCapsule && (
+                         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-8 rounded-[40px] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl animate-fade-in">
+                             <div>
+                                 <h4 className="text-2xl font-black mb-1">C'est validé ! Suite ?</h4>
+                                 <p className="text-emerald-100 font-medium">Prochain module : {nextCapsule.title}</p>
+                             </div>
+                             <button onClick={handleGoToNext} className="px-8 py-4 bg-white text-emerald-600 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2">
+                                Aller au suivant <ChevronRightIcon className="w-5 h-5" />
+                             </button>
+                         </div>
+                    )}
                 </div>
 
-                {/* Quiz Section */}
-                <section id="quiz-section" className="mt-20 scroll-mt-32">
-                    <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter mb-10 flex items-center gap-4">
-                         <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl"><ListChecksIcon className="w-7 h-7" /></div>
-                         {t('quiz_title')}
-                    </h2>
-                    <Quiz questions={capsule.quiz} onComplete={handleQuizComplete} />
-                </section>
-
-                {/* Footer Export */}
-                <footer className="pt-20 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="max-w-5xl mx-auto space-y-12">
-                        <div className="text-center">
-                            <h3 className="text-xs font-black text-slate-400 dark:text-zinc-500 uppercase tracking-[0.3em] mb-4">{t('advanced_export')}</h3>
-                            <div className="h-1.5 w-16 bg-emerald-500 mx-auto rounded-full"></div>
+                {/* Sidebar Controls */}
+                <div className="space-y-6">
+                    <div className="bg-slate-900 rounded-[40px] p-6 text-white shadow-2xl border border-white/5">
+                        <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6 px-2">{t('learning_modes')}</h3>
+                        <div className="space-y-3">
+                            <button onClick={onStartActiveLearning} className="w-full flex items-center justify-between p-4 bg-emerald-600 hover:bg-emerald-500 rounded-3xl transition-all group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-white/20 rounded-2xl group-hover:rotate-12 transition-transform"><PlayIcon className="w-6 h-6" /></div>
+                                    <span className="font-black uppercase text-xs tracking-widest">{t('mode_active')}</span>
+                                </div>
+                                <ChevronRightIcon className="w-5 h-5 opacity-50" />
+                            </button>
+                            <button onClick={onStartFlashcards} className="w-full flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-3xl transition-all group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-indigo-500/30 rounded-2xl group-hover:rotate-12 transition-transform"><LayersIcon className="w-6 h-6" /></div>
+                                    <span className="font-black uppercase text-xs tracking-widest">{t('mode_flashcards')}</span>
+                                </div>
+                                <ChevronRightIcon className="w-5 h-5 opacity-50" />
+                            </button>
+                            <button onClick={onStartCoaching} className="w-full flex items-center justify-between p-4 bg-white/10 hover:bg-white/20 rounded-3xl transition-all group">
+                                <div className="flex items-center gap-4">
+                                    <div className="p-3 bg-blue-500/30 rounded-2xl group-hover:rotate-12 transition-transform"><SparklesIcon className="w-6 h-6" /></div>
+                                    <span className="font-black uppercase text-xs tracking-widest">{t('mode_coach')}</span>
+                                </div>
+                                <ChevronRightIcon className="w-5 h-5 opacity-50" />
+                            </button>
                         </div>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-                            <button onClick={() => downloadCapsulePdf(capsule)} className="group flex flex-col items-center p-8 bg-white dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-[32px] shadow-sm hover:shadow-2xl transition-all">
-                                <div className="p-5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 rounded-2xl mb-6 group-hover:bg-emerald-500 group-hover:text-white transition-all"><FileTextIcon className="w-8 h-8" /></div>
-                                <span className="text-xs font-black uppercase tracking-widest">Fiche PDF</span>
+
+                        <div className="mt-8 pt-8 border-t border-white/10">
+                             <button onClick={handleToggleSpeech} disabled={isBuffering} className="w-full flex items-center justify-center gap-3 py-4 bg-white text-slate-900 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-emerald-50 transition-colors disabled:opacity-50">
+                                {isBuffering ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : (isSpeaking ? <StopCircleIcon className="w-5 h-5" /> : <Volume2Icon className="w-5 h-5" />)}
+                                {isSpeaking ? t('stop') : t('listen_all')}
+                             </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-zinc-900 rounded-[40px] p-6 shadow-xl border border-slate-100 dark:border-zinc-800">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{t('memory_aid_sketch')}</h3>
+                            {!isPremium && <CrownIcon className="w-4 h-4 text-amber-400" />}
+                        </div>
+                        
+                        <div className="relative aspect-square bg-slate-50 dark:bg-zinc-800 rounded-3xl overflow-hidden border-2 border-dashed border-slate-200 dark:border-zinc-700 flex flex-col items-center justify-center group">
+                            {memoryAidImage ? (
+                                <>
+                                    <img src={memoryAidImage} alt="Visual Aid" className="w-full h-full object-contain p-2" />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                        <button onClick={() => setIsFullscreenSketch(true)} className="p-3 bg-white text-slate-900 rounded-2xl hover:scale-110 transition-transform shadow-lg"><MaximizeIcon className="w-5 h-5"/></button>
+                                        <button onClick={handleGenerateImage} className="p-3 bg-white text-slate-900 rounded-2xl hover:scale-110 transition-transform shadow-lg"><RefreshCwIcon className="w-5 h-5"/></button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center p-6">
+                                    <ImageIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                    <button onClick={handleGenerateImage} disabled={isGeneratingImage} className="text-xs font-black text-emerald-600 uppercase tracking-widest hover:underline disabled:opacity-50">
+                                        {isGeneratingImage ? t('generating') : t('generate_sketch')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-amber-50 dark:bg-amber-900/10 rounded-[40px] p-8 border border-amber-100 dark:border-amber-900/30">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-amber-600 mb-4">{t('mnemonic_label')}</h3>
+                        {mnemonic ? (
+                            <div className="space-y-4">
+                                <p className="text-lg font-black text-amber-900 dark:text-amber-200 leading-snug italic">"{mnemonic}"</p>
+                                <button onClick={handleGenerateMnemonic} disabled={isGeneratingMnemonic} className="text-[10px] font-black uppercase tracking-widest text-amber-600/60 hover:text-amber-600 transition-colors">Regénérer</button>
+                            </div>
+                        ) : (
+                            <button onClick={handleGenerateMnemonic} disabled={isGeneratingMnemonic} className="w-full py-4 bg-amber-500 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg shadow-amber-200/50 flex items-center justify-center gap-2 hover:bg-amber-600 transition-colors">
+                                <ZapIcon className="w-4 h-4" /> {isGeneratingMnemonic ? t('generating') : t('generate_mnemonic')}
                             </button>
-                            <button onClick={() => exportToPPTX(capsule)} className="group flex flex-col items-center p-8 bg-white dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-[32px] shadow-sm hover:shadow-2xl transition-all">
-                                <div className="p-5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 rounded-2xl mb-6 group-hover:bg-amber-500 group-hover:text-white transition-all"><PresentationIcon className="w-8 h-8" /></div>
-                                <span className="text-xs font-black uppercase tracking-widest">PowerPoint</span>
+                        )}
+                    </div>
+
+                    <div className="bg-white dark:bg-zinc-900 rounded-[40px] p-6 shadow-xl border border-slate-100 dark:border-zinc-800">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6">{t('advanced_export')}</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button onClick={() => downloadCapsulePdf(capsule)} className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl hover:bg-emerald-50 transition-colors group">
+                                <FileTextIcon className="w-6 h-6 text-emerald-500 group-hover:scale-110 transition-transform" />
+                                <span className="text-[9px] font-black uppercase">PDF</span>
                             </button>
-                            <button onClick={() => downloadFlashcardsPdf(capsule)} className="group flex flex-col items-center p-8 bg-white dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-[32px] shadow-sm hover:shadow-2xl transition-all">
-                                <div className="p-5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 rounded-2xl mb-6 group-hover:bg-blue-500 group-hover:text-white transition-all"><LayersIcon className="w-8 h-8" /></div>
-                                <span className="text-xs font-black uppercase tracking-widest">Flashcards</span>
-                            </button>
-                            <button onClick={() => downloadQuizPdf(capsule)} className="group flex flex-col items-center p-8 bg-white dark:bg-zinc-800/50 border border-slate-100 dark:border-zinc-700 rounded-[32px] shadow-sm hover:shadow-2xl transition-all">
-                                <div className="p-5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 rounded-2xl mb-6 group-hover:bg-purple-500 group-hover:text-white transition-all"><ListChecksIcon className="w-8 h-8" /></div>
-                                <span className="text-xs font-black uppercase tracking-widest">Quiz PDF</span>
+                            <button onClick={() => exportToPPTX(capsule)} className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl hover:bg-orange-50 transition-colors group">
+                                <PresentationIcon className="w-6 h-6 text-orange-500 group-hover:scale-110 transition-transform" />
+                                <span className="text-[9px] font-black uppercase">PPTX</span>
                             </button>
                         </div>
                     </div>
-                </footer>
+                </div>
             </div>
 
-            {/* Lightbox Croquis */}
             {isFullscreenSketch && memoryAidImage && (
-                <div className="fixed inset-0 z-[100] bg-zinc-950/98 backdrop-blur-2xl flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => setIsFullscreenSketch(false)}>
-                    <button className="absolute top-8 right-8 p-4 text-white hover:bg-white/10 rounded-full"><XIcon className="w-8 h-8" /></button>
-                    <div className="relative w-full max-w-6xl h-full flex flex-col items-center justify-center gap-8" onClick={e => e.stopPropagation()}>
-                        <img src={memoryAidImage} alt="Sketchnote" className="max-w-full max-h-[75vh] object-contain rounded-[40px] shadow-2xl border border-white/5" />
-                        <div className="flex gap-6">
-                            <button onClick={() => downloadBlob(new Blob([decode(memoryAidImage.split(',')[1])], {type:'image/png'}), `Memoraid_Sketch_${capsule.title}.png`)} className="px-10 py-5 bg-white text-zinc-900 rounded-[20px] font-black uppercase text-xs tracking-widest flex items-center gap-3"><DownloadIcon className="w-6 h-6" /> Télécharger</button>
-                            <button onClick={() => setIsFullscreenSketch(false)} className="px-10 py-5 bg-white/5 text-white rounded-[20px] font-black uppercase text-xs tracking-widest border border-white/10 hover:bg-white/20">Fermer</button>
-                        </div>
-                    </div>
+                <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 md:p-10 animate-fade-in" onClick={() => setIsFullscreenSketch(false)}>
+                    <button onClick={() => setIsFullscreenSketch(false)} className="absolute top-6 right-6 p-4 text-white hover:rotate-90 transition-transform z-10"><XIcon className="w-10 h-10"/></button>
+                    <img src={memoryAidImage} alt="Visual Aid Detail" className="max-w-full max-h-[80vh] object-contain shadow-2xl rounded-xl" onClick={e => e.stopPropagation()} />
                 </div>
             )}
         </div>

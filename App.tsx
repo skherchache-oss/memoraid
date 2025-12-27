@@ -264,6 +264,12 @@ const AppContent: React.FC = () => {
         else setView(tab as View);
     };
 
+    // HANDLER SÉLECTION CAPSULE : spread forcé pour garantir un changement de référence
+    const handleSelectCapsule = (cap: CognitiveCapsule) => {
+        setActiveCapsule({ ...cap });
+        window.scrollTo({ top: 0, behavior: 'auto' });
+    };
+
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === 'dark' ? 'dark bg-zinc-950 text-white' : 'bg-gray-50 text-slate-900'}`}>
             <Header currentView={view} onNavigate={handleNavigate} onOpenProfile={() => { setView('profile'); setMobileTab('profile'); }} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => handleNavigate('create')} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
@@ -302,7 +308,7 @@ const AppContent: React.FC = () => {
                                 onUpdateQuiz={() => {}} 
                                 onBackToList={() => setActiveCapsule(null)} 
                                 onNavigateToProfile={() => setView('profile')} 
-                                onSelectCapsule={setActiveCapsule}
+                                onSelectCapsule={handleSelectCapsule}
                                 addToast={addToast} 
                                 userGroups={userGroups} 
                                 onShareCapsule={(g, c) => { if (currentUser) shareCapsuleToGroup(currentUser.uid, g, c); }} 
@@ -312,7 +318,7 @@ const AppContent: React.FC = () => {
                             <KnowledgeBase 
                                 capsules={displayCapsules} 
                                 activeCapsuleId={undefined} 
-                                onSelectCapsule={setActiveCapsule} 
+                                onSelectCapsule={handleSelectCapsule} 
                                 onNewCapsule={() => setView('create')} 
                                 notificationPermission={notificationPermission} 
                                 onRequestNotificationPermission={() => {}} 
@@ -342,7 +348,7 @@ const AppContent: React.FC = () => {
                         onDeletePlan={id => setProfile(prev => ({ ...prev, user: { ...prev.user, plans: prev.user.plans.filter(pl => pl.id !== id) } }))} 
                         onOpenCapsule={id => { 
                             const target = displayCapsules.find(c => c.id === id);
-                            if (target) { setActiveCapsule(target); setView('base'); }
+                            if (target) { handleSelectCapsule(target); setView('base'); }
                         }} 
                         onCreateNew={() => setIsPlanningWizardOpen(true)} 
                     />
@@ -360,7 +366,7 @@ const AppContent: React.FC = () => {
             {isActiveLearning && activeCapsule && <ActiveLearningModal capsule={activeCapsule} onClose={() => setIsActiveLearning(false)} />}
             {isGroupModalOpen && currentUser && <GroupModal userId={currentUser.uid} userName={profile.user.name} userGroups={userGroups} onClose={() => setIsGroupModalOpen(false)} addToast={addToast} />}
             {isPlanningWizardOpen && <PlanningWizard capsules={profile.capsules} onClose={() => setIsPlanningWizardOpen(false)} onPlanCreated={p => { setProfile(prev => ({ ...prev, user: { ...prev.user, plans: [...prev.user.plans, p], activePlanId: p.id } })); setIsPlanningWizardOpen(false); setView('agenda'); }} />}
-            {capsuleToDelete && <ConfirmationModal isOpen={!!capsuleToDelete} onClose={() => setCapsuleToDelete(null)} onConfirm={() => { deleteCapsuleFromCloud(currentUser?.uid || '', capsuleToDelete.id); setProfile(prev => ({ ...prev, capsules: prev.capsules.filter(c => c.id !== capsuleToDelete.id) })); setCapsuleToDelete(null); }} title="Supprimer ?" message={`Voulez-vous supprimer "${capsuleToDelete.title}" ?`} confirmText="Supprimer" cancelText="Annuler" variant="danger" />}
+            {capsuleToDelete && <ConfirmationModal isOpen={!!capsuleToDelete} onClose={() => setCapsuleToDelete(null)} onConfirm={() => { deleteCapsuleFromCloud(currentUser?.uid || '', capsuleToDelete.id); setProfile(prev => ({ ...prev, capsules: prev.capsules.filter(c => c.id !== capsuleToDelete.id) })); setCapsuleToDelete(null); }} title="Supprimer ?" message={`Voulez-vous supprimer le module "${capsuleToDelete.title}" ?`} confirmText="Supprimer" cancelText="Annuler" variant="danger" />}
         </div>
     );
 };

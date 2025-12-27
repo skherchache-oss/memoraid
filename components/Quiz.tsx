@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { QuizQuestion } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ListChecksIcon } from '../constants';
@@ -16,8 +15,9 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
     const [showResult, setShowResult] = useState(false);
     const [score, setScore] = useState(0);
     const [quizFinished, setQuizFinished] = useState(false);
+    
+    const quizTopRef = useRef<HTMLDivElement>(null);
 
-    // SÉCURITÉ : Si aucune question n'est fournie, on affiche un message au lieu de crasher
     if (!questions || questions.length === 0) {
         return (
             <div className="p-10 bg-slate-50 dark:bg-zinc-800/30 rounded-3xl border border-dashed border-slate-200 dark:border-zinc-700 text-center">
@@ -30,7 +30,6 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
     }
 
     const currentQuestion = questions[currentQuestionIndex];
-    // SÉCURITÉ : Vérification de l'existence de la question courante
     if (!currentQuestion) return null;
 
     const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
@@ -50,10 +49,23 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
     };
     
     const handleNextQuestion = () => {
-        setShowResult(false);
-        setSelectedAnswer(null);
         if (currentQuestionIndex < questions.length - 1) {
             setCurrentQuestionIndex(i => i + 1);
+            setShowResult(false);
+            setSelectedAnswer(null);
+            
+            requestAnimationFrame(() => {
+                if (quizTopRef.current) {
+                    const headerOffset = 100;
+                    const elementPosition = quizTopRef.current.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: "smooth"
+                    });
+                }
+            });
         } else {
             finishQuiz(score);
         }
@@ -61,10 +73,18 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
     
     const finishQuiz = (currentScore: number) => {
          setQuizFinished(true);
+         const percentage = Math.round((currentScore / questions.length) * 100);
+         
+         // On appelle onComplete immédiatement
          if (onComplete) {
-             const percentage = Math.round((currentScore / questions.length) * 100);
              onComplete(percentage);
          }
+
+         requestAnimationFrame(() => {
+            if (quizTopRef.current) {
+                quizTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+         });
     };
 
     const handleRestartQuiz = () => {
@@ -77,7 +97,7 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
     
     if (quizFinished) {
         return (
-             <div className="p-8 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-xl text-center animate-fade-in">
+             <div ref={quizTopRef} className="p-8 bg-white dark:bg-zinc-900 rounded-3xl border border-slate-100 dark:border-zinc-800 shadow-xl text-center animate-fade-in scroll-mt-32">
                 <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                     <ListChecksIcon className="w-10 h-10 text-emerald-600" />
                 </div>
@@ -96,7 +116,7 @@ const Quiz: React.FC<QuizProps> = ({ questions, onComplete }) => {
     }
 
     return (
-        <div className="p-8 bg-white dark:bg-zinc-900 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm animate-fade-in">
+        <div ref={quizTopRef} className="p-8 bg-white dark:bg-zinc-900 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm animate-fade-in scroll-mt-32">
             <header className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg">
