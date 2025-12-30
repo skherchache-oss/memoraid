@@ -1,4 +1,3 @@
-
 import { PDFDocument, rgb, PDFFont, StandardFonts, PDFPage } from 'pdf-lib';
 import type { CognitiveCapsule } from '../types';
 
@@ -21,7 +20,7 @@ export const generateFilename = (prefix: string, title: string, extension: strin
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s-]/g, '')
-        .split(/\s+/)[0] || 'capsule';
+        .split(/\s+/)[0] || 'module';
     return `${prefix}_${sanitizedTitle}_${date}.${extension}`;
 };
 
@@ -106,11 +105,40 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
     context.cursor.y = context.page.getHeight() - 40;
     drawBranding(context.page, fontBold);
 
-    // Titre de la capsule
+    // Titre du module
     await drawText(context, capsule.title, { font: fontBold, fontSize: FONT_SIZES.h1, spaceAfter: 15 });
     // Résumé
     await drawText(context, capsule.summary, { font: fontItalic, fontSize: FONT_SIZES.body, spaceAfter: 20 });
     
+    // --- SECTION SECRET DE MÉMORISATION (MNÉMOTECHNIQUE) ---
+    if (capsule.mnemonic) {
+        const maxWidth = context.page.getWidth() - 2 * MARGIN;
+        const textLines = wrapText(`"${capsule.mnemonic}"`, fontItalic, 11, maxWidth - 20);
+        const blockHeight = (textLines.length * 13) + 40;
+
+        if (context.cursor.y - blockHeight < MARGIN + 40) {
+            context.page = context.doc.addPage();
+            drawBranding(context.page, context.fontBold);
+            context.cursor.y = context.page.getHeight() - TOP_CONTENT_LIMIT;
+        }
+
+        // Petit encadré pour le secret
+        context.page.drawRectangle({
+            x: MARGIN, y: context.cursor.y - blockHeight, width: maxWidth, height: blockHeight,
+            color: rgb(1, 0.98, 0.94), borderColor: rgb(0.96, 0.62, 0.04), borderWidth: 1
+        });
+
+        context.cursor.y -= 15;
+        context.page.drawText('SECRET DE MÉMORISATION :', { x: MARGIN + 10, y: context.cursor.y - 8, font: fontBold, size: 8, color: rgb(0.8, 0.4, 0) });
+        context.cursor.y -= 18;
+        
+        textLines.forEach(line => {
+            context.page.drawText(line, { x: MARGIN + 10, y: context.cursor.y - 11, font: fontItalic, size: 11, color: rgb(0.2, 0.1, 0) });
+            context.cursor.y -= 13;
+        });
+        context.cursor.y -= 25;
+    }
+
     // Section Concepts
     await drawText(context, 'CONCEPTS CLÉS', { font: fontBold, fontSize: 14, spaceAfter: 15, color: rgb(0.06, 0.73, 0.5) });
     
@@ -155,12 +183,6 @@ export const downloadCapsulePdf = async (capsule: CognitiveCapsule): Promise<voi
         for (const e of capsule.examples) {
             await drawText(context, `• ${e}`, { font, fontSize: FONT_SIZES.body, spaceAfter: 6 });
         }
-    }
-
-    if (capsule.mnemonic) {
-        context.cursor.y -= 20;
-        await drawText(context, "Secret de Mémorisation :", { font: fontBold, fontSize: 9, color: rgb(0.8, 0.4, 0) });
-        await drawText(context, `"${capsule.mnemonic}"`, { font: fontItalic, fontSize: 11, spaceAfter: 20 });
     }
 
     // --- PAGE DÉDIÉE AU CROQUIS AIDE-MÉMOIRE (À LA FIN) ---

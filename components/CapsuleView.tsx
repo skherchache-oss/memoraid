@@ -26,7 +26,8 @@ import {
     MaximizeIcon,
     MinimizeIcon,
     ArrowRightIcon,
-    ChevronDownIcon
+    ChevronDownIcon,
+    AlertCircleIcon
 } from '../constants';
 import { generateMemoryAidDrawing, generateMnemonic } from '../services/geminiService';
 import { downloadCapsulePdf, downloadFlashcardsPdf, downloadQuizPdf, downloadBlob } from '../services/pdfService';
@@ -314,7 +315,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
             )}
 
             {/* Navigation & Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4">
                 <button onClick={onBackToList} className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-bold transition-colors uppercase text-xs tracking-widest">
                     <ChevronLeftIcon className="w-5 h-5" /> {t('back_list')}
                 </button>
@@ -465,6 +466,12 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                                 </div>
                             )}
                         </div>
+
+                        {/* DISCLAIMER TEXTE DANS IMAGE */}
+                        <div className="mt-4 flex items-start gap-2 text-[10px] text-slate-400 dark:text-zinc-500 leading-tight">
+                            <AlertCircleIcon className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                            <p>{t('sketch_disclaimer')}</p>
+                        </div>
                     </div>
 
                     <div className="bg-amber-50 dark:bg-amber-900/10 rounded-[40px] p-8 border border-amber-100 dark:border-amber-900/30">
@@ -486,11 +493,19 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                         <div className="grid grid-cols-2 gap-3">
                             <button onClick={() => downloadCapsulePdf(capsule)} className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl hover:bg-emerald-50 transition-colors group">
                                 <FileTextIcon className="w-6 h-6 text-emerald-500 group-hover:scale-110 transition-transform" />
-                                <span className="text-[9px] font-black uppercase">PDF</span>
+                                <span className="text-[9px] font-black uppercase text-center">{t('export_pdf')}</span>
+                            </button>
+                            <button onClick={() => downloadFlashcardsPdf(capsule)} className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl hover:bg-indigo-50 transition-colors group">
+                                <LayersIcon className="w-6 h-6 text-indigo-500 group-hover:scale-110 transition-transform" />
+                                <span className="text-[9px] font-black uppercase text-center">{t('export_cards')}</span>
+                            </button>
+                            <button onClick={() => downloadQuizPdf(capsule)} className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl hover:bg-sky-50 transition-colors group">
+                                <ListChecksIcon className="w-6 h-6 text-sky-500 group-hover:scale-110 transition-transform" />
+                                <span className="text-[9px] font-black uppercase text-center">{t('download_quiz')}</span>
                             </button>
                             <button onClick={() => exportToPPTX(capsule)} className="flex flex-col items-center gap-2 p-4 bg-slate-50 dark:bg-zinc-800 rounded-2xl hover:bg-orange-50 transition-colors group">
                                 <PresentationIcon className="w-6 h-6 text-orange-500 group-hover:scale-110 transition-transform" />
-                                <span className="text-[9px] font-black uppercase">PPTX</span>
+                                <span className="text-[9px] font-black uppercase text-center">{t('export_ppt')}</span>
                             </button>
                         </div>
                     </div>
