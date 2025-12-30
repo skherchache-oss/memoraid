@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type, Chat } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType, LearningStyle } from '../types';
 import type { Language } from '../i18n/translations';
@@ -16,7 +15,7 @@ export const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY }
 
 const getLangName = (lang: Language) => lang === 'fr' ? 'FRANÇAIS' : 'ENGLISH';
 
-// Schéma de structure pour une capsule cognitive enrichie
+// Schéma de structure pour un module cognitif enrichi
 const CAPSULE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
@@ -28,11 +27,14 @@ const CAPSULE_SCHEMA = {
         type: Type.OBJECT,
         properties: {
           concept: { type: Type.STRING },
-          explanation: { type: Type.STRING, description: "Detailed explanation for the concept (at least 4-5 sentences)." },
-          deepDive: { type: Type.STRING, description: "Advanced technical details, historical context, or deeper analysis for self-study. Must be substantial." }
+          explanation: { type: Type.STRING, description: "Detailed explanation for the concept (3-4 sentences)." },
+          deepDive: { type: Type.STRING, description: "Advanced technical details or deeper analysis. Must be substantial." }
         },
         required: ["concept", "explanation", "deepDive"]
-      }
+      },
+      minItems: 4,
+      maxItems: 4,
+      description: "Exactly 4 key concepts are required for a balanced learning experience."
     },
     examples: {
       type: Type.ARRAY,
@@ -78,7 +80,7 @@ export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingM
     const learningStyle = userProfile?.learningStyle || 'textual';
     
     let systemInstruction = `You are Memoraid Coach. Topic: "${capsule.title}". Mode: ${mode}. Style: ${learningStyle}. Language: ${targetLang}. 
-    Keep responses short. Never use markdown symbols like * or # in your responses.`;
+    Keep responses short. Never use markdown symbols like * or # in your responses. Refer to this learning content as a "module".`;
     
     return ai.chats.create({ model: 'gemini-3-flash-preview', config: { systemInstruction } });
 };
@@ -97,13 +99,13 @@ const parseSafeJson = (text: string | undefined) => {
 export const generateCognitiveCapsule = async (inputText: string, sourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual') => {
   const ai = getAiClient();
   const targetLang = getLangName(language);
-  const prompt = `Create a complete and deep learning capsule in ${targetLang} about: ${inputText}. 
+  const prompt = `Create a complete and deep learning module in ${targetLang} about: ${inputText}. 
   The source is ${sourceType || 'text'}. Style: ${learningStyle}.
   CRITICAL REQUIREMENTS: 
-  1. EXACTLY 4 quiz questions.
-  2. AT LEAST 5 flashcards.
-  3. Concepts must be long and detailed.
-  4. Each concept must have a substantial 'deepDive' section (technical/advanced).
+  1. EXACTLY 4 key concepts (no more, no less).
+  2. EXACTLY 4 quiz questions.
+  3. AT LEAST 5 flashcards.
+  4. Each concept must be clear and have a substantial 'deepDive' section.
   5. Exactly 3-4 practical examples in the 'examples' field.`;
   
   const response = await ai.models.generateContent({
@@ -121,8 +123,13 @@ export const generateCognitiveCapsule = async (inputText: string, sourceType?: S
 export const generateCognitiveCapsuleFromFile = async (filePart: { mimeType: string, data: string }, sourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual') => {
   const ai = getAiClient();
   const targetLang = getLangName(language);
-  const prompt = `Analyze this ${sourceType || 'file'} and create a complete learning capsule in ${targetLang}. 
-  CRITICAL: EXACTLY 4 quiz questions, AT LEAST 5 flashcards, very detailed concepts with technical 'deepDive' sections, and practical examples are strictly required.`;
+  const prompt = `Analyze this ${sourceType || 'file'} and create a complete learning module in ${targetLang}. 
+  CRITICAL REQUIREMENTS: 
+  1. EXACTLY 4 key concepts (mandatory).
+  2. EXACTLY 4 quiz questions.
+  3. AT LEAST 5 flashcards.
+  4. Very detailed concepts with technical 'deepDive' sections.
+  5. Practical examples are strictly required.`;
   
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
