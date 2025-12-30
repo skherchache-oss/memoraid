@@ -53,7 +53,6 @@ const Header: React.FC<HeaderProps> = ({
         <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center h-16 md:h-20">
-                    {/* BLOC GAUCHE : LOGO ET NAVIGATION REGROUPÉS */}
                     <div className="flex items-center gap-6">
                         <button 
                             onClick={onLogoClick}
@@ -68,7 +67,6 @@ const Header: React.FC<HeaderProps> = ({
                             </h1>
                         </button>
 
-                        {/* DESKTOP NAVIGATION : Serrée à gauche */}
                         <nav className="hidden md:flex items-center gap-1 ml-2">
                             <button onClick={() => onNavigate('create')} className={navItemClass('create')}>
                                 <PlusIcon className={`w-3.5 h-3.5 transition-transform ${currentView === 'create' ? '' : 'group-hover:rotate-90'}`} />
@@ -93,17 +91,12 @@ const Header: React.FC<HeaderProps> = ({
                         </nav>
                     </div>
                     
-                    {/* ESPACE CENTRAL VIDE POUR RESPIRER */}
                     <div className="flex-grow"></div>
                     
-                    {/* BLOC DROITE : ACTIONS ET PROFIL */}
                     <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                        
-                        {/* LANGUAGE SWITCHER */}
                         <button
                             onClick={toggleLanguage}
                             className="relative flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border border-slate-100 dark:border-zinc-800 transition-all hover:border-emerald-500 hover:text-emerald-500 group"
-                            title={language === 'fr' ? "Switch to English" : "Passer en Français"}
                         >
                             <GlobeIcon className="w-4 h-4 md:w-5 md:h-5" />
                             <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[8px] font-black text-white uppercase border-2 border-white dark:border-zinc-950">
@@ -111,16 +104,13 @@ const Header: React.FC<HeaderProps> = ({
                             </span>
                         </button>
 
-                        {/* THEME SWITCHER */}
                         <button
                             onClick={onToggleTheme}
                             className="flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-xl bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border border-slate-100 dark:border-zinc-800 transition-all hover:border-emerald-500 hover:text-emerald-500"
-                            title={currentTheme === 'dark' ? "Passer en mode clair" : "Passer en mode sombre"}
                         >
                             {currentTheme === 'dark' ? <SunIcon className="w-4 h-4 md:w-5 md:h-5 text-amber-400" /> : <MoonIcon className="w-4 h-4 md:w-5 md:h-5 text-indigo-600" />}
                         </button>
 
-                        {/* GAMIFICATION STATS */}
                         {gamification && (
                             <div 
                                 className="flex items-center gap-2 md:gap-3 bg-slate-50 dark:bg-zinc-900 rounded-xl px-2 md:px-3 py-1.5 md:py-2 border border-slate-100 dark:border-zinc-800 cursor-pointer hover:border-emerald-200 dark:hover:border-zinc-700 transition-all group"
@@ -138,16 +128,12 @@ const Header: React.FC<HeaderProps> = ({
                                         <span>{Math.floor(gamification.xp)} XP</span>
                                     </div>
                                     <div className="w-full bg-slate-200 dark:bg-zinc-800 h-1 rounded-full overflow-hidden">
-                                        <div 
-                                            className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out" 
-                                            style={{ width: `${xpProgress}%` }}
-                                        ></div>
+                                        <div className="bg-emerald-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${xpProgress}%` }}></div>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* USER SECTION */}
                         {currentUser ? (
                             <button
                                 onClick={onOpenProfile}
@@ -169,7 +155,11 @@ const Header: React.FC<HeaderProps> = ({
                         ) : (
                             <button
                                 onClick={onLogin}
-                                className="flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs md:text-sm font-black uppercase tracking-widest shadow-lg shadow-emerald-200/50 dark:shadow-none transition-all active:scale-95"
+                                className={`flex items-center gap-2 px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all active:scale-95 ${
+                                    isPremium 
+                                    ? 'bg-amber-500 text-white border-white ring-4 ring-amber-400/30 shadow-xl scale-105' 
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200/50 dark:shadow-none'
+                                }`}
                             >
                                 {t('login_signup')}
                             </button>

@@ -24,7 +24,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     const { t, language } = useLanguage();
     const isInitialMount = useRef(true);
     
-    // Correction de l'initialisation du nom selon la langue (Gère Apprenant/Learner)
     const [name, setName] = useState(() => {
         if (profile.user.name === 'Apprenant' || profile.user.name === 'Learner') {
             return t('default_username');
@@ -42,7 +41,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
         if (profile.user.isPremium !== isPremium) setIsPremium(profile.user.isPremium || false);
     }, [profile.user.isPremium]);
 
-    // Effet pour mettre à jour le nom si la langue change et que c'est le nom par défaut
     useEffect(() => {
         if (name === 'Apprenant' || name === 'Learner') {
             setName(t('default_username'));
@@ -54,7 +52,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
             isInitialMount.current = false;
             return;
         }
-
         const isChanged = 
             name !== profile.user.name ||
             email !== (profile.user.email || '') ||
@@ -65,15 +62,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
 
         if (isChanged) {
             const timer = setTimeout(() => {
-                onUpdateProfile({
-                    ...profile.user,
-                    name: name.trim(),
-                    email: email.trim(),
-                    role,
-                    level,
-                    learningStyle,
-                    isPremium
-                });
+                onUpdateProfile({ ...profile.user, name: name.trim(), email: email.trim(), role, level, learningStyle, isPremium });
             }, 1000);
             return () => clearTimeout(timer);
         }
@@ -112,11 +101,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
             </header>
 
             <div className={`space-y-10 overflow-y-auto flex-grow ${isOpenAsPage ? 'py-8' : 'p-6 md:p-8'}`}>
-                
-                {/* CARTE 1 : IDENTITÉ APPRENANT (Thème Émeraude) */}
                 <section className="bg-emerald-50/30 dark:bg-emerald-950/20 rounded-[32px] p-8 shadow-sm border border-emerald-100 dark:border-emerald-900/30 relative overflow-hidden group">
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl transition-all duration-700"></div>
-                    
                     <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                         <div className="relative">
                             <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl ${role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
@@ -132,7 +118,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 </div>
                             )}
                         </div>
-                        
                         <div className="text-center md:text-left flex-grow">
                             <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">{name}</h3>
                             <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
@@ -142,7 +127,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 <span className="text-slate-200 dark:text-zinc-800">•</span>
                                 <span className="text-emerald-500">{t('learner')}</span>
                             </div>
-                            
                             <div className="mt-6 flex items-center justify-center md:justify-start gap-4">
                                 <div className="flex items-center gap-2.5 text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-4 py-2.5 rounded-2xl border border-orange-100 dark:border-orange-900/30">
                                     <FlameIcon className="w-4 h-4" /> {profile.user.gamification?.currentStreak || 0} {t('days')}
@@ -155,7 +139,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     </div>
                 </section>
 
-                {/* CARTE 2 : ANALYSES & PERFORMANCES (Thème Neutre/Ardoise) */}
                 <section className="bg-white dark:bg-zinc-900 rounded-[32px] p-8 shadow-sm border border-slate-100 dark:border-zinc-800">
                     <h3 className="text-xs font-black uppercase tracking-[0.25em] text-slate-400 dark:text-zinc-500 mb-8 flex items-center gap-4">
                         <div className="w-8 h-px bg-slate-100 dark:bg-zinc-800"></div>
@@ -164,7 +147,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <ProgressionDashboard capsules={profile.capsules} onNavigateToReviews={onNavigateToReviews} />
                 </section>
 
-                {/* CARTE 3 : INFORMATIONS PERSONNELLES (Thème Indigo) */}
                 <section className="space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-[0.25em] text-indigo-500 px-2 flex items-center gap-4">
                         <div className="w-8 h-px bg-indigo-100 dark:bg-indigo-900/30"></div>
@@ -178,6 +160,13 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('email_profile')}</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-slate-900 dark:text-white font-bold text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1" />
+                        </div>
+                        <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-indigo-50/20 dark:bg-indigo-900/5">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('account_type')}</label>
+                            <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="bg-transparent text-slate-900 dark:text-white font-bold text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 appearance-none cursor-pointer">
+                                <option value="student">{t('role_student')}</option>
+                                <option value="teacher">{t('role_teacher')}</option>
+                            </select>
                         </div>
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-indigo-50/30 dark:bg-indigo-900/10">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
@@ -193,7 +182,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     </div>
                 </section>
 
-                {/* ACCÈS GROUPES / CLASSES (Thème Indigo/Intermédiaire) */}
                 {currentUser && (
                     <button onClick={onOpenGroupManager} className="w-full bg-white dark:bg-zinc-900 rounded-[28px] p-8 border border-slate-100 dark:border-zinc-800 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-zinc-800 hover:border-indigo-200 transition-all group shadow-sm">
                         <div className="flex items-center gap-6">
@@ -209,7 +197,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     </button>
                 )}
 
-                {/* PARTAGE & DONNÉES (Thème Gris/Sérieux) */}
                 <section className="bg-slate-100/50 dark:bg-zinc-900/50 rounded-[40px] p-8 md:p-10 border border-slate-200 dark:border-zinc-800 shadow-inner">
                     <h4 className="text-xs font-black uppercase tracking-[0.25em] text-slate-500 dark:text-zinc-400 mb-8 flex items-center gap-4">
                         <MailIcon className="w-5 h-5" /> {t('share_revisions')}
@@ -217,7 +204,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <div className="bg-white dark:bg-zinc-950 rounded-[24px] border border-slate-200 dark:border-zinc-800 max-h-56 overflow-y-auto mb-8 shadow-sm">
                         {profile.capsules.length > 0 ? Object.keys(groupedCapsules).map(cat => (
                             <div key={cat}>
-                                <div className="px-5 py-2.5 bg-slate-50 dark:bg-zinc-800 text-[10px] font-black text-slate-400 uppercase sticky top-0 border-b border-slate-100 dark:border-zinc-800 z-10">{cat}</div>
+                                <div className="px-5 py-2.5 bg-slate-50 dark:bg-zinc-800 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 border-b border-slate-100 dark:border-zinc-800 z-10">{cat}</div>
                                 {groupedCapsules[cat].map(c => (
                                     <div key={c.id} className="flex items-center px-5 py-4 border-b border-slate-50 dark:border-zinc-900 last:border-0 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 cursor-pointer transition-colors" onClick={() => setSelectedCapsuleIds(prev => prev.includes(c.id) ? prev.filter(i => i !== c.id) : [...prev, c.id])}>
                                         <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center mr-5 transition-all ${selectedCapsuleIds.includes(c.id) ? 'bg-emerald-500 border-emerald-500 rotate-6' : 'border-slate-300 dark:border-zinc-700'}`}>
@@ -238,7 +225,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     </button>
                 </section>
 
-                {/* PREMIUM SECTION (CARTE Ambre/Or) */}
                 <div id="premium-section-anchor" className="grid grid-cols-1 gap-4 scroll-mt-24">
                     <div className={`rounded-[36px] p-8 flex items-center justify-between border-2 transition-all shadow-lg ${isPremium ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 hover:border-amber-200'}`}>
                         <div className="flex items-center gap-6">
@@ -247,7 +233,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             </div>
                             <div>
                                 <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight leading-tight">Memoraid Premium</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{isPremium ? 'Accès Illimité Actif' : t('premium_status_sub')}</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{isPremium ? 'Abonnement Actif' : t('premium_status_sub')}</p>
                             </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer scale-110">
@@ -257,7 +243,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     </div>
                 </div>
 
-                {/* DÉCONNEXION */}
                 {currentUser && (
                     <button onClick={async () => { await signOut(auth!); onClose(); }} className="w-full py-6 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-3xl text-xs font-black uppercase tracking-[0.25em] flex items-center justify-center gap-4 transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/30">
                         <LogOutIcon className="w-5 h-5" /> {t('logout')}
@@ -266,7 +251,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
             </div>
         </div>
     );
-
     if (isOpenAsPage) return content;
     return <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={onClose}>{content}</div>;
 };

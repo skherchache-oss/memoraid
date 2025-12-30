@@ -202,7 +202,6 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                 };
 
                 recordTtsSuccess();
-                // Pré-chargement récursif
                 playChunkSequence(index + 1);
 
             } catch (e: any) {
@@ -259,7 +258,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
         setRecognitionState('recording');
         recognition.onresult = (event: any) => {
             let interimTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) interimTranscript += event.results[i][0].transcript;
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                interimTranscript += event.results[i][0].transcript;
+            }
             setTempSpeech(interimTranscript);
         };
         recognition.onerror = () => { setRecognitionState('error'); stopRecording(); };
