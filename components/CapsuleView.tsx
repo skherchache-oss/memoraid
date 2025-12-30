@@ -139,7 +139,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
     const stopAudio = useCallback(() => {
         stopRequestRef.current = true;
         activeSourcesRef.current.forEach(source => {
-            try { source.stop(); } catch (e) {}
+            try { source.stop(); } catch(e) {}
             source.disconnect();
         });
         activeSourcesRef.current.clear();
@@ -154,7 +154,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         stopAudio();
     }, [capsule.id, stopAudio]);
 
-    // Mise à jour synchrone de la vitesse pour les sources en attente ou actives
     useEffect(() => {
         currentSpeedRef.current = playbackSpeed;
         activeSourcesRef.current.forEach(source => {
@@ -182,15 +181,20 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         }
         if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
 
-        // Hack iOS/Android pour garder l'AudioContext éveillé
         if (!silentAudioRef.current) {
             silentAudioRef.current = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==');
             silentAudioRef.current.loop = true;
         }
         try { await silentAudioRef.current.play(); } catch (e) {}
 
-        const textToRead = `${capsule.title}. ${capsule.summary}. ${t('key_concepts')}: ${capsule.keyConcepts.map(c => `${c.concept}: ${c.explanation}`).join('. ')}`;
-        // Segmentation plus large pour réduire les requêtes et fluidifier
+        // Construction du texte de lecture incluant les exemples pratiques
+        const conceptsText = capsule.keyConcepts.map(c => `${c.concept}: ${c.explanation}`).join('. ');
+        const examplesText = capsule.examples && capsule.examples.length > 0 
+            ? `${t('examples')}: ${capsule.examples.join('. ')}` 
+            : "";
+            
+        const textToRead = `${capsule.title}. ${capsule.summary}. ${t('key_concepts')}: ${conceptsText}. ${examplesText}`;
+        
         const chunks = segmentText(textToRead, isPremium ? 40 : 20);
         if (chunks.length === 0) return;
 
@@ -198,7 +202,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         nextStartTimeRef.current = audioContextRef.current.currentTime + 0.1;
 
-        // Pipeline de lecture Gapless avec pré-chargement
         const processQueue = async (index: number) => {
             if (index >= chunks.length || stopRequestRef.current) {
                 if (index >= chunks.length && activeSourcesRef.current.size === 0) {
@@ -209,7 +212,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
             }
 
             try {
-                // Lancement de la requête Gemini TTS
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],
@@ -223,21 +225,17 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                 if (!base64 || stopRequestRef.current) return;
 
                 const buffer = await decodeAudioData(decode(base64), audioContextRef.current!, 24000, 1);
-                
-                // Préparation de la source
                 const source = audioContextRef.current!.createBufferSource();
                 source.buffer = buffer; 
                 source.playbackRate.value = currentSpeedRef.current;
                 source.connect(audioContextRef.current!.destination);
                 
-                // Calcul du timing exact pour éviter les pauses
                 const now = audioContextRef.current!.currentTime;
                 const startTime = Math.max(now + 0.05, nextStartTimeRef.current);
                 
                 source.start(startTime);
                 activeSourcesRef.current.add(source);
                 
-                // Durée ajustée à la vitesse
                 const adjustedDuration = buffer.duration / currentSpeedRef.current;
                 nextStartTimeRef.current = startTime + adjustedDuration;
 
@@ -252,8 +250,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                 setIsBuffering(false); 
                 setIsSpeaking(true); 
                 recordTtsSuccess();
-
-                // Lancement du chargement du segment suivant SANS ATTENDRE
                 processQueue(index + 1);
 
             } catch (e) { 
@@ -262,7 +258,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
             }
         };
 
-        // Lancement initial (on peut lancer les 2 premiers segments en parallèle pour bufferiser)
         processQueue(0);
     };
 
@@ -361,7 +356,25 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                     <div className="bg-white dark:bg-zinc-900 rounded-[40px] p-8 md:p-12 shadow-xl border border-slate-100 dark:border-zinc-800">
                         <header className="mb-10">
                             <h1 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white leading-tight tracking-tighter mb-6">{capsule.title}</h1>
-                            <p className="text-lg md:text-xl text-slate-600 dark:text-zinc-400 leading-relaxed font-medium italic">{capsule.summary}</p>
+                            <p className="text-lg md:text-xl text-slate-600 dark:text-zinc-400 leading-relaxed font-medium italic mb-8">{capsule.summary}</p>
+                            
+                            {/* BLOC LECTURE VOCALE */}
+                            <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-[32px] border border-emerald-100 dark:border-emerald-800/30">
+                                <button 
+                                    onClick={handleToggleSpeech} 
+                                    disabled={isBuffering} 
+                                    className="w-full sm:w-auto flex-grow flex items-center justify-center gap-3 py-3 px-8 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200/50 dark:shadow-none active:scale-95 disabled:opacity-50"
+                                >
+                                    {isBuffering ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : (isSpeaking ? <StopCircleIcon className="w-5 h-5" /> : <Volume2Icon className="w-5 h-5" />)}
+                                    {isSpeaking ? t('stop') : t('listen_all')}
+                                </button>
+                                <div className="flex items-center gap-2 bg-white dark:bg-zinc-800 px-4 py-2 rounded-2xl border border-emerald-100 dark:border-zinc-700 shadow-sm">
+                                     <span className="text-[10px] font-black uppercase text-slate-400">{t('vocal_speed')}</span>
+                                     <button onClick={togglePlaybackSpeed} className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 font-bold text-xs hover:bg-emerald-100 transition-colors">
+                                         {playbackSpeed}x
+                                     </button>
+                                </div>
+                            </div>
                         </header>
 
                         <div className="space-y-12">
@@ -439,19 +452,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                                 </div>
                                 <ChevronRightIcon className="w-5 h-5 opacity-50" />
                             </button>
-                        </div>
-
-                        <div className="mt-8 pt-8 border-t border-white/10 space-y-4">
-                             <div className="flex items-center gap-2">
-                                 <button onClick={handleToggleSpeech} disabled={isBuffering} className="flex-grow flex items-center justify-center gap-3 py-4 bg-white text-slate-900 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-emerald-50 transition-colors disabled:opacity-50">
-                                    {isBuffering ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : (isSpeaking ? <StopCircleIcon className="w-5 h-5" /> : <Volume2Icon className="w-5 h-5" />)}
-                                    {isSpeaking ? t('stop') : t('listen_all')}
-                                 </button>
-                                 <button onClick={togglePlaybackSpeed} className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 flex flex-col items-center justify-center transition-colors border border-white/10">
-                                     <span className="text-[10px] font-black uppercase text-slate-400 mb-0.5">{t('vocal_speed')}</span>
-                                     <span className="text-xs font-bold">{playbackSpeed}x</span>
-                                 </button>
-                             </div>
                         </div>
                     </div>
 

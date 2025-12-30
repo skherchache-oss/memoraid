@@ -1,8 +1,8 @@
 import React from 'react';
-import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon } from '../constants';
+import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon, SchoolIcon } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
-import type { GamificationStats } from '../types';
+import type { GamificationStats, UserRole } from '../types';
 import type { ToastType } from '../hooks/useToast';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -10,6 +10,7 @@ interface HeaderProps {
     onOpenProfile: () => void;
     onLogin: () => void;
     currentUser: User | null;
+    userRole?: UserRole;
     isOnline?: boolean;
     gamification?: GamificationStats;
     addToast: (message: string, type: ToastType) => void;
@@ -25,6 +26,7 @@ const Header: React.FC<HeaderProps> = ({
     onOpenProfile, 
     onLogin, 
     currentUser, 
+    userRole = 'student',
     isOnline = true, 
     gamification, 
     addToast, 
@@ -43,7 +45,7 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     const navItemClass = (view: string) => `
-        group flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 uppercase tracking-wide
+        group flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-all duration-200 uppercase tracking-wide
         ${currentView === view 
             ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200 dark:shadow-none' 
             : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100'}
@@ -76,10 +78,19 @@ const Header: React.FC<HeaderProps> = ({
                                 <LayoutGridIcon className="w-3.5 h-3.5" />
                                 {t('nav_library')}
                             </button>
-                            <button onClick={() => onNavigate('agenda')} className={navItemClass('agenda')}>
-                                <CalendarIcon className="w-3.5 h-3.5" />
-                                {t('nav_agenda')}
-                            </button>
+                            
+                            {userRole === 'teacher' ? (
+                                <button onClick={() => onNavigate('classes')} className={navItemClass('classes')}>
+                                    <SchoolIcon className="w-3.5 h-3.5" />
+                                    {t('my_classes')}
+                                </button>
+                            ) : (
+                                <button onClick={() => onNavigate('agenda')} className={navItemClass('agenda')}>
+                                    <CalendarIcon className="w-3.5 h-3.5" />
+                                    {t('nav_agenda')}
+                                </button>
+                            )}
+
                             <button onClick={() => onNavigate('store')} className={navItemClass('store')}>
                                 <ShoppingBagIcon className="w-3.5 h-3.5" />
                                 {t('nav_store')}
@@ -146,7 +157,7 @@ const Header: React.FC<HeaderProps> = ({
                                 {currentUser.photoURL ? (
                                     <img src={currentUser.photoURL} alt="Profil" className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                    <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-400 text-white' : 'bg-emerald-100 text-emerald-600'}`}>
                                         <UserIcon className="w-5 h-5 md:w-6 md:h-6" />
                                     </div>
                                 )}

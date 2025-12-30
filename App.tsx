@@ -272,7 +272,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === 'dark' ? 'dark bg-zinc-950 text-white' : 'bg-gray-50 text-slate-900'}`}>
-            <Header currentView={view} onNavigate={handleNavigate} onOpenProfile={() => { setView('profile'); setMobileTab('profile'); }} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => handleNavigate('create')} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
+            <Header currentView={view} userRole={profile.user.role} onNavigate={handleNavigate} onOpenProfile={() => { setView('profile'); setMobileTab('profile'); }} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => handleNavigate('create')} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
             
             <main ref={mainContentRef} className="flex-grow container mx-auto px-4 py-6 md:py-10 pb-24 md:pb-10 max-w-7xl">
                 {view === 'create' && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} onCancel={() => setIsLoading(false)} isLoading={isLoading} error={error} onClearError={() => setError(null)} />}

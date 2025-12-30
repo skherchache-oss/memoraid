@@ -123,7 +123,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
                                 <span>{t('level_short')} {profile.user.gamification?.level || 1}</span>
                                 <span className="text-slate-200 dark:text-zinc-800">•</span>
-                                <span>{role === 'teacher' ? t('role_teacher') : t('role_student')}</span>
+                                <span className="text-emerald-600 font-black">{role === 'teacher' ? t('role_teacher') : t('role_student')}</span>
                                 <span className="text-slate-200 dark:text-zinc-800">•</span>
                                 <span className="text-emerald-500">{t('learner')}</span>
                             </div>
@@ -155,24 +155,24 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <div className="bg-indigo-50/10 dark:bg-indigo-900/5 rounded-[32px] border border-indigo-100 dark:border-indigo-900/30 overflow-hidden divide-y divide-indigo-50 dark:divide-indigo-900/20 shadow-sm">
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('username')}</label>
-                            <input type="text" value={name} onChange={e => setName(e.target.value)} className="bg-transparent text-slate-900 dark:text-white font-bold text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1" />
-                        </div>
-                        <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('email_profile')}</label>
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-transparent text-slate-900 dark:text-white font-bold text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1" />
+                            <input type="text" value={name} onChange={e => setName(e.target.value)} className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1" />
                         </div>
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-indigo-50/20 dark:bg-indigo-900/5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('account_type')}</label>
-                            <select value={role} onChange={e => setRole(e.target.value as UserRole)} className="bg-transparent text-slate-900 dark:text-white font-bold text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 appearance-none cursor-pointer">
-                                <option value="student">{t('role_student')}</option>
-                                <option value="teacher">{t('role_teacher')}</option>
+                            <select 
+                                value={role} 
+                                onChange={e => setRole(e.target.value as UserRole)} 
+                                className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/30 dark:border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-black text-sm py-3 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[160px] text-right"
+                            >
+                                <option value="student" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold">{t('role_student')}</option>
+                                <option value="teacher" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold">{t('role_teacher')}</option>
                             </select>
                         </div>
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-indigo-50/30 dark:bg-indigo-900/10">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                                 <BrainIcon className="w-4 h-4" /> {t('learning_style')}
                             </label>
-                            <select value={learningStyle} onChange={e => setLearningStyle(e.target.value as LearningStyle)} className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all">
+                            <select value={learningStyle} onChange={e => setLearningStyle(e.target.value as LearningStyle)} className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right">
                                 <option value="textual">{t('style_textual')}</option>
                                 <option value="visual">{t('style_visual')}</option>
                                 <option value="auditory">{t('style_auditory')}</option>
@@ -233,7 +233,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             </div>
                             <div>
                                 <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight leading-tight">Memoraid Premium</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{isPremium ? 'Abonnement Actif' : t('premium_status_sub')}</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{isPremium ? 'Premium Actif' : t('premium_status_sub')}</p>
                             </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer scale-110">
