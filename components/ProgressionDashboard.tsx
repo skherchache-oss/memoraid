@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { analyzeGlobalPerformance } from '../services/srsService';
 import type { CognitiveCapsule } from '../types';
@@ -108,7 +107,7 @@ const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules, o
             <div className="p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl">
                 <h4 className="text-sm font-bold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
                     <LayersIcon className="w-4 h-4" />
-                    {t('memory_state')} & Courbe de l'oubli
+                    {t('memory_state')} & {t('forgetting_curve')}
                 </h4>
                 <div className="space-y-4">
                     <div>
@@ -174,7 +173,7 @@ const ProgressionDashboard: React.FC<ProgressionDashboardProps> = ({ capsules, o
                                 <span>{t('total_forget')}</span>
                              </div>
                              <div className="flex items-center gap-1">
-                                <div className="w-3 h-1 bg-emerald-500"></div> 
+                                <div className="w-3 h-1 bg-emerald-50"></div> 
                                 <span className="text-emerald-600 dark:text-emerald-400 font-medium">{t('solid_memory')}</span>
                              </div>
                         </div>

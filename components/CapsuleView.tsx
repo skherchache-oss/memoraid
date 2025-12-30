@@ -3,7 +3,6 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group } from '../types';
 import Quiz from './Quiz';
 import { 
-    LightbulbIcon, 
     DownloadIcon, 
     Volume2Icon, 
     StopCircleIcon, 
@@ -11,7 +10,6 @@ import {
     ImageIcon, 
     SparklesIcon, 
     ChevronLeftIcon, 
-    Share2Icon, 
     FileTextIcon, 
     ZapIcon, 
     PlayIcon, 
@@ -24,13 +22,12 @@ import {
     ChevronRightIcon,
     CrownIcon,
     MaximizeIcon,
-    MinimizeIcon,
     ArrowRightIcon,
     ChevronDownIcon,
     AlertCircleIcon
 } from '../constants';
 import { generateMemoryAidDrawing, generateMnemonic } from '../services/geminiService';
-import { downloadCapsulePdf, downloadFlashcardsPdf, downloadQuizPdf, downloadBlob } from '../services/pdfService';
+import { downloadCapsulePdf, downloadFlashcardsPdf, downloadQuizPdf } from '../services/pdfService';
 import { exportToPPTX } from '../services/exportService';
 import { ToastType } from '../hooks/useToast';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -52,10 +49,9 @@ async function decodeAudioData(
   sampleRate: number,
   numChannels: number,
 ): Promise<AudioBuffer> {
-  const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-  const length = Math.floor(safeBuffer.byteLength / 2);
+  const length = Math.floor(data.byteLength / 2);
   const dataInt16 = new Int16Array(length);
-  const view = new DataView(safeBuffer);
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   for (let i = 0; i < length; i++) {
     dataInt16[i] = view.getInt16(i * 2, true);
   }
@@ -113,12 +109,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
     const [isBuffering, setIsBuffering] = useState(false);
     const [isFullscreenSketch, setIsFullscreenSketch] = useState(false);
     const [showNextSuggestion, setShowNextSuggestion] = useState(false);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
     
     const audioContextRef = useRef<AudioContext | null>(null);
     const nextStartTimeRef = useRef<number>(0);
     const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
     const stopRequestRef = useRef<boolean>(false);
     const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+    const currentSpeedRef = useRef<number>(1);
 
     const [memoryAidImage, setMemoryAidImage] = useState<string | null>(capsule.memoryAidImage ? `data:image/png;base64,${capsule.memoryAidImage}` : null);
     const [mnemonic, setMnemonic] = useState<string | null>(capsule.mnemonic || null);
@@ -127,20 +125,14 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
     const [isEditingCategory, setIsEditingCategory] = useState(false);
     const [categoryInput, setCategoryInput] = useState(capsule.category || '');
 
-    // Logique pour trouver la capsule suivante dans la même catégorie
     const nextCapsule = useMemo(() => {
         if (!allCapsules || allCapsules.length <= 1) return null;
         const currentCategory = (capsule.category || t('uncategorized')).trim().toLowerCase();
-        
-        // On filtre les capsules de la même collection et on les trie par titre (pour la série)
         const collection = allCapsules
             .filter(c => (c.category || t('uncategorized')).trim().toLowerCase() === currentCategory)
             .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: 'base' }));
-        
         const currentIndex = collection.findIndex(c => c.id === capsule.id);
-        if (currentIndex !== -1 && currentIndex < collection.length - 1) {
-            return collection[currentIndex + 1];
-        }
+        if (currentIndex !== -1 && currentIndex < collection.length - 1) return collection[currentIndex + 1];
         return null;
     }, [allCapsules, capsule.id, capsule.category, t]);
 
@@ -160,14 +152,21 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
     useEffect(() => {
         setShowNextSuggestion(false);
         stopAudio();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [capsule.id, stopAudio]);
 
+    // Mise à jour synchrone de la vitesse pour les sources en attente ou actives
     useEffect(() => {
-        setMemoryAidImage(capsule.memoryAidImage ? `data:image/png;base64,${capsule.memoryAidImage}` : null);
-        setMnemonic(capsule.mnemonic || null);
-        setCategoryInput(capsule.category || '');
-    }, [capsule.memoryAidImage, capsule.mnemonic, capsule.category]);
+        currentSpeedRef.current = playbackSpeed;
+        activeSourcesRef.current.forEach(source => {
+            try { source.playbackRate.value = playbackSpeed; } catch (e) {}
+        });
+    }, [playbackSpeed]);
+
+    const togglePlaybackSpeed = () => {
+        const speeds = [1, 1.2, 1.5, 2];
+        const next = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+        setPlaybackSpeed(next);
+    };
 
     const handleToggleSpeech = async () => {
         if (isSpeaking || isBuffering) { stopAudio(); return; }
@@ -183,6 +182,7 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         }
         if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
 
+        // Hack iOS/Android pour garder l'AudioContext éveillé
         if (!silentAudioRef.current) {
             silentAudioRef.current = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==');
             silentAudioRef.current.loop = true;
@@ -190,21 +190,26 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         try { await silentAudioRef.current.play(); } catch (e) {}
 
         const textToRead = `${capsule.title}. ${capsule.summary}. ${t('key_concepts')}: ${capsule.keyConcepts.map(c => `${c.concept}: ${c.explanation}`).join('. ')}`;
+        // Segmentation plus large pour réduire les requêtes et fluidifier
         const chunks = segmentText(textToRead, isPremium ? 40 : 20);
         if (chunks.length === 0) return;
 
         setIsBuffering(true);
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        nextStartTimeRef.current = audioContextRef.current.currentTime + 0.1;
 
-        const queueChunk = async (index: number) => {
+        // Pipeline de lecture Gapless avec pré-chargement
+        const processQueue = async (index: number) => {
             if (index >= chunks.length || stopRequestRef.current) {
-                if (index >= chunks.length) {
+                if (index >= chunks.length && activeSourcesRef.current.size === 0) {
                     setIsSpeaking(false);
                     if (silentAudioRef.current) silentAudioRef.current.pause();
                 }
                 return;
             }
+
             try {
+                // Lancement de la requête Gemini TTS
                 const response = await ai.models.generateContent({
                     model: "gemini-2.5-flash-preview-tts",
                     contents: [{ parts: [{ text: chunks[index] }] }],
@@ -213,39 +218,58 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: language === 'fr' ? 'Kore' : 'Zephyr' } } }
                     },
                 });
+
                 const base64 = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
                 if (!base64 || stopRequestRef.current) return;
 
                 const buffer = await decodeAudioData(decode(base64), audioContextRef.current!, 24000, 1);
+                
+                // Préparation de la source
                 const source = audioContextRef.current!.createBufferSource();
                 source.buffer = buffer; 
+                source.playbackRate.value = currentSpeedRef.current;
                 source.connect(audioContextRef.current!.destination);
                 
-                source.onended = () => {
-                    activeSourcesRef.current.delete(source);
-                    if (!stopRequestRef.current) queueChunk(index + 1);
-                };
-
-                const playTime = Math.max(nextStartTimeRef.current, audioContextRef.current!.currentTime);
-                source.start(playTime);
-                nextStartTimeRef.current = playTime + buffer.duration;
+                // Calcul du timing exact pour éviter les pauses
+                const now = audioContextRef.current!.currentTime;
+                const startTime = Math.max(now + 0.05, nextStartTimeRef.current);
+                
+                source.start(startTime);
                 activeSourcesRef.current.add(source);
                 
+                // Durée ajustée à la vitesse
+                const adjustedDuration = buffer.duration / currentSpeedRef.current;
+                nextStartTimeRef.current = startTime + adjustedDuration;
+
+                source.onended = () => {
+                    activeSourcesRef.current.delete(source);
+                    if (activeSourcesRef.current.size === 0 && index === chunks.length - 1) {
+                        setIsSpeaking(false);
+                        if (silentAudioRef.current) silentAudioRef.current.pause();
+                    }
+                };
+
                 setIsBuffering(false); 
                 setIsSpeaking(true); 
                 recordTtsSuccess();
-            } catch (e) { stopAudio(); }
+
+                // Lancement du chargement du segment suivant SANS ATTENDRE
+                processQueue(index + 1);
+
+            } catch (e) { 
+                console.error("TTS Stream Error", e);
+                if (activeSourcesRef.current.size === 0) stopAudio(); 
+            }
         };
-        queueChunk(0);
+
+        // Lancement initial (on peut lancer les 2 premiers segments en parallèle pour bufferiser)
+        processQueue(0);
     };
 
     const handleQuizComplete = (score: number) => {
         onMarkAsReviewed(capsule.id, score, 'quiz');
-        // Si le score est suffisant, on suggère la suite
         if (score >= 60 && nextCapsule) {
-            setTimeout(() => {
-                setShowNextSuggestion(true);
-            }, 800);
+            setTimeout(() => setShowNextSuggestion(true), 800);
         }
     };
 
@@ -277,18 +301,16 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         }
     };
 
-    // ACTION DE NAVIGATION - VERSION CORRIGÉE
     const handleGoToNext = () => {
         if (nextCapsule) {
             setShowNextSuggestion(false);
-            onSelectCapsule(nextCapsule); // Appelle le handler du parent
+            onSelectCapsule(nextCapsule);
         }
     };
 
     return (
         <div className="w-full max-w-5xl mx-auto space-y-8 pb-20 animate-fade-in relative">
             
-            {/* SUGGESTION CAPSULE SUIVANTE - FIXÉE */}
             {showNextSuggestion && nextCapsule && (
                 <div className="fixed bottom-24 left-1/2 -translate-x-1/2 w-[92%] max-w-lg z-[100] animate-toast-enter pointer-events-auto">
                     <div className="bg-slate-900 dark:bg-zinc-800 text-white p-5 rounded-[32px] shadow-2xl border border-white/10 flex items-center gap-5 ring-4 ring-emerald-500/20">
@@ -314,7 +336,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                 </div>
             )}
 
-            {/* Navigation & Header */}
             <div className="flex items-center justify-between gap-4">
                 <button onClick={onBackToList} className="flex items-center gap-2 text-slate-500 hover:text-emerald-600 font-bold transition-colors uppercase text-xs tracking-widest">
                     <ChevronLeftIcon className="w-5 h-5" /> {t('back_list')}
@@ -336,7 +357,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Main Content */}
                 <div className="lg:col-span-2 space-y-8">
                     <div className="bg-white dark:bg-zinc-900 rounded-[40px] p-8 md:p-12 shadow-xl border border-slate-100 dark:border-zinc-800">
                         <header className="mb-10">
@@ -392,21 +412,8 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                     <div id="quiz-section">
                         <Quiz questions={capsule.quiz} onComplete={handleQuizComplete} />
                     </div>
-
-                    {showNextSuggestion && nextCapsule && (
-                         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-8 rounded-[40px] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl animate-fade-in">
-                             <div>
-                                 <h4 className="text-2xl font-black mb-1">C'est validé ! Suite ?</h4>
-                                 <p className="text-emerald-100 font-medium">Prochain module : {nextCapsule.title}</p>
-                             </div>
-                             <button onClick={handleGoToNext} className="px-8 py-4 bg-white text-emerald-600 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl hover:scale-105 transition-all flex items-center gap-2">
-                                Aller au suivant <ChevronRightIcon className="w-5 h-5" />
-                             </button>
-                         </div>
-                    )}
                 </div>
 
-                {/* Sidebar Controls */}
                 <div className="space-y-6">
                     <div className="bg-slate-900 rounded-[40px] p-6 text-white shadow-2xl border border-white/5">
                         <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6 px-2">{t('learning_modes')}</h3>
@@ -434,11 +441,17 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                             </button>
                         </div>
 
-                        <div className="mt-8 pt-8 border-t border-white/10">
-                             <button onClick={handleToggleSpeech} disabled={isBuffering} className="w-full flex items-center justify-center gap-3 py-4 bg-white text-slate-900 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-emerald-50 transition-colors disabled:opacity-50">
-                                {isBuffering ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : (isSpeaking ? <StopCircleIcon className="w-5 h-5" /> : <Volume2Icon className="w-5 h-5" />)}
-                                {isSpeaking ? t('stop') : t('listen_all')}
-                             </button>
+                        <div className="mt-8 pt-8 border-t border-white/10 space-y-4">
+                             <div className="flex items-center gap-2">
+                                 <button onClick={handleToggleSpeech} disabled={isBuffering} className="flex-grow flex items-center justify-center gap-3 py-4 bg-white text-slate-900 rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-emerald-50 transition-colors disabled:opacity-50">
+                                    {isBuffering ? <RefreshCwIcon className="w-5 h-5 animate-spin" /> : (isSpeaking ? <StopCircleIcon className="w-5 h-5" /> : <Volume2Icon className="w-5 h-5" />)}
+                                    {isSpeaking ? t('stop') : t('listen_all')}
+                                 </button>
+                                 <button onClick={togglePlaybackSpeed} className="w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 flex flex-col items-center justify-center transition-colors border border-white/10">
+                                     <span className="text-[10px] font-black uppercase text-slate-400 mb-0.5">{t('vocal_speed')}</span>
+                                     <span className="text-xs font-bold">{playbackSpeed}x</span>
+                                 </button>
+                             </div>
                         </div>
                     </div>
 
@@ -467,7 +480,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
                             )}
                         </div>
 
-                        {/* DISCLAIMER TEXTE DANS IMAGE */}
                         <div className="mt-4 flex items-start gap-2 text-[10px] text-slate-400 dark:text-zinc-500 leading-tight">
                             <AlertCircleIcon className="w-3 h-3 flex-shrink-0 mt-0.5" />
                             <p>{t('sketch_disclaimer')}</p>

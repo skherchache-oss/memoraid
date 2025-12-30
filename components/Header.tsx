@@ -86,6 +86,10 @@ const Header: React.FC<HeaderProps> = ({
                                 <ShoppingBagIcon className="w-3.5 h-3.5" />
                                 {t('nav_store')}
                             </button>
+                            <button onClick={() => onNavigate('profile')} className={navItemClass('profile')}>
+                                <UserIcon className="w-3.5 h-3.5" />
+                                {t('nav_profile')}
+                            </button>
                         </nav>
                     </div>
                     

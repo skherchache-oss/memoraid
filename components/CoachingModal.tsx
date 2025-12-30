@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { CognitiveCapsule, ChatMessage, CoachingMode, UserProfile } from '../types';
-import { createCoachingSession, getAiClient } from '../services/geminiService';
+import { createCoachingSession } from '../services/geminiService';
 import { XIcon, SendIcon, SparklesIcon, MicrophoneIcon, ImageIcon, Volume2Icon } from '../constants';
 import type { Chat, GenerateContentResponse } from '@google/genai';
 import { GoogleGenAI, Modality } from "@google/genai";
@@ -9,37 +9,13 @@ import { useToast } from '../hooks/useToast';
 import { checkTtsAvailability, recordTtsSuccess, triggerTtsSafetyLock } from '../services/quotaManager';
 import { cleanDictationResult } from '../services/voiceUtils';
 
-// Interfaces for Web Speech API
-interface SpeechRecognitionAlternative {
-    readonly transcript: string;
-    readonly confidence: number;
-}
-interface SpeechRecognitionResult {
-    readonly isFinal: boolean;
-    readonly length: number;
-    item(index: number): SpeechRecognitionAlternative;
-    [index: number]: SpeechRecognitionAlternative;
-}
-interface SpeechRecognitionResultList {
-    readonly length: number;
-    item(index: number): SpeechRecognitionResult;
-    [index: number]: SpeechRecognitionResult;
-}
-interface SpeechRecognitionEvent extends Event {
-    readonly resultIndex: number;
-    readonly results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionErrorEvent extends Event {
-    readonly error: string;
-    readonly message: string;
-}
-interface SpeechRecognition extends EventTarget {
+interface SpeechRecognitionAPI extends EventTarget {
     continuous: boolean;
     interimResults: boolean;
     lang: string;
     onstart: (() => any) | null;
-    onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
-    onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+    onresult: ((ev: any) => any) | null;
+    onerror: ((ev: any) => any) | null;
     onend: (() => any) | null;
     start(): void;
     stop(): void;
@@ -54,12 +30,10 @@ interface CoachingModalProps {
 
 type RecognitionState = 'idle' | 'recording' | 'error';
 
-// Helper functions for audio
 function decode(base64: string) {
   const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes;
@@ -99,15 +73,16 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const [recognitionState, setRecognitionState] = useState<RecognitionState>('idle');
     const [selectedMode, setSelectedMode] = useState<CoachingMode>('standard');
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-    const recognitionRef = useRef<SpeechRecognition | null>(null);
+    const recognitionRef = useRef<SpeechRecognitionAPI | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const audioContextRef = useRef<AudioContext | null>(null);
-    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const nextStartTimeRef = useRef<number>(0);
+    const activeSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
     const stopRequestRef = useRef<boolean>(false);
-    
-    // Référence pour le flux silencieux de focus persistant
     const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+    const currentSpeedRef = useRef<number>(1);
     
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -117,19 +92,15 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     const stopAudio = useCallback(() => {
         stopRequestRef.current = true;
-        if (audioSourceRef.current) {
-            try { audioSourceRef.current.stop(); } catch(e) {}
-            audioSourceRef.current.disconnect();
-            audioSourceRef.current = null;
-        }
-        
+        activeSourcesRef.current.forEach(source => {
+            try { source.stop(); } catch(e) {}
+            source.disconnect();
+        });
+        activeSourcesRef.current.clear();
+        nextStartTimeRef.current = 0;
         if (silentAudioRef.current) {
             silentAudioRef.current.pause();
             silentAudioRef.current.currentTime = 0;
-        }
-
-        if ("mediaSession" in navigator) {
-            navigator.mediaSession.playbackState = 'none';
         }
     }, []);
 
@@ -146,11 +117,102 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     }, [stopAudio]);
 
     useEffect(() => {
+        currentSpeedRef.current = playbackSpeed;
+        activeSourcesRef.current.forEach(source => {
+            try { source.playbackRate.value = playbackSpeed; } catch (e) {}
+        });
+    }, [playbackSpeed]);
+
+    const togglePlaybackSpeed = () => {
+        const speeds = [1, 1.2, 1.5, 2];
+        const next = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+        setPlaybackSpeed(next);
+    };
+
+    useEffect(() => {
         if (!audioContextRef.current) {
             const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
             audioContextRef.current = new AudioContext({ sampleRate: 24000 });
         }
     }, []);
+
+    const playTTS = async (text: string) => {
+        if (!audioContextRef.current) return;
+        window.dispatchEvent(new CustomEvent('memoraid-stop-audio', { detail: { origin: 'coach-ai' } }));
+        
+        const availability = checkTtsAvailability(!!userProfile.isPremium);
+        if (!availability.available) {
+            const msg = availability.code === 'QUOTA' ? t('error_vocal_quota') : availability.reason!;
+            addToast(msg, "info");
+            return;
+        }
+
+        stopRequestRef.current = false;
+        if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume();
+
+        if (!silentAudioRef.current) {
+            silentAudioRef.current = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==');
+            silentAudioRef.current.loop = true;
+        }
+        try { await silentAudioRef.current.play(); } catch (e) {}
+
+        const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
+        const limit = availability.maxChunks || 8;
+        const chunks = allChunks.slice(0, limit);
+        if (chunks.length === 0) return;
+
+        nextStartTimeRef.current = audioContextRef.current.currentTime + 0.05;
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+        const playChunkSequence = async (index: number) => {
+            if (index >= chunks.length || stopRequestRef.current) return;
+            try {
+                const response = await ai.models.generateContent({
+                    model: "gemini-2.5-flash-preview-tts",
+                    contents: [{ parts: [{ text: chunks[index] }] }],
+                    config: {
+                        responseModalities: [Modality.AUDIO],
+                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+                    },
+                });
+
+                const base64Audio = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                if (!base64Audio || stopRequestRef.current) return;
+
+                const buffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
+                if (stopRequestRef.current) return;
+
+                const source = audioContextRef.current!.createBufferSource();
+                source.buffer = buffer;
+                source.playbackRate.value = currentSpeedRef.current;
+                source.connect(audioContextRef.current!.destination);
+
+                const now = audioContextRef.current!.currentTime;
+                const startTime = Math.max(now + 0.02, nextStartTimeRef.current);
+                
+                source.start(startTime);
+                activeSourcesRef.current.add(source);
+                nextStartTimeRef.current = startTime + (buffer.duration / currentSpeedRef.current);
+
+                source.onended = () => {
+                    activeSourcesRef.current.delete(source);
+                    if (activeSourcesRef.current.size === 0 && index === chunks.length - 1) {
+                         if (silentAudioRef.current) silentAudioRef.current.pause();
+                    }
+                };
+
+                recordTtsSuccess();
+                // Pré-chargement récursif
+                playChunkSequence(index + 1);
+
+            } catch (e: any) {
+                console.error("Coach TTS Error", e);
+                const errorStr = e?.message || "";
+                if (errorStr.includes('429')) triggerTtsSafetyLock();
+            }
+        };
+        playChunkSequence(0);
+    };
 
     const initializeChat = useCallback(async () => {
         setIsLoading(true);
@@ -167,14 +229,11 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             const text = initialResponse.text || (language === 'fr' ? "Bonjour, je suis prêt." : "Hello, I am ready.");
             setMessages([{ role: 'model', content: text }]);
             
-            const availability = checkTtsAvailability(!!userProfile.isPremium);
-            if (selectedMode === 'oral' && audioContextRef.current?.state !== 'suspended' && availability.available) {
+            if (selectedMode === 'oral' && checkTtsAvailability(!!userProfile.isPremium).available) {
                 playTTS(text);
             }
         } catch (error) {
-            console.error("Failed to initialize coaching session:", error);
-            const errMsg = language === 'fr' ? "L'IA semble un peu timide ce moment... réessayez dans quelques secondes." : "AI seems a bit shy right now... try again in a few seconds.";
-            setMessages([{ role: 'model', content: errMsg }]);
+            setMessages([{ role: 'model', content: language === 'fr' ? "L'IA est indisponible." : "AI unavailable." }]);
         } finally {
             setIsLoading(false);
         }
@@ -187,153 +246,23 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             stopAudio();
         };
     }, [initializeChat, stopAudio]);
-
-    const playTTS = async (text: string) => {
-        if (!audioContextRef.current) return;
-        
-        window.dispatchEvent(new CustomEvent('memoraid-stop-audio', { detail: { origin: 'coach-ai' } }));
-        
-        const availability = checkTtsAvailability(!!userProfile.isPremium);
-        if (!availability.available) {
-            const msg = availability.code === 'QUOTA' ? t('error_vocal_quota') : availability.reason!;
-            addToast(msg, "info");
-            return;
-        }
-
-        stopRequestRef.current = false;
-
-        if (audioContextRef.current.state === 'suspended') {
-            await audioContextRef.current.resume();
-        }
-
-        // --- PERSISTENT FOCUS ---
-        if (!silentAudioRef.current) {
-            silentAudioRef.current = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/w==');
-            silentAudioRef.current.loop = true;
-        }
-        try { await silentAudioRef.current.play(); } catch (e) {}
-
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: 'Coach IA Memoraid',
-                artist: 'Coach IA',
-                artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
-            });
-            navigator.mediaSession.playbackState = 'playing';
-            navigator.mediaSession.setActionHandler('stop', stopAudio);
-            navigator.mediaSession.setActionHandler('pause', stopAudio);
-        }
-
-        const allChunks = text.split(/[.!?]+\s+/).filter(c => c.trim().length > 0);
-        const limit = availability.maxChunks || 3;
-        const chunks = allChunks.slice(0, limit);
-
-        if (chunks.length === 0) return;
-
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-        const playChunkSequence = async (index: number) => {
-            if (index >= chunks.length || stopRequestRef.current) return;
-
-            try {
-                const response = await ai.models.generateContent({
-                    model: "gemini-2.5-flash-preview-tts",
-                    contents: [{ parts: [{ text: chunks[index] }] }],
-                    config: {
-                        responseModalities: [Modality.AUDIO],
-                        speechConfig: {
-                            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-                        },
-                    },
-                });
-
-                let base64Audio = '';
-                if (response.candidates?.[0]?.content?.parts) {
-                    for (const part of response.candidates[0].content.parts) {
-                        if (part.inlineData && part.inlineData.data) {
-                            base64Audio = part.inlineData.data;
-                            break;
-                        }
-                    }
-                }
-                
-                if (!base64Audio || stopRequestRef.current) return;
-
-                const audioBuffer = await decodeAudioData(decode(base64Audio), audioContextRef.current!, 24000, 1);
-                if (stopRequestRef.current) return;
-
-                const source = audioContextRef.current!.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioContextRef.current!.destination);
-                
-                source.onended = () => {
-                    if (!stopRequestRef.current) {
-                        playChunkSequence(index + 1);
-                    } else if (index === chunks.length - 1) {
-                        if (silentAudioRef.current) {
-                            silentAudioRef.current.pause();
-                            silentAudioRef.current.currentTime = 0;
-                        }
-                        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'none';
-                    }
-                };
-
-                recordTtsSuccess();
-                source.start();
-                audioSourceRef.current = source;
-
-            } catch (e: any) {
-                stopAudio();
-                const errorStr = e?.message || "";
-                if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
-                    triggerTtsSafetyLock();
-                    addToast(t('error_vocal_quota'), "info");
-                } else if (errorStr.includes('503') || errorStr.includes('busy')) {
-                    addToast(t('error_vocal_busy'), "info");
-                } else if (!navigator.onLine) {
-                    addToast(t('error_vocal_offline'), "error");
-                } else {
-                    addToast(t('error_general_service'), "error");
-                }
-            }
-        };
-
-        playChunkSequence(0);
-    };
     
     const startRecording = () => {
-        const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SpeechRecognitionAPI) {
-            addToast(t('micro_not_supported'), "error");
-            return;
-        }
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) { addToast(t('micro_not_supported'), "error"); return; }
         if (recognitionRef.current) recognitionRef.current.abort();
-        const recognition = new SpeechRecognitionAPI();
+        const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = language === 'fr' ? 'fr-FR' : 'en-US';
-        
-        const textarea = document.activeElement as HTMLElement;
-        if (textarea) textarea.blur();
-        
         setTempSpeech('');
         setRecognitionState('recording');
-        
         recognition.onresult = (event: any) => {
             let interimTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                interimTranscript += event.results[i][0].transcript;
-            }
+            for (let i = event.resultIndex; i < event.results.length; ++i) interimTranscript += event.results[i][0].transcript;
             setTempSpeech(interimTranscript);
         };
-        
-        recognition.onerror = (event: any) => { 
-            if (event.error !== 'no-speech') {
-                setRecognitionState('error'); 
-                stopRecording(); 
-            }
-        };
-        
+        recognition.onerror = () => { setRecognitionState('error'); stopRecording(); };
         recognition.onend = () => setRecognitionState('idle');
         recognitionRef.current = recognition;
         try { recognition.start(); } catch (e) { setRecognitionState('idle'); }
@@ -342,15 +271,13 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
     const stopRecording = useCallback(() => {
         if (recognitionRef.current) recognitionRef.current.stop();
         setRecognitionState('idle');
-        
         if (tempSpeech) {
             const cleaned = cleanDictationResult(tempSpeech, language);
             if (cleaned) {
                 setUserInput(prev => {
                     const prefix = prev.trim();
                     if (!prefix) return cleaned;
-                    const separator = !/[.!?]$/.test(prefix) ? ". " : " ";
-                    return prefix + separator + cleaned;
+                    return prefix + (!/[.!?]$/.test(prefix) ? ". " : " ") + cleaned;
                 });
             }
             setTempSpeech('');
@@ -361,19 +288,15 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
 
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
         if (recognitionState === 'recording') stopRecording();
-        
         const finalInput = (userInput + (userInput.trim() && tempSpeech ? ' ' : '') + tempSpeech).trim();
         if ((!finalInput && !selectedImage) || !chatSession || isLoading) return;
-        
         const userMessage: ChatMessage = { role: 'user', content: finalInput, image: selectedImage || undefined };
         setMessages(prev => [...prev, userMessage]);
         setUserInput('');
         setTempSpeech('');
         setSelectedImage(null);
         setIsLoading(true);
-        
         try {
             let messageParts: any[] = [];
             if (userMessage.image) messageParts.push({ inlineData: { mimeType: "image/jpeg", data: userMessage.image.split(',')[1] } });
@@ -383,11 +306,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
             } as any);
             const responseText = response.text;
             setMessages(prev => [...prev, { role: 'model', content: responseText }]);
-            if (selectedMode === 'oral' && checkTtsAvailability(!!userProfile.isPremium).available) {
-                playTTS(responseText);
-            }
+            if (selectedMode === 'oral') playTTS(responseText);
         } catch (error) {
-            setMessages(prev => [...prev, { role: 'model', content: "Désolé, j'ai eu un petit trou de mémoire... Réessayez !" }]);
+            setMessages(prev => [...prev, { role: 'model', content: "Erreur IA. Réessayez." }]);
         } finally {
             setIsLoading(false);
         }
@@ -411,9 +332,14 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                             <h2 className="text-xl font-bold text-slate-800 dark:text-white">Coach IA</h2>
                             <p className="text-sm text-slate-500 dark:text-zinc-400 truncate max-w-xs">{capsule.title}</p>
                         </div>
-                        <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800">
-                            <XIcon className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button onClick={togglePlaybackSpeed} className="px-3 py-1 bg-slate-100 dark:bg-zinc-800 rounded-full text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700 transition-colors hover:bg-slate-200">
+                                {playbackSpeed}x
+                            </button>
+                            <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
+                                <XIcon className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
+                            </button>
+                        </div>
                     </div>
                     <div className="flex px-4 pb-3 gap-2 overflow-x-auto no-scrollbar">
                         {modes.map(mode => (
@@ -442,10 +368,9 @@ const CoachingModal: React.FC<CoachingModalProps> = ({ capsule, onClose, userPro
                                 {msg.role === 'model' && (
                                     <button 
                                         onClick={() => playTTS(msg.content)} 
-                                        className={`mt-2 flex items-center gap-1 text-xs font-bold transition-opacity ${!checkTtsAvailability(!!userProfile.isPremium).available ? 'text-slate-400 cursor-not-allowed' : 'text-blue-500 hover:text-blue-600'}`}
-                                        disabled={!checkTtsAvailability(!!userProfile.isPremium).available}
+                                        className="mt-2 flex items-center gap-1 text-xs font-bold text-blue-500 hover:text-blue-600"
                                     >
-                                        <Volume2Icon className="w-3 h-3" /> {checkTtsAvailability(!!userProfile.isPremium).available ? 'Réécouter' : 'Vocal indisponible'}
+                                        <Volume2Icon className="w-3 h-3" /> {t('listen_all')}
                                     </button>
                                 )}
                             </div>
