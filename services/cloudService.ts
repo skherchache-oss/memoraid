@@ -52,26 +52,6 @@ export const deleteCapsuleFromCloud = async (userId: string, capsuleId: string) 
     }
 };
 
-export const migrateLocalDataToCloud = async (userId: string, localCapsules: CognitiveCapsule[]) => {
-    if (!db || !userId || localCapsules.length === 0) return;
-
-    const batch = writeBatch(db);
-    let operationCount = 0;
-
-    for (const capsule of localCapsules) {
-        const capsuleRef = doc(db, USERS_COLLECTION, userId, CAPSULES_SUBCOLLECTION, capsule.id);
-        const docSnap = await getDoc(capsuleRef);
-        if (!docSnap.exists()) {
-            batch.set(capsuleRef, capsule);
-            operationCount++;
-        }
-    }
-
-    if (operationCount > 0) {
-        await batch.commit();
-    }
-};
-
 export const subscribeToCapsules = (userId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
     if (!db || !userId) return () => {};
 
@@ -91,11 +71,11 @@ export const subscribeToCapsules = (userId: string, onUpdate: (capsules: Cogniti
     });
 };
 
+// ALIAS POUR LE SERVICE DE MIGRATION
+export const subscribeToModules = subscribeToCapsules;
+
 // --- GROUPES & COLLABORATION ---
 
-/**
- * Crée un nouveau groupe.
- */
 export const createGroup = async (userId: string, userName: string, groupName: string): Promise<Group> => {
     if (!db) throw new Error("DB non initialisée");
     
@@ -121,9 +101,6 @@ export const createGroup = async (userId: string, userName: string, groupName: s
     return newGroup;
 };
 
-/**
- * Rejoindre un groupe via code d'invitation.
- */
 export const joinGroup = async (userId: string, userName: string, inviteCode: string): Promise<Group> => {
     if (!db) throw new Error("DB non initialisée");
 
@@ -137,7 +114,6 @@ export const joinGroup = async (userId: string, userName: string, inviteCode: st
     const groupDoc = querySnapshot.docs[0];
     const groupData = groupDoc.data() as Group;
 
-    // Vérifier si déjà membre
     if (groupData.members.some(m => m.userId === userId)) {
         throw new Error("Vous êtes déjà membre de ce groupe.");
     }
@@ -146,7 +122,7 @@ export const joinGroup = async (userId: string, userName: string, inviteCode: st
         userId,
         name: userName,
         email: "",
-        role: 'editor' // Par défaut, les membres peuvent éditer
+        role: 'editor'
     };
 
     await updateDoc(doc(db, GROUPS_COLLECTION, groupData.id), {
@@ -156,9 +132,6 @@ export const joinGroup = async (userId: string, userName: string, inviteCode: st
     return { ...groupData, members: [...groupData.members, newMember] };
 };
 
-/**
- * Récupère les groupes de l'utilisateur.
- */
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
     if (!db) return () => {};
     
@@ -176,15 +149,12 @@ export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]
     });
 };
 
-/**
- * Partage une capsule dans un groupe (crée une copie liée).
- */
 export const shareCapsuleToGroup = async (userId: string, group: Group, capsule: CognitiveCapsule) => {
     if (!db) return;
 
     const sharedCapsule: CognitiveCapsule = {
         ...capsule,
-        id: `shared_${capsule.id}_${Date.now()}`, // Nouvel ID pour la version partagée
+        id: `shared_${capsule.id}_${Date.now()}`,
         groupId: group.id,
         groupName: group.name,
         isShared: true,
@@ -200,29 +170,12 @@ export const shareCapsuleToGroup = async (userId: string, group: Group, capsule:
     return sharedCapsule;
 };
 
-/**
- * Met à jour une capsule partagée.
- */
 export const updateGroupCapsule = async (groupId: string, capsule: CognitiveCapsule, userId: string) => {
     if (!db) return;
     const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsule.id);
     await setDoc(capsuleRef, { ...capsule, lastModifiedBy: userId }, { merge: true });
 };
 
-/**
- * Ajoute un commentaire à une capsule partagée.
- */
-export const addCommentToCapsule = async (groupId: string, capsuleId: string, comment: Comment) => {
-    if (!db) return;
-    const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsuleId);
-    await updateDoc(capsuleRef, {
-        comments: arrayUnion(comment)
-    });
-};
-
-/**
- * Écoute les capsules d'un groupe spécifique.
- */
 export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
     if (!db) return () => {};
 
@@ -233,47 +186,5 @@ export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: C
             capsules.push(doc.data() as CognitiveCapsule);
         });
         onUpdate(capsules);
-    });
-};
-
-
-// --- PREMIUM COLLABORATIVE FEATURES ---
-
-/**
- * Assigne une tâche collaborative à un membre du groupe.
- */
-export const assignTaskToMember = async (groupId: string, capsuleId: string, task: CollaborativeTask) => {
-    if (!db) return;
-    const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsuleId);
-    await updateDoc(capsuleRef, {
-        collaborativeTasks: arrayUnion(task)
-    });
-};
-
-/**
- * Met à jour le statut d'une tâche (terminée/non terminée).
- */
-export const updateTaskStatus = async (groupId: string, capsuleId: string, taskId: string, isCompleted: boolean, currentTasks: CollaborativeTask[]) => {
-    if (!db) return;
-    const updatedTasks = currentTasks.map(t => t.id === taskId ? { ...t, isCompleted } : t);
-    const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsuleId);
-    await updateDoc(capsuleRef, {
-        collaborativeTasks: updatedTasks
-    });
-};
-
-/**
- * Met à jour la progression d'un membre sur une capsule partagée (Vue Progression Groupe).
- */
-export const updateSharedCapsuleProgress = async (groupId: string, capsuleId: string, progress: MemberProgress, currentProgressList?: MemberProgress[]) => {
-    if (!db) return;
-    
-    // On filtre l'ancienne entrée pour cet utilisateur s'il existe, puis on ajoute la nouvelle
-    const otherProgress = (currentProgressList || []).filter(p => p.userId !== progress.userId);
-    const newProgressList = [...otherProgress, progress];
-
-    const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsuleId);
-    await updateDoc(capsuleRef, {
-        groupProgress: newProgressList
     });
 };

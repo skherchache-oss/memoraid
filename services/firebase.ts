@@ -1,64 +1,45 @@
+import { initializeApp } from "firebase/app";
+import { getAnalytics, isSupported } from "firebase/analytics";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
-import { 
-  initializeApp 
-} from "firebase/app";
-
-import { 
-  getAuth, 
-  GoogleAuthProvider 
-} from "firebase/auth";
-
-import { 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
-} from "firebase/firestore";
-
-// Helper ultra-safe pour l'accès aux variables d'environnement dans un navigateur
-const getEnv = (key: string, fallback: string): string => {
-  try {
-    // Vérification de l'existence de l'objet process et de env
-    const envObj = (typeof process !== 'undefined' && process.env) ? process.env : {};
-    return envObj[key] ? envObj[key] : fallback;
-  } catch (e) {
-    return fallback;
-  }
-};
+// Configuration Firebase récupérée depuis les variables d'environnement
+// On vérifie plusieurs sources possibles pour la robustesse
+const apiKey = (process.env as any).VITE_FIREBASE_API_KEY || (import.meta as any).env?.VITE_FIREBASE_API_KEY || "";
 
 const firebaseConfig = {
-  apiKey: getEnv("FIREBASE_API_KEY", "AIzaSyD4jX5s0emTJ4l5FOAijd0Nl2MT7ubcLTI"),
-  authDomain: getEnv("FIREBASE_AUTH_DOMAIN", "memoraid-7cd9d.firebaseapp.com"),
-  projectId: getEnv("FIREBASE_PROJECT_ID", "memoraid-7cd9d"),
-  storageBucket: getEnv("FIREBASE_STORAGE_BUCKET", "memoraid-7cd9d.firebasestorage.app"),
-  messagingSenderId: getEnv("FIREBASE_MESSAGING_SENDER_ID", "424814765916"),
-  appId: getEnv("FIREBASE_APP_ID", "1:424814765916:web:aaba185d4dbab2af52c399")
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-let app: any = null;
+// Initialisation conditionnelle pour éviter le crash fatal "auth/invalid-api-key"
 let auth: any = null;
 let db: any = null;
-let googleProvider: any = null;
+let analytics: any = null;
+const googleProvider = new GoogleAuthProvider();
 
-try {
-  if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("REMPLACER")) {
-    // 🔥 Initialise Firebase uniquement si les clés semblent valides
-    app = initializeApp(firebaseConfig);
+if (apiKey && apiKey !== "") {
+    try {
+        const app = initializeApp(firebaseConfig);
+        
+        // Initialisation de l'Analytics si supporté
+        isSupported().then(yes => {
+            if (yes) analytics = getAnalytics(app);
+        }).catch(e => console.warn("Analytics non supporté:", e));
 
-    // 🔐 Authentification
-    auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
-
-    // 🗄️ Firestore avec persistance hors ligne
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
-    });
-  } else {
-    console.warn("⚠️ Clés Firebase manquantes ou non configurées. Mode local uniquement.");
-  }
-} catch (error) {
-  console.error("Firebase initialization failed:", error);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        console.log("Firebase initialisé avec succès.");
+    } catch (error) {
+        console.error("Erreur critique lors de l'initialisation Firebase:", error);
+    }
+} else {
+    console.error("CRITICAL: Firebase API Key is missing. Check your environment variables.");
 }
 
-export { auth, db, googleProvider };
+export { auth, db, googleProvider, analytics };

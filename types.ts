@@ -8,7 +8,8 @@ export interface QuizQuestion {
 
 export interface KeyConcept {
   concept: string;
-  explanation:string;
+  explanation: string;
+  deepDive?: string; // NOUVEAU : Contenu riche non lu par le TTS
 }
 
 export interface FlashcardContent {
@@ -218,6 +219,9 @@ export interface CognitiveCapsule {
   // Store Origin
   isPremiumContent?: boolean;
   originalPackId?: string;
+
+  // Migration fields
+  migratedAt?: number;
 }
 
 export interface ChatMessage {

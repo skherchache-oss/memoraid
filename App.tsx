@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { CognitiveCapsule, AppData, UserProfile, QuizQuestion, ReviewLog, Group, StudyPlan, MemberProgress, PremiumPack, Badge, SourceType } from './types';
 import Header from './components/Header';
@@ -24,9 +25,21 @@ import { ToastProvider, useToast } from './hooks/useToast';
 import { StopIcon, CalendarIcon, ShoppingBagIcon, DownloadIcon, XIcon, Share2Icon, PlusIcon, UsersIcon, ClipboardListIcon, BookOpenIcon, ClockIcon } from './constants';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { saveCapsuleToCloud, deleteCapsuleFromCloud, subscribeToCapsules, subscribeToUserGroups, subscribeToGroupCapsules, shareCapsuleToGroup, updateUserProfileInCloud } from './services/cloudService';
+import { 
+    saveCapsuleToCloud, 
+    deleteCapsuleFromCloud, 
+    subscribeToCapsules, 
+    subscribeToUserGroups, 
+    subscribeToGroupCapsules, 
+    shareCapsuleToGroup, 
+    updateUserProfileInCloud,
+    subscribeToModules // Utilisé par le snippet de migration
+} from './services/cloudService';
+import { migrateLocalModules } from './services/migrationService';
 import { useLanguage } from './contexts/LanguageContext';
 import { translations } from './i18n/translations';
+
+console.log("Firebase Auth OK:", auth);
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -97,6 +110,26 @@ const AppContent: React.FC = () => {
     const mainContentRef = useRef<HTMLDivElement>(null);
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
+
+    // --- STRATÉGIE DE MIGRATION ---
+    useEffect(() => {
+        if (!currentUser) return;
+
+        let hasMigrated = false;
+
+        const unsubscribe = subscribeToModules(currentUser.uid, async (remoteModules) => {
+            if (hasMigrated) return;
+
+            const remoteIds = new Set(remoteModules.map(m => m.id));
+            
+            // On lance la migration
+            await migrateLocalModules(currentUser.uid, remoteIds);
+
+            hasMigrated = true;
+        });
+
+        return () => unsubscribe();
+    }, [currentUser]);
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -264,7 +297,6 @@ const AppContent: React.FC = () => {
         else setView(tab as View);
     };
 
-    // HANDLER SÉLECTION CAPSULE : spread forcé pour garantir un changement de référence
     const handleSelectCapsule = (cap: CognitiveCapsule) => {
         setActiveCapsule({ ...cap });
         window.scrollTo({ top: 0, behavior: 'auto' });

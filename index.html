@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
   <head>
@@ -12,13 +11,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Memoraid">
-    <meta name="description" content="Assistant personnel d'apprentissage intelligent.">
+    <meta name="description" content="Assistant personnel d'apprentissage intelligent structurant votre savoir en modules.">
 
     <title>Memoraid - Assistant d'Apprentissage</title>
     
     <script>
-      // SHIM de sécurité pour éviter le crash "process is not defined"
-      window.process = { env: {} };
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      
       window.deferredPrompt = null;
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -57,7 +57,6 @@
         }
       });
       
-      // Sécurité anti-écran blanc : on force le retrait du splash après 2.5s même si React crash
       setTimeout(() => {
         const splash = document.getElementById('splash-screen');
         if (splash) {
@@ -70,7 +69,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
+        <style>
       body {
         font-family: 'Inter', sans-serif;
         overscroll-behavior-y: none;
@@ -170,24 +169,25 @@
   <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
-    "pdf-lib": "https://aistudiocdn.com/pdf-lib@^1.17.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@1.2.0",
+    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
+    "lucide-react": "https://esm.sh/lucide-react@0.460.0",
     "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
     "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
     "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
-    "pptxgenjs": "https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.es.js",
-    "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm",
-    "html2canvas": "https://jspm.dev/html2canvas",
+    "firebase/analytics": "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js",
+    "pptxgenjs": "https://esm.sh/pptxgenjs@3.12.0",
+    "jszip": "https://esm.sh/jszip@3.10.1",
+    "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "vite": "https://esm.sh/vite@^7.2.7",
-    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3"
+    "firebase/": "https://esm.sh/firebase@^12.7.0/",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0"
   }
 }
 </script>
