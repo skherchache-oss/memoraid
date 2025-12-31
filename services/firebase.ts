@@ -9,7 +9,7 @@ const apiKey = (process.env as any).VITE_FIREBASE_API_KEY || (import.meta as any
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "memoraid-app.fr",
+  authDomain: "memoraid-7cd9d.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
