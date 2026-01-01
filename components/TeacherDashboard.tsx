@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Group, CognitiveCapsule } from '../types';
 import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, PlusIcon } from '../constants';
 import { downloadBlob, generateFilename } from '../services/pdfService';
@@ -21,13 +21,22 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
     const { t } = useLanguage();
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
-    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(teacherGroups[0]?.id || null);
+    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
     const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [isCreatingClass, setIsCreatingClass] = useState(false);
     const [newClassName, setNewClassName] = useState('');
     const [createLoading, setCreateLoading] = useState(false);
 
-    const selectedGroup = teacherGroups.find(g => g.id === selectedGroupId);
+    // Effet crucial : Sélectionne la première classe si aucune n'est sélectionnée
+    useEffect(() => {
+        if (!selectedGroupId && teacherGroups.length > 0) {
+            setSelectedGroupId(teacherGroups[0].id);
+        }
+    }, [teacherGroups, selectedGroupId]);
+
+    const selectedGroup = useMemo(() => 
+        teacherGroups.find(g => g.id === selectedGroupId), 
+    [teacherGroups, selectedGroupId]);
     
     const classCapsules = useMemo(() => 
         allGroupCapsules.filter(c => c.groupId === selectedGroupId), 
@@ -61,7 +70,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
         if (!trimmedName || createLoading) return;
         
         if (!userId) {
-            addToast("Vous devez être connecté pour créer une classe.", "error");
+            addToast("Vous devez être connecté.", "error");
             return;
         }
         
@@ -69,24 +78,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
         try {
             const newGroup = await createGroup(userId, userName, trimmedName);
             
+            // On réinitialise le formulaire
             setNewClassName('');
             setIsCreatingClass(false);
             
-            setTimeout(() => {
-                setSelectedGroupId(newGroup.id);
-                setActiveTab('overview');
-                addToast(`Classe "${trimmedName}" créée avec succès !`, "success");
-            }, 300);
+            // On sélectionne immédiatement la nouvelle classe
+            setSelectedGroupId(newGroup.id);
+            setActiveTab('overview');
+            addToast(`Classe "${trimmedName}" créée !`, "success");
             
         } catch (error: any) {
-            console.error("TeacherDashboard Error:", error);
-            let errorMsg = "Erreur lors de la création de la classe.";
-            if (error.code === 'permission-denied') {
-                errorMsg = "Accès refusé. Vérifiez que vous êtes bien connecté et que les règles Firestore sont actives.";
-            } else if (error.message && error.message.includes('apiKey')) {
-                errorMsg = "La clé API Firebase est manquante ou invalide dans services/firebase.ts";
-            }
-            addToast(errorMsg, "error");
+            console.error("Create Class Error:", error);
+            addToast("Erreur lors de la création. Vérifiez votre connexion.", "error");
         } finally {
             setCreateLoading(false);
         }
@@ -114,58 +117,40 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
             };
             addBrandingToDoc(page, page.getWidth(), page.getHeight());
 
-            page.drawText(`Rapport de Classe : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
-            y -= 30;
-            page.drawText(`Date : ${new Date().toLocaleDateString()}`, { x: 50, y, size: 12, font });
+            page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
             y -= 40;
 
             page.drawText("Étudiant", { x: 50, y, size: 12, font: fontBold });
-            page.drawText("Moyenne", { x: 200, y, size: 12, font: fontBold });
-            page.drawText("Dernière activité", { x: 300, y, size: 12, font: fontBold });
-            y -= 20;
-            page.drawLine({ start: { x: 50, y }, end: { x: 500, y }, thickness: 1, color: rgb(0, 0, 0) });
+            page.drawText("Moyenne", { x: 250, y, size: 12, font: fontBold });
             y -= 20;
 
             const students = selectedGroup.members.filter(m => m.role !== 'owner');
             for (const student of students) {
                 let studentTotal = 0;
                 let studentCount = 0;
-                let lastActive = 0;
 
                 classCapsules.forEach(cap => {
                     const prog = cap.groupProgress?.find(p => p.userId === student.userId);
                     if (prog) {
                         studentTotal += prog.masteryScore;
                         studentCount++;
-                        if (prog.lastReviewed > lastActive) lastActive = prog.lastReviewed;
                     }
                 });
 
                 const avg = studentCount > 0 ? Math.round(studentTotal / studentCount) : 0;
-                const lastActiveDate = lastActive > 0 ? new Date(lastActive).toLocaleDateString() : '-';
 
-                if (y < 50) {
-                    page = doc.addPage();
-                    addBrandingToDoc(page, page.getWidth(), page.getHeight());
-                    y = page.getHeight() - 50;
-                }
-
+                if (y < 50) page = doc.addPage();
                 page.drawText(student.name, { x: 50, y, size: 10, font });
-                page.drawText(`${avg}%`, { x: 200, y, size: 10, font });
-                page.drawText(lastActiveDate, { x: 300, y, size: 10, font });
+                page.drawText(`${avg}%`, { x: 250, y, size: 10, font });
                 y -= 20;
             }
 
             const pdfBytes = await doc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            downloadBlob(blob, generateFilename('Rapport', selectedGroup.name, 'pdf'));
-            
+            downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), generateFilename('Rapport', selectedGroup.name, 'pdf'));
             setExportStatus('success');
             setTimeout(() => setExportStatus('idle'), 2000);
         } catch (e) {
-            console.error(e);
             setExportStatus('error');
-            setTimeout(() => setExportStatus('idle'), 3000);
         }
     };
 
@@ -178,11 +163,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                             <SchoolIcon className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('teacher_space')}</h2>
+                            <h2 className="text-xl font-black text-slate-900 dark:white tracking-tight">{t('teacher_space')}</h2>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('class_management')}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors group" aria-label="Fermer">
+                    <button onClick={onClose} className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors group">
                         <XIcon className="w-6 h-6 text-slate-400 group-hover:rotate-90 transition-transform" />
                     </button>
                 </header>
@@ -194,19 +179,24 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                             
                             {!isCreatingClass ? (
                                 <div className="space-y-3">
-                                    <select 
-                                        className="w-full p-3 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none"
-                                        value={selectedGroupId || ''}
-                                        onChange={(e) => setSelectedGroupId(e.target.value)}
-                                    >
-                                        <option value="" disabled>{teacherGroups.length > 0 ? t('select_class') : t('no_class')}</option>
-                                        {teacherGroups.map(g => (
-                                            <option key={g.id} value={g.id}>{g.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="relative">
+                                        <select 
+                                            className="w-full p-3 pr-10 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none"
+                                            value={selectedGroupId || ''}
+                                            onChange={(e) => setSelectedGroupId(e.target.value)}
+                                        >
+                                            <option value="" disabled>{teacherGroups.length > 0 ? "Choisir une classe..." : "Aucune classe"}</option>
+                                            {teacherGroups.map(g => (
+                                                <option key={g.id} value={g.id}>{g.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                            <PlusIcon className="w-4 h-4 rotate-45" />
+                                        </div>
+                                    </div>
                                     <button 
                                         onClick={() => setIsCreatingClass(true)}
-                                        className="w-full flex items-center justify-center gap-2 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-600 py-3 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 transition-all active:scale-95"
+                                        className="w-full flex items-center justify-center gap-2 text-xs font-black text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white py-3 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 transition-all active:scale-95"
                                     >
                                         <PlusIcon className="w-4 h-4" /> {t('new_class')}
                                     </button>
@@ -219,20 +209,20 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                         placeholder={t('class_name')}
                                         value={newClassName}
                                         onChange={(e) => setNewClassName(e.target.value)}
-                                        className="w-full p-3 text-sm border border-slate-100 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 dark:bg-zinc-800 text-slate-900 dark:text-white"
+                                        className="w-full p-3 text-sm border border-slate-100 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 dark:bg-zinc-800"
                                     />
                                     <div className="flex gap-2">
                                         <button 
                                             type="submit" 
                                             disabled={!newClassName.trim() || createLoading}
-                                            className="flex-1 bg-emerald-600 text-white text-xs py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md active:scale-95"
+                                            className="flex-1 bg-emerald-600 text-white text-xs py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md"
                                         >
-                                            {createLoading ? <RefreshCwIcon className="w-4 h-4 animate-spin mx-auto" /> : t('create')}
+                                            {createLoading ? "..." : t('create')}
                                         </button>
                                         <button 
                                             type="button" 
                                             onClick={() => setIsCreatingClass(false)}
-                                            className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-xs py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
+                                            className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-500 text-xs py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 transition-all"
                                         >
                                             {t('cancel')}
                                         </button>
@@ -243,19 +233,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                         <nav className="flex-grow px-4 space-y-2">
                             <button 
                                 onClick={() => setActiveTab('overview')}
-                                className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900 border border-transparent hover:border-slate-100 dark:hover:border-zinc-800'}`}
+                                className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900'}`}
                             >
                                 <SchoolIcon className="w-5 h-5" /> {t('overview')}
                             </button>
                             <button 
                                 onClick={() => setActiveTab('classes')}
-                                className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'classes' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900 border border-transparent hover:border-slate-100 dark:hover:border-zinc-800'}`}
+                                className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'classes' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900'}`}
                             >
                                 <UsersIcon className="w-5 h-5" /> {t('students')}
                             </button>
                             <button 
                                 onClick={() => setActiveTab('assignments')}
-                                className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'assignments' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900 border border-transparent hover:border-slate-100 dark:hover:border-zinc-800'}`}
+                                className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'assignments' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-900'}`}
                             >
                                 <ClipboardListIcon className="w-5 h-5" /> {t('assignments')}
                             </button>
@@ -266,56 +256,43 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                         {!selectedGroup ? (
                             <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-zinc-800">
                                 <SchoolIcon className="w-20 h-20 mb-6 opacity-20" />
-                                <p className="font-black uppercase tracking-widest text-xs">Sélectionnez ou créez une classe</p>
+                                <p className="font-black uppercase tracking-widest text-xs">Sélectionnez ou créez une classe à gauche</p>
                             </div>
                         ) : (
                             <div className="max-w-4xl mx-auto animate-fade-in-fast">
                                 {activeTab === 'overview' && (
                                     <div className="space-y-8">
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                        <div className="flex justify-between items-center">
                                             <div>
                                                 <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{selectedGroup.name}</h3>
-                                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mt-1">Tableau de bord Enseignant</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Code d'invitation : <span className="text-emerald-600 dark:text-emerald-400 select-all font-mono text-base ml-2">{selectedGroup.inviteCode}</span></p>
                                             </div>
-                                            <div className="bg-slate-50 dark:bg-zinc-800/50 px-5 py-3 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-inner">
-                                                <span className="text-[10px] font-black uppercase text-slate-400 block mb-1">Code d'invitation</span>
-                                                <span className="font-black text-lg text-emerald-600 dark:text-emerald-400 tracking-widest select-all uppercase">{selectedGroup.inviteCode}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            <div className="p-8 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
-                                                <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mb-6">
-                                                    <UsersIcon className="w-6 h-6 text-blue-500" />
-                                                </div>
-                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats?.totalStudents}</p>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('students')}</p>
-                                            </div>
-                                            <div className="p-8 bg-emerald-50 dark:bg-emerald-900/10 rounded-[32px] border border-emerald-100 dark:border-emerald-900/30 shadow-sm">
-                                                <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mb-6">
-                                                    <SchoolIcon className="w-6 h-6 text-emerald-600" />
-                                                </div>
-                                                <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{stats?.averageMastery}%</p>
-                                                <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mt-1">{t('class_average')}</p>
-                                            </div>
-                                            <div className="p-8 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
-                                                <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center mb-6">
-                                                    <BookOpenIcon className="w-6 h-6 text-purple-500" />
-                                                </div>
-                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats?.totalCapsules}</p>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('shared_capsules')}</p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="pt-6 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
                                             <button 
                                                 onClick={handleExportReport}
                                                 disabled={exportStatus !== 'idle'}
-                                                className="flex items-center gap-3 px-8 py-4 bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl hover:bg-slate-800 active:scale-95 transition-all"
+                                                className="flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl active:scale-95"
                                             >
-                                                {exportStatus === 'loading' ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : (exportStatus === 'success' ? <CheckCircleIcon className="w-4 h-4" /> : <DownloadIcon className="w-4 h-4" />)}
-                                                {exportStatus === 'loading' ? '...' : (exportStatus === 'success' ? t('report_downloaded') : t('export_report'))}
+                                                {exportStatus === 'loading' ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
+                                                {t('export_report')}
                                             </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-3 gap-6">
+                                            <div className="p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
+                                                <UsersIcon className="w-6 h-6 text-blue-500 mb-4" />
+                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats?.totalStudents}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('students')}</p>
+                                            </div>
+                                            <div className="p-8 bg-emerald-50 dark:bg-emerald-900/10 rounded-[32px] border border-emerald-100 dark:border-emerald-900/30">
+                                                <SchoolIcon className="w-6 h-6 text-emerald-600 mb-4" />
+                                                <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{stats?.averageMastery}%</p>
+                                                <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mt-1">{t('class_average')}</p>
+                                            </div>
+                                            <div className="p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
+                                                <BookOpenIcon className="w-6 h-6 text-purple-500 mb-4" />
+                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats?.totalCapsules}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('shared_capsules')}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -328,31 +305,22 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                 <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                                                     <tr>
                                                         <th className="p-6">{t('username')}</th>
-                                                        <th className="p-6">{t('role')}</th>
-                                                        <th className="p-6 text-right">{t('progression')}</th>
+                                                        <th className="p-6">Rôle</th>
+                                                        <th className="p-6 text-right">Maîtrise</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
-                                                    {selectedGroup.members.length > 0 ? selectedGroup.members.map(member => (
+                                                    {selectedGroup.members.map(member => (
                                                         <tr key={member.userId} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                                            <td className="p-6 flex items-center gap-4">
-                                                                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-black">
-                                                                    {member.name.charAt(0)}
-                                                                </div>
-                                                                <span className="font-bold text-slate-700 dark:text-zinc-200">{member.name}</span>
-                                                            </td>
+                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name}</td>
                                                             <td className="p-6">
-                                                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${member.role === 'owner' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                                                                    {member.role === 'owner' ? t('role_teacher') : t('role_student')}
+                                                                <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${member.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                                    {member.role === 'owner' ? "Prof" : "Élève"}
                                                                 </span>
                                                             </td>
-                                                            <td className="p-6 text-right text-sm text-slate-400">-</td>
+                                                            <td className="p-6 text-right text-slate-400">-</td>
                                                         </tr>
-                                                    )) : (
-                                                        <tr>
-                                                            <td colSpan={3} className="p-12 text-center text-slate-400 italic font-medium">{t('no_students')}</td>
-                                                        </tr>
-                                                    )}
+                                                    ))}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -362,36 +330,30 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                 {activeTab === 'assignments' && (
                                     <div className="space-y-6">
                                         <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
-                                        <div className="grid grid-cols-1 gap-4">
+                                        <div className="space-y-4">
                                             {classCapsules.length > 0 ? classCapsules.map(capsule => (
-                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all group">
-                                                    <div className="flex items-center gap-5">
-                                                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                                                            <BookOpenIcon className="w-7 h-7" />
+                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600">
+                                                            <BookOpenIcon className="w-6 h-6" />
                                                         </div>
-                                                        <div>
-                                                            <h4 className="font-black text-slate-900 dark:text-white text-lg tracking-tight">{capsule.title}</h4>
-                                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">{capsule.keyConcepts.length} concepts • {capsule.quiz.length} questions</p>
-                                                        </div>
+                                                        <h4 className="font-black text-slate-900 dark:text-white">{capsule.title}</h4>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">{t('completion_rate')}</p>
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-32 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                                <div 
-                                                                    className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
-                                                                    style={{ width: `${capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, selectedGroup.members.length - 1)) * 100) : 0}%` }}
-                                                                ></div>
-                                                            </div>
-                                                            <p className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                                                                {capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, selectedGroup.members.length - 1)) * 100) : 0}%
-                                                            </p>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-32 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-emerald-500 rounded-full"
+                                                                style={{ width: `${capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, selectedGroup.members.length - 1)) * 100) : 0}%` }}
+                                                            ></div>
                                                         </div>
+                                                        <span className="text-xs font-black text-emerald-600">
+                                                            {capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, selectedGroup.members.length - 1)) * 100) : 0}%
+                                                        </span>
                                                     </div>
                                                 </div>
                                             )) : (
                                                 <div className="text-center py-20 bg-slate-50/50 dark:bg-zinc-950/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
-                                                    <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Aucune capsule dans cette classe</p>
+                                                    <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Aucune capsule partagée avec cette classe</p>
                                                 </div>
                                             )}
                                         </div>
