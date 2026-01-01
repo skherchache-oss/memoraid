@@ -9,7 +9,7 @@ export interface QuizQuestion {
 export interface KeyConcept {
   concept: string;
   explanation: string;
-  deepDive?: string; // NOUVEAU : Contenu riche non lu par le TTS
+  deepDive?: string;
 }
 
 export interface FlashcardContent {
@@ -20,7 +20,7 @@ export interface FlashcardContent {
 export interface ReviewLog {
   date: number;
   type: 'quiz' | 'flashcard' | 'active-learning' | 'manual';
-  score: number; // 0 to 100
+  score: number;
 }
 
 export interface Comment {
@@ -44,9 +44,8 @@ export interface Group {
   inviteCode: string;
   ownerId: string;
   members: GroupMember[];
+  memberIds: string[]; // Nouveau: pour les règles de sécurité Firestore
 }
-
-// --- PREMIUM / COLLAB TYPES ---
 
 export interface CollaborativeTask {
   id: string;
@@ -66,23 +65,21 @@ export interface MemberProgress {
   masteryScore: number;
 }
 
-// --- GAMIFICATION TYPES ---
-
 export type BadgeId = 'first_capsule' | 'quiz_master' | 'streak_3' | 'streak_7' | 'streak_30' | 'explorer' | 'creator_10' | 'social_butterfly';
 
 export interface Badge {
   id: BadgeId;
   name: string;
   description: string;
-  icon: string; // icon identifier
-  unlockedAt?: number; // timestamp if unlocked, undefined otherwise
+  icon: string;
+  unlockedAt?: number;
 }
 
 export interface GamificationStats {
   xp: number;
   level: number;
   currentStreak: number;
-  lastStudyDate: string; // YYYY-MM-DD
+  lastStudyDate: string;
   badges: Badge[];
 }
 
@@ -94,8 +91,6 @@ export interface GroupChallenge {
   targetScore: number;
   endDate: number;
 }
-
-// --- NOUVEAUX TYPES POUR VISUALISATIONS ---
 
 export interface MindMapNode {
   id: string;
@@ -115,8 +110,6 @@ export interface VisualizationData {
   data: MindMapNode | TimelineEvent[];
 }
 
-// --- TYPES POUR IMPORT SCOLAIRE ---
-
 export type ExternalPlatform = 'classroom' | 'moodle' | 'pronote';
 
 export interface SchoolCourse {
@@ -130,11 +123,9 @@ export interface SchoolMaterial {
   id: string;
   title: string;
   type: 'pdf' | 'doc' | 'text';
-  content?: string; // Contenu simulé pour la démo
+  content?: string;
   url?: string;
 }
-
-// --- TYPES POUR PLANNING ÉTUDE ---
 
 export interface StudyTask {
   capsuleId: string;
@@ -145,7 +136,7 @@ export interface StudyTask {
 }
 
 export interface DailySession {
-  date: string; // ISO Date YYYY-MM-DD
+  date: string;
   tasks: StudyTask[];
   totalMinutes: number;
   isRestDay?: boolean;
@@ -153,15 +144,13 @@ export interface DailySession {
 
 export interface StudyPlan {
   id: string;
-  examDate: number; // timestamp
+  examDate: number;
   name: string;
   dailyMinutesAvailable: number;
   schedule: DailySession[];
   createdAt: number;
   capsuleIds: string[];
 }
-
-// --- TYPES POUR PREMIUM STORE ---
 
 export type PremiumCategory = 'bac' | 'concours' | 'expert' | 'langues';
 
@@ -170,13 +159,11 @@ export interface PremiumPack {
   title: string;
   description: string;
   category: PremiumCategory;
-  price: number; // 0 for free/demo
+  price: number;
   capsuleCount: number;
-  coverColor: string; // tailwind class prefix e.g., "bg-blue-500"
-  capsules: CognitiveCapsule[]; // The content to unlock
+  coverColor: string;
+  capsules: CognitiveCapsule[];
 }
-
-// ------------------------------------------
 
 export type SourceType = 'text' | 'pdf' | 'web' | 'image' | 'presentation' | 'ocr' | 'speech' | 'unknown';
 
@@ -192,35 +179,24 @@ export interface CognitiveCapsule {
   lastReviewed: number | null;
   reviewStage: number;
   category?: string;
-  
-  // Media & Visuals
   memoryAidImage?: string;
   memoryAidDescription?: string;
-  visualizations?: VisualizationData[]; // Stockage des diagrammes interactifs
-  mnemonic?: string; // NOUVEAU : Phrase mnémotechnique
-
+  visualizations?: VisualizationData[];
+  mnemonic?: string;
   history?: ReviewLog[];
   masteryLevel?: number;
   sourceType?: SourceType;
-  
-  // Collaborative fields
   isShared?: boolean;
   groupId?: string;
   groupName?: string;
   comments?: Comment[];
   sharedLink?: string;
   lastModifiedBy?: string;
-  
-  // Premium Collab Fields
   collaborativeTasks?: CollaborativeTask[];
   groupProgress?: MemberProgress[];
-  activeChallenge?: GroupChallenge; // Défi en cours sur cette capsule
-  
-  // Store Origin
+  activeChallenge?: GroupChallenge;
   isPremiumContent?: boolean;
   originalPackId?: string;
-
-  // Migration fields
   migratedAt?: number;
 }
 
@@ -238,14 +214,14 @@ export type UserRole = 'student' | 'teacher';
 export interface UserProfile {
   name: string;
   email?: string;
-  role: UserRole; // Added role
+  role: UserRole;
   level?: UserLevel;
   learningStyle?: LearningStyle;
-  plans?: StudyPlan[]; // MODIFIÉ : Support de plusieurs plans
-  activePlanId?: string; // Pour se souvenir du dernier plan ouvert
-  isPremium?: boolean; // Statut Premium
-  unlockedPackIds?: string[]; // IDs des packs achetés
-  gamification?: GamificationStats; // Stats de jeu
+  plans?: StudyPlan[];
+  activePlanId?: string;
+  isPremium?: boolean;
+  unlockedPackIds?: string[];
+  gamification?: GamificationStats;
 }
 
 export interface AppData {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Group, CognitiveCapsule } from '../types';
 import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, PlusIcon } from '../constants';
@@ -5,6 +6,7 @@ import { downloadBlob, generateFilename } from '../services/pdfService';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { createGroup } from '../services/cloudService';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '../hooks/useToast';
 
 interface TeacherDashboardProps {
     onClose: () => void;
@@ -17,6 +19,7 @@ interface TeacherDashboardProps {
 
 const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGroups, allGroupCapsules, onAssignTask, userId, userName }) => {
     const { t } = useLanguage();
+    const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(teacherGroups[0]?.id || null);
     const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -53,30 +56,37 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
 
     const handleCreateClass = async (e: React.FormEvent) => {
         e.preventDefault();
-        e.stopPropagation();
         
         const trimmedName = newClassName.trim();
-        if (!trimmedName) return;
+        if (!trimmedName || createLoading) return;
         
         if (!userId) {
-            alert("Vous devez être connecté pour créer une classe.");
+            addToast("Vous devez être connecté pour créer une classe.", "error");
             return;
         }
         
         setCreateLoading(true);
         try {
-            console.log("Tentative de création de la classe:", trimmedName);
             const newGroup = await createGroup(userId, userName, trimmedName);
-            console.log("Classe créée avec succès:", newGroup.id);
             
-            // On force la sélection de la nouvelle classe après le délai de propagation Firestore
-            setSelectedGroupId(newGroup.id);
             setNewClassName('');
             setIsCreatingClass(false);
-            setActiveTab('overview');
-        } catch (error) {
-            console.error("Erreur lors de la création de la classe:", error);
-            alert("Erreur technique lors de la création. Veuillez réessayer.");
+            
+            setTimeout(() => {
+                setSelectedGroupId(newGroup.id);
+                setActiveTab('overview');
+                addToast(`Classe "${trimmedName}" créée avec succès !`, "success");
+            }, 300);
+            
+        } catch (error: any) {
+            console.error("TeacherDashboard Error:", error);
+            let errorMsg = "Erreur lors de la création de la classe.";
+            if (error.code === 'permission-denied') {
+                errorMsg = "Accès refusé. Vérifiez que vous êtes bien connecté et que les règles Firestore sont actives.";
+            } else if (error.message && error.message.includes('apiKey')) {
+                errorMsg = "La clé API Firebase est manquante ou invalide dans services/firebase.ts";
+            }
+            addToast(errorMsg, "error");
         } finally {
             setCreateLoading(false);
         }
@@ -172,7 +182,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('class_management')}</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors group">
+                    <button onClick={onClose} className="p-3 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors group" aria-label="Fermer">
                         <XIcon className="w-6 h-6 text-slate-400 group-hover:rotate-90 transition-transform" />
                     </button>
                 </header>
@@ -189,9 +199,10 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                         value={selectedGroupId || ''}
                                         onChange={(e) => setSelectedGroupId(e.target.value)}
                                     >
-                                        {teacherGroups.length > 0 ? teacherGroups.map(g => (
+                                        <option value="" disabled>{teacherGroups.length > 0 ? t('select_class') : t('no_class')}</option>
+                                        {teacherGroups.map(g => (
                                             <option key={g.id} value={g.id}>{g.name}</option>
-                                        )) : <option value="">{t('no_class')}</option>}
+                                        ))}
                                     </select>
                                     <button 
                                         onClick={() => setIsCreatingClass(true)}
@@ -216,7 +227,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                             disabled={!newClassName.trim() || createLoading}
                                             className="flex-1 bg-emerald-600 text-white text-xs py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-md active:scale-95"
                                         >
-                                            {createLoading ? '...' : t('create')}
+                                            {createLoading ? <RefreshCwIcon className="w-4 h-4 animate-spin mx-auto" /> : t('create')}
                                         </button>
                                         <button 
                                             type="button" 
