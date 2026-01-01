@@ -9,7 +9,6 @@ import {
   orderBy,
   where,
   updateDoc,
-  arrayUnion,
   getDocs
 } from "firebase/firestore";
 
@@ -17,8 +16,7 @@ import type {
   CognitiveCapsule,
   Group,
   GroupMember,
-  UserProfile,
-  ClassType
+  UserProfile
 } from '../types';
 
 // -----------------------------
@@ -26,13 +24,12 @@ import type {
 // -----------------------------
 const USERS_COLLECTION = 'users';
 const GROUPS_COLLECTION = 'groups';
-const CLASSES_COLLECTION = 'classes';
 const CAPSULES_SUBCOLLECTION = 'capsules';
+const CLASSES_COLLECTION = 'classes';
 
 // =====================================================
 // CAPSULES PERSONNELLES
 // =====================================================
-
 export const saveCapsuleToCloud = async (userId: string, capsule: CognitiveCapsule) => {
   if (!db || !userId) return;
 
@@ -46,8 +43,8 @@ export const saveCapsuleToCloud = async (userId: string, capsule: CognitiveCapsu
     await setDoc(capsuleRef, {
       ...capsule,
       ownerId: userId,
-      updatedAt: Date.now(),
-      createdAt: capsule.createdAt ?? Date.now()
+      createdAt: capsule.createdAt ?? Date.now(),
+      updatedAt: Date.now()
     }, { merge: true });
 
   } catch (error) {
@@ -64,7 +61,12 @@ export const deleteCapsuleFromCloud = async (userId: string, capsuleId: string) 
 
 export const subscribeToCapsules = (userId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
   if (!db || !userId) return () => {};
-  const q = query(collection(db, USERS_COLLECTION, userId, CAPSULES_SUBCOLLECTION), orderBy('createdAt', 'desc'));
+
+  const q = query(
+    collection(db, USERS_COLLECTION, userId, CAPSULES_SUBCOLLECTION),
+    orderBy('createdAt', 'desc')
+  );
+
   return onSnapshot(q, snapshot => {
     const capsules: CognitiveCapsule[] = [];
     snapshot.forEach(doc => capsules.push(doc.data() as CognitiveCapsule));
@@ -72,13 +74,12 @@ export const subscribeToCapsules = (userId: string, onUpdate: (capsules: Cogniti
   });
 };
 
-// Alias migration
+// Alias pour migration
 export const subscribeToModules = subscribeToCapsules;
 
 // =====================================================
 // PROFIL UTILISATEUR
 // =====================================================
-
 export const updateUserProfileInCloud = async (userId: string, profile: Partial<UserProfile>) => {
   if (!db || !userId) return;
   const userRef = doc(db, USERS_COLLECTION, userId);
@@ -88,12 +89,10 @@ export const updateUserProfileInCloud = async (userId: string, profile: Partial<
 // =====================================================
 // CLASSES
 // =====================================================
+export const createClass = async (userId: string, className: string) => {
+  const classId = `cls_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
 
-export const createClass = async (userId: string, className: string): Promise<ClassType> => {
-  if (!db || !userId) throw new Error("DB non initialisée");
-
-  const classId = `class_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-  const newClass: ClassType = {
+  const newClass = {
     id: classId,
     name: className,
     ownerId: userId,
@@ -105,14 +104,15 @@ export const createClass = async (userId: string, className: string): Promise<Cl
   return newClass;
 };
 
-export const subscribeToUserClasses = (userId: string, onUpdate: (classes: ClassType[]) => void) => {
-  if (!db || !userId) return () => {};
+export const subscribeToUserClasses = (userId: string, onUpdate: (classes: any[]) => void) => {
+  if (!db) return () => {};
+
   const q = query(collection(db, CLASSES_COLLECTION));
   return onSnapshot(q, snapshot => {
-    const classes: ClassType[] = [];
+    const classes: any[] = [];
     snapshot.forEach(doc => {
-      const data = doc.data() as ClassType;
-      if (data.ownerId === userId) classes.push(data);
+      const c = doc.data();
+      if (c.ownerId === userId) classes.push(c);
     });
     onUpdate(classes);
   });
@@ -121,17 +121,17 @@ export const subscribeToUserClasses = (userId: string, onUpdate: (classes: Class
 // =====================================================
 // GROUPES
 // =====================================================
-
 export const createGroup = async (userId: string, userName: string, groupName: string): Promise<Group> => {
-  const groupId = `grp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const groupId = `grp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
   const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
+  const owner: GroupMember = { userId, name: userName, email: "", role: 'owner' };
   const newGroup: Group = {
     id: groupId,
     name: groupName,
     inviteCode,
     ownerId: userId,
-    members: { [userId]: { name: userName, role: 'owner' } },
+    members: { [userId]: owner },
     createdAt: Date.now()
   };
 
@@ -149,12 +149,15 @@ export const joinGroup = async (userId: string, userName: string, inviteCode: st
 
   if (group.members[userId]) throw new Error("Déjà membre");
 
-  await updateDoc(groupDoc.ref, { [`members.${userId}`]: { name: userName, role: 'editor' } });
-  return { ...group, members: { ...group.members, [userId]: { name: userName, role: 'editor' } } };
+  const newMember: GroupMember = { userId, name: userName, email: "", role: 'editor' };
+  await updateDoc(groupDoc.ref, { [`members.${userId}`]: newMember });
+
+  return { ...group, members: { ...group.members, [userId]: newMember } };
 };
 
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
   if (!db) return () => {};
+
   const q = query(collection(db, GROUPS_COLLECTION));
   return onSnapshot(q, snapshot => {
     const groups: Group[] = [];
@@ -169,7 +172,6 @@ export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]
 // =====================================================
 // CAPSULES DE GROUPE
 // =====================================================
-
 export const shareCapsuleToGroup = async (userId: string, group: Group, capsule: CognitiveCapsule) => {
   if (!db) return;
 
@@ -197,11 +199,17 @@ export const updateGroupCapsule = async (groupId: string, capsule: CognitiveCaps
   if (!db) return;
 
   const ref = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsule.id);
-  await setDoc(ref, { ...capsule, ownerId: capsule.ownerId ?? userId, lastModifiedBy: userId, updatedAt: Date.now() }, { merge: true });
+  await setDoc(ref, {
+    ...capsule,
+    ownerId: capsule.ownerId ?? userId,
+    lastModifiedBy: userId,
+    updatedAt: Date.now()
+  }, { merge: true });
 };
 
 export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
   if (!db) return () => {};
+
   const q = query(collection(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION));
   return onSnapshot(q, snapshot => {
     const capsules: CognitiveCapsule[] = [];
