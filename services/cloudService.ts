@@ -180,7 +180,7 @@ export const shareCapsuleToGroup = async (userId: string, group: Group, capsule:
         groupId: group.id,
         groupName: group.name,
         isShared: true,
-        sharedLink: `https://memoraid.app/share/${group.inviteCode}/${capsule.id}`,
+        sharedLink: `https://memoraid-app.fr/share/${group.inviteCode}/${capsule.id}`,
         comments: [],
         collaborativeTasks: [],
         groupProgress: [],

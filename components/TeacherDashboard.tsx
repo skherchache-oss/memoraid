@@ -68,14 +68,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const stats = useMemo(() => {
         if (!selectedGroup) return { totalStudents: 0, totalCapsules: 0, averageMastery: 0 };
         const members = Array.isArray(selectedGroup.members) ? selectedGroup.members : [];
-        const totalStudents = members.filter(m => m && m.role !== 'owner').length;
+        const totalStudents = members.filter(m => m && typeof m === 'object' && m.role !== 'owner').length;
         const totalCapsules = classCapsules.length;
         let totalMasterySum = 0;
         let recordedScores = 0;
         classCapsules.forEach(cap => {
             if (cap && Array.isArray(cap.groupProgress)) {
                 cap.groupProgress.forEach(prog => {
-                    if (prog) {
+                    if (prog && typeof prog === 'object') {
                         totalMasterySum += (prog.masteryScore || 0);
                         recordedScores++;
                     }
@@ -131,7 +131,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             `Bonjour ${inviteName},\n\n` +
             `${userName} vous invite à rejoindre sa classe sur Memoraid.\n\n` +
             `Votre code d'accès : ${selectedGroup.inviteCode}\n\n` +
-            `Lien : https://memoraid.app`
+            `Lien : https://memoraid-app.fr`
         );
         window.location.href = `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
         addToast("Invitation générée !", "info");
@@ -160,7 +160,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             let y = page.getHeight() - 50;
             page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
             y -= 40;
-            const students = (Array.isArray(selectedGroup.members) ? selectedGroup.members : []).filter(m => m && m.role !== 'owner');
+            const students = (Array.isArray(selectedGroup.members) ? selectedGroup.members : []).filter(m => m && typeof m === 'object' && m.role !== 'owner');
             for (const student of students) {
                 if (y < 50) { page = doc.addPage(); y = page.getHeight() - 50; }
                 page.drawText(student.name || "Inconnu", { x: 50, y, size: 12, font: fontNormal });
@@ -173,11 +173,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         } catch (e) { setExportStatus('error'); }
     };
 
+    // Helper pour récupérer la liste sécurisée des membres
+    const groupMembersList = useMemo(() => {
+        return Array.isArray(selectedGroup?.members) ? selectedGroup.members : [];
+    }, [selectedGroup]);
+
     return (
         <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
             <div className="bg-white dark:bg-zinc-900 w-full h-full md:rounded-[40px] shadow-2xl md:max-w-6xl md:h-[90vh] flex flex-col overflow-hidden border border-white/5">
                 
-                {/* Header responsive */}
                 <header className="bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800 p-5 md:p-6 flex justify-between items-center flex-shrink-0">
                     <div className="flex items-center gap-3 md:gap-4">
                         <div className="p-2.5 md:p-3 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
@@ -194,7 +198,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </header>
 
                 <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
-                    {/* Sidebar / Top bar sur mobile */}
                     <aside className="w-full md:w-72 bg-slate-50/50 dark:bg-zinc-950 border-b md:border-b-0 md:border-r border-slate-100 dark:border-zinc-800 flex flex-col flex-shrink-0">
                         <div className="p-4 md:p-6">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Choisir la classe</label>
@@ -227,7 +230,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             )}
                         </div>
                         
-                        {/* Onglets navigation desktop (masqué sur mobile) */}
                         <nav className="hidden md:flex flex-grow flex-col px-4 space-y-2 mt-4">
                             <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white'}`}>
                                 <SchoolIcon className="w-5 h-5" /> Vue d'ensemble
@@ -240,7 +242,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             </button>
                         </nav>
                         
-                        {/* Navigation mobile */}
                         <nav className="flex md:hidden justify-around p-2 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800">
                              <button onClick={() => setActiveTab('overview')} className={`p-3 rounded-xl ${activeTab === 'overview' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-400'}`}><SchoolIcon className="w-6 h-6" /></button>
                              <button onClick={() => setActiveTab('classes')} className={`p-3 rounded-xl ${activeTab === 'classes' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-400'}`}><UsersIcon className="w-6 h-6" /></button>
@@ -248,7 +249,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         </nav>
                     </aside>
 
-                    {/* Content Area */}
                     <main className="flex-grow p-4 md:p-8 overflow-y-auto bg-white dark:bg-zinc-900">
                         {!selectedGroup ? (
                             <div className="flex flex-col items-center justify-center h-full text-slate-300 opacity-30 text-center py-20">
@@ -337,17 +337,26 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
-                                                        {(selectedGroup?.members || []).map((member, idx) => (
-                                                            <tr key={member?.userId || idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                                                <td className="p-5 md:p-6 font-bold text-slate-700 dark:text-zinc-200 truncate max-w-[120px] md:max-w-none">{member?.name || "Apprenant"}</td>
+                                                        {groupMembersList.map((member, idx) => (
+                                                            <tr key={member && typeof member === 'object' && member.userId ? member.userId : idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                                <td className="p-5 md:p-6 font-bold text-slate-700 dark:text-zinc-200 truncate max-w-[120px] md:max-w-none">
+                                                                    {(member && typeof member === 'object' && member.name) ? member.name : "Apprenant"}
+                                                                </td>
                                                                 <td className="p-5 md:p-6">
-                                                                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${member?.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                                        {member?.role === 'owner' ? "Prof" : "Élève"}
+                                                                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(member && typeof member === 'object' && member.role === 'owner') ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                                        {(member && typeof member === 'object' && member.role === 'owner') ? "Prof" : "Élève"}
                                                                     </span>
                                                                 </td>
                                                                 <td className="p-5 md:p-6 text-right text-slate-400">-</td>
                                                             </tr>
                                                         ))}
+                                                        {groupMembersList.length === 0 && (
+                                                            <tr>
+                                                                <td colSpan={3} className="p-10 text-center text-slate-400 italic text-sm">
+                                                                    Aucun étudiant dans cette classe.
+                                                                </td>
+                                                            </tr>
+                                                        )}
                                                     </tbody>
                                                 </table>
                                             </div>
@@ -419,7 +428,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </div>
             </div>
 
-            {/* Modals de confirmation */}
             <ConfirmationModal 
                 isOpen={!!groupToDelete} 
                 onClose={() => setGroupToDelete(null)} 
