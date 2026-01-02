@@ -27,37 +27,44 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
     const [newClassName, setNewClassName] = useState('');
     const [createLoading, setCreateLoading] = useState(false);
 
+    // Sécurisation des données d'entrée
+    const safeGroups = useMemo(() => Array.isArray(teacherGroups) ? teacherGroups.filter(g => g && g.id) : [], [teacherGroups]);
+    const safeCapsules = useMemo(() => Array.isArray(allGroupCapsules) ? allGroupCapsules : [], [allGroupCapsules]);
+
     // Sélection automatique de la première classe au chargement
     useEffect(() => {
-        if (!selectedGroupId && teacherGroups.length > 0) {
-            setSelectedGroupId(teacherGroups[0].id);
+        if (!selectedGroupId && safeGroups.length > 0) {
+            setSelectedGroupId(safeGroups[0].id);
         }
-    }, [teacherGroups, selectedGroupId]);
+    }, [safeGroups, selectedGroupId]);
 
     const selectedGroup = useMemo(() => 
-        teacherGroups.find(g => g.id === selectedGroupId), 
-    [teacherGroups, selectedGroupId]);
+        safeGroups.find(g => g.id === selectedGroupId), 
+    [safeGroups, selectedGroupId]);
     
     const classCapsules = useMemo(() => 
-        (allGroupCapsules || []).filter(c => c.groupId === selectedGroupId), 
-    [allGroupCapsules, selectedGroupId]);
+        safeCapsules.filter(c => c && c.groupId === selectedGroupId), 
+    [safeCapsules, selectedGroupId]);
 
     const stats = useMemo(() => {
         if (!selectedGroup) return { totalStudents: 0, totalCapsules: 0, averageMastery: 0 };
         
-        const members = selectedGroup.members || [];
-        const totalStudents = members.filter(m => m.role !== 'owner').length;
+        const members = Array.isArray(selectedGroup.members) ? selectedGroup.members : [];
+        const totalStudents = members.filter(m => m && m.role !== 'owner').length;
         const totalCapsules = classCapsules.length;
         
         let totalMasterySum = 0;
         let recordedScores = 0;
         
         classCapsules.forEach(cap => {
-            const progress = cap.groupProgress || [];
-            progress.forEach(prog => {
-                totalMasterySum += (prog.masteryScore || 0);
-                recordedScores++;
-            });
+            if (cap && Array.isArray(cap.groupProgress)) {
+                cap.groupProgress.forEach(prog => {
+                    if (prog) {
+                        totalMasterySum += (prog.masteryScore || 0);
+                        recordedScores++;
+                    }
+                });
+            }
         });
         
         const averageMastery = recordedScores > 0 ? Math.round(totalMasterySum / recordedScores) : 0;
@@ -106,7 +113,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
             page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
             y -= 40;
 
-            const students = (selectedGroup.members || []).filter(m => m.role !== 'owner');
+            const students = (Array.isArray(selectedGroup.members) ? selectedGroup.members : []).filter(m => m && m.role !== 'owner');
             for (const student of students) {
                 if (y < 50) {
                     page = doc.addPage();
@@ -156,8 +163,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                             value={selectedGroupId || ''}
                                             onChange={(e) => setSelectedGroupId(e.target.value)}
                                         >
-                                            <option value="" disabled>{teacherGroups.length > 0 ? "Choisir une classe..." : "Aucune classe"}</option>
-                                            {teacherGroups.map(g => (
+                                            <option value="" disabled>{safeGroups.length > 0 ? "Choisir une classe..." : "Aucune classe"}</option>
+                                            {safeGroups.map(g => (
                                                 <option key={g.id} value={g.id}>{g.name}</option>
                                             ))}
                                         </select>
@@ -236,7 +243,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                         <div className="flex justify-between items-center">
                                             <div>
                                                 <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{selectedGroup.name}</h3>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Code d'invitation : <span className="text-emerald-600 dark:text-emerald-400 select-all font-mono text-base ml-2">{selectedGroup.inviteCode}</span></p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Code d'invitation : <span className="text-emerald-600 dark:text-emerald-400 select-all font-mono text-base ml-2">{selectedGroup.inviteCode || 'N/A'}</span></p>
                                             </div>
                                             <button 
                                                 onClick={handleExportReport}
@@ -248,7 +255,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                             </button>
                                         </div>
 
-                                        <div className="grid grid-cols-3 gap-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                                             <div className="p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
                                                 <UsersIcon className="w-6 h-6 text-blue-500 mb-4" />
                                                 <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalStudents}</p>
@@ -281,17 +288,22 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
-                                                    {(selectedGroup?.members || []).map(member => (
-                                                        <tr key={member.userId} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name || "Apprenant"}</td>
+                                                    {(Array.isArray(selectedGroup?.members) ? selectedGroup.members : []).map((member, idx) => (
+                                                        <tr key={member?.userId || idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member?.name || "Apprenant"}</td>
                                                             <td className="p-6">
-                                                                <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${member.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
-                                                                    {member.role === 'owner' ? "Prof" : "Élève"}
+                                                                <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${member?.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                                    {member?.role === 'owner' ? "Prof" : "Élève"}
                                                                 </span>
                                                             </td>
                                                             <td className="p-6 text-right text-slate-400">-</td>
                                                         </tr>
                                                     ))}
+                                                    {(Array.isArray(selectedGroup?.members) && selectedGroup.members.length === 0) && (
+                                                        <tr>
+                                                            <td colSpan={3} className="p-10 text-center text-slate-400 italic">Aucun élève dans cette classe.</td>
+                                                        </tr>
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -302,27 +314,33 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                     <div className="space-y-6">
                                         <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
                                         <div className="space-y-4">
-                                            {classCapsules.length > 0 ? classCapsules.map(capsule => (
-                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600">
-                                                            <BookOpenIcon className="w-6 h-6" />
+                                            {classCapsules.length > 0 ? classCapsules.map(capsule => {
+                                                const totalMembers = Array.isArray(selectedGroup?.members) ? selectedGroup.members.length : 1;
+                                                const progressCount = Array.isArray(capsule.groupProgress) ? capsule.groupProgress.length : 0;
+                                                const completionRate = Math.round((progressCount / Math.max(1, totalMembers - 1)) * 100);
+                                                
+                                                return (
+                                                    <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600">
+                                                                <BookOpenIcon className="w-6 h-6" />
+                                                            </div>
+                                                            <h4 className="font-black text-slate-900 dark:text-white">{capsule.title}</h4>
                                                         </div>
-                                                        <h4 className="font-black text-slate-900 dark:text-white">{capsule.title}</h4>
-                                                    </div>
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-32 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                            <div 
-                                                                className="h-full bg-emerald-500 rounded-full"
-                                                                style={{ width: `${capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, (selectedGroup?.members?.length || 1) - 1)) * 100) : 0}%` }}
-                                                            ></div>
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-32 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                                <div 
+                                                                    className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                                                                    style={{ width: `${completionRate}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <span className="text-xs font-black text-emerald-600">
+                                                                {completionRate}%
+                                                            </span>
                                                         </div>
-                                                        <span className="text-xs font-black text-emerald-600">
-                                                            {capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, (selectedGroup?.members?.length || 1) - 1)) * 100) : 0}%
-                                                        </span>
                                                     </div>
-                                                </div>
-                                            )) : (
+                                                );
+                                            }) : (
                                                 <div className="text-center py-20 bg-slate-50/50 dark:bg-zinc-950/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
                                                     <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Aucune capsule partagée avec cette classe</p>
                                                 </div>
