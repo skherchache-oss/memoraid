@@ -318,7 +318,6 @@ const AppContent: React.FC = () => {
         }
     }, [currentUser]);
 
-    // Filtrage sécurisé des groupes pour l'enseignant
     const teacherGroups = useMemo(() => {
         if (!currentUser || !userGroups) return [];
         return userGroups.filter(g => g && g.ownerId === currentUser.uid);
@@ -409,7 +408,7 @@ const AppContent: React.FC = () => {
                 )}
                 {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} />}
                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
-                {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={teacherGroups} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
+                {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={teacherGroups} allGroupCapsules={groupCapsules} teacherPersonalCapsules={profile.capsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} onNavigateToCreate={() => setView('create')} />}
             </main>
 
             <MobileNavBar activeTab={mobileTab} onTabChange={handleMobileTabChange} hasActivePlan={!!profile.user.activePlanId} userRole={profile.user.role} />
