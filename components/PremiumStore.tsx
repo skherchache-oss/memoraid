@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
     CrownIcon, 
@@ -5,7 +6,8 @@ import {
     SparklesIcon, 
     BrainIcon,
     InfoIcon,
-    AlertCircleIcon
+    AlertCircleIcon,
+    ArrowRightIcon
 } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
 import { APPRENDRE_PACK } from '../services/packContent';
@@ -19,6 +21,13 @@ interface PremiumStoreProps {
 const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackIds }) => {
     const { t } = useLanguage();
     const isApprendreUnlocked = unlockedPackIds.includes(APPRENDRE_PACK.id);
+
+    const scrollToPacks = () => {
+        const element = document.getElementById('knowledge-packs-section');
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
 
     return (
         <div className="bg-white dark:bg-zinc-900 min-h-screen pb-32 animate-fade-in">
@@ -36,9 +45,22 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                     <h1 className="text-3xl md:text-5xl font-black mb-4 tracking-tighter leading-tight">
                         Une expérience d'apprentissage étendue
                     </h1>
-                    <p className="text-slate-400 text-lg font-medium leading-relaxed max-w-2xl mx-auto">
+                    <p className="text-slate-400 text-lg font-medium leading-relaxed max-w-2xl mx-auto mb-8">
                         Découvrez nos options d'abonnement pour lever les limites de création et accéder à des outils visuels avancés.
                     </p>
+
+                    {/* Nouveau : Raccourci vers les packs de savoirs */}
+                    <button 
+                        onClick={scrollToPacks}
+                        className="inline-flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-all group"
+                    >
+                        <SparklesIcon className="w-5 h-5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                        <div className="text-left">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nouveautés</p>
+                            <p className="text-sm font-bold text-white">Packs de savoirs thématiques à l'unité en bas de page</p>
+                        </div>
+                        <ArrowRightIcon className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition-transform ml-2" />
+                    </button>
                 </div>
             </div>
 
@@ -167,10 +189,10 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                 </div>
 
                 {/* SECTION 2: PACKS THÉMATIQUES */}
-                <div className="mb-20">
+                <div id="knowledge-packs-section" className="mb-20 scroll-mt-24">
                     <div className="flex items-center gap-4 mb-12 justify-center">
                         <div className="h-px bg-slate-200 dark:bg-zinc-800 flex-grow max-w-[100px]"></div>
-                        <h2 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400">Packs de Savoir</h2>
+                        <h2 className="text-sm font-black uppercase tracking-[0.3em] text-slate-400 text-center">Packs de Savoir Thématiques</h2>
                         <div className="h-px bg-slate-200 dark:bg-zinc-800 flex-grow max-w-[100px]"></div>
                     </div>
 
@@ -182,7 +204,7 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
                                     <BrainIcon className="w-32 h-32 text-white" />
                                 </div>
                                 <div className="bg-white/20 backdrop-blur-md w-fit px-3 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-widest border border-white/20">
-                                    {isApprendreUnlocked ? 'Débloqué' : 'Incontournable'}
+                                    {isApprendreUnlocked ? 'Débloqué' : 'Achat Unique'}
                                 </div>
                                 <h3 className="text-2xl font-black text-white leading-tight">{APPRENDRE_PACK.title}</h3>
                             </div>
@@ -239,7 +261,7 @@ const PremiumStore: React.FC<PremiumStoreProps> = ({ onUnlockPack, unlockedPackI
 
                 {/* Transparence Box */}
                 <div className="max-w-2xl mx-auto p-8 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-[40px] text-center mb-10">
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Engagement Memoraid</h3>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Engagement Memoraid</h3>
                     <p className="text-sm text-slate-500 dark:text-zinc-500 leading-relaxed font-medium">
                         L'achat d'un pack vous donne un accès illimité à vie à ces modules spécifiques. L'abonnement Premium lève quant à lui les barrières de création pour vos propres sujets.
                     </p>

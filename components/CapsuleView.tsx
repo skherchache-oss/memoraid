@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { CognitiveCapsule, QuizQuestion, Group } from '../types';
@@ -31,7 +32,7 @@ import { downloadCapsulePdf, downloadFlashcardsPdf, downloadQuizPdf } from '../s
 import { exportToPPTX } from '../services/exportService';
 import { ToastType } from '../hooks/useToast';
 import { useLanguage } from '../contexts/LanguageContext';
-import { checkTtsAvailability, recordTtsSuccess } from '../services/quotaManager';
+import { checkTtsAvailability, recordTtsSuccess, checkImageQuota } from '../services/quotaManager';
 import { segmentText } from '../services/voiceUtils';
 
 function decode(base64: string) {
@@ -187,7 +188,6 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
         }
         try { await silentAudioRef.current.play(); } catch (e) {}
 
-        // Construction du texte de lecture incluant les exemples pratiques
         const conceptsText = capsule.keyConcepts.map(c => `${c.concept}: ${c.explanation}`).join('. ');
         const examplesText = capsule.examples && capsule.examples.length > 0 
             ? `${t('examples')}: ${capsule.examples.join('. ')}` 
@@ -269,13 +269,24 @@ const CapsuleView: React.FC<CapsuleViewProps> = ({
     };
 
     const handleGenerateImage = async () => {
+        // Vérifier le quota / statut premium
+        const quota = checkImageQuota(capsule.id, !!isPremium || !!capsule.isPremiumContent);
+        if (!quota.allowed) {
+            addToast(t('sketch_premium_only'), 'info');
+            return;
+        }
+
         setIsGeneratingImage(true);
         try {
             const res = await generateMemoryAidDrawing(capsule, language);
             setMemoryAidImage(`data:image/png;base64,${res.imageData}`);
             onSetMemoryAid(capsule.id, res.imageData, res.description);
             addToast("Croquis généré !", 'success');
-        } catch (e) { addToast(t('error_generation'), 'error'); } finally { setIsGeneratingImage(false); }
+        } catch (e) { 
+            addToast(t('error_generation'), 'error'); 
+        } finally { 
+            setIsGeneratingImage(false); 
+        }
     };
 
     const handleGenerateMnemonic = async () => {
