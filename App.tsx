@@ -133,8 +133,6 @@ const AppContent: React.FC = () => {
             setIsAuthInitializing(false);
 
             if (user) {
-                // L'utilisateur vient de se connecter
-                // 1. On initialise avec les infos d'auth si le cloud est vide
                 setProfile(prev => ({ 
                     ...prev, 
                     user: { 
@@ -144,7 +142,6 @@ const AppContent: React.FC = () => {
                     } 
                 }));
                 
-                // 2. Abonnement au PROFIL Cloud (Le nom personnalisé est ici)
                 const unsubProfile = subscribeToUserProfile(user.uid, (cloudUser) => {
                     setProfile(prev => ({
                         ...prev,
@@ -152,17 +149,15 @@ const AppContent: React.FC = () => {
                     }));
                 });
 
-                // 3. Sync capsules
                 const unsubCapsules = subscribeToCapsules(user.uid, (cloudCapsules) => {
                     setProfile(prev => ({ ...prev, capsules: cloudCapsules }));
                 });
                 
-                // 4. Sync groupes
                 let groupSubscriptions: (() => void)[] = [];
                 const unsubGroups = subscribeToUserGroups(user.uid, (groups) => {
-                    setUserGroups(groups);
+                    setUserGroups(groups || []);
                     groupSubscriptions.forEach(unsub => unsub());
-                    groupSubscriptions = groups.map(group => 
+                    groupSubscriptions = (groups || []).map(group => 
                         subscribeToGroupCapsules(group.id, (gCapsules) => {
                             setGroupCapsules(prev => {
                                 const others = prev.filter(c => c.groupId !== group.id);
@@ -172,7 +167,6 @@ const AppContent: React.FC = () => {
                     );
                 });
 
-                // 5. Migration des modules locaux vers le cloud si nécessaire
                 migrateLocalModules(user.uid).catch(console.error);
 
                 return () => { 
@@ -182,7 +176,6 @@ const AppContent: React.FC = () => {
                     groupSubscriptions.forEach(unsub => unsub());
                 };
             } else {
-                // DÉCONNEXION : On nettoie TOUT
                 localStorage.removeItem('memoraid_profile');
                 setProfile(DEFAULT_PROFILE(t));
                 setUserGroups([]);
@@ -325,6 +318,12 @@ const AppContent: React.FC = () => {
         }
     }, [currentUser]);
 
+    // Filtrage sécurisé des groupes pour l'enseignant
+    const teacherGroups = useMemo(() => {
+        if (!currentUser || !userGroups) return [];
+        return userGroups.filter(g => g && g.ownerId === currentUser.uid);
+    }, [userGroups, currentUser]);
+
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === 'dark' ? 'dark bg-zinc-950 text-white' : 'bg-gray-50 text-slate-900'}`}>
             <Header currentView={view} userRole={profile.user.role} onNavigate={handleNavigate} onOpenProfile={() => { setView('profile'); setMobileTab('profile'); }} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => handleNavigate('create')} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
@@ -410,7 +409,7 @@ const AppContent: React.FC = () => {
                 )}
                 {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} />}
                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
-                {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={userGroups.filter(g => g.ownerId === currentUser?.uid)} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
+                {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={teacherGroups} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
             </main>
 
             <MobileNavBar activeTab={mobileTab} onTabChange={handleMobileTabChange} hasActivePlan={!!profile.user.activePlanId} userRole={profile.user.role} />
