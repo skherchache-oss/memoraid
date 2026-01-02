@@ -303,6 +303,7 @@ const AppContent: React.FC = () => {
         setMobileTab(tab);
         setActiveCapsule(null);
         if (tab === 'library') setView('base');
+        else if (tab === 'classes') setView('classes');
         else setView(tab as View);
     };
 
@@ -408,7 +409,18 @@ const AppContent: React.FC = () => {
                 )}
                 {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} />}
                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
-                {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={teacherGroups} allGroupCapsules={groupCapsules} teacherPersonalCapsules={profile.capsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} onNavigateToCreate={() => setView('create')} />}
+                {view === 'classes' && (
+                    <TeacherDashboard 
+                        onClose={() => setView('create')} 
+                        teacherGroups={teacherGroups} 
+                        allGroupCapsules={groupCapsules} 
+                        teacherPersonalCapsules={profile.capsules} 
+                        onAssignTask={() => {}} 
+                        userId={currentUser?.uid || ''} 
+                        userName={profile.user.name} 
+                        onNavigateToCreate={() => { setView('create'); setMobileTab('create'); }} 
+                    />
+                )}
             </main>
 
             <MobileNavBar activeTab={mobileTab} onTabChange={handleMobileTabChange} hasActivePlan={!!profile.user.activePlanId} userRole={profile.user.role} />

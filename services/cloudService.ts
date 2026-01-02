@@ -101,6 +101,24 @@ export const createGroup = async (userId: string, userName: string, groupName: s
     return newGroup;
 };
 
+export const deleteGroup = async (groupId: string) => {
+    if (!db) return;
+    try {
+        // 1. Supprimer les capsules du groupe
+        const capsulesRef = collection(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION);
+        const capsSnapshot = await getDocs(capsulesRef);
+        const batch = writeBatch(db);
+        capsSnapshot.forEach(doc => batch.delete(doc.ref));
+        
+        // 2. Supprimer le groupe lui-même
+        batch.delete(doc(db, GROUPS_COLLECTION, groupId));
+        await batch.commit();
+    } catch (error) {
+        console.error("Erreur suppression groupe:", error);
+        throw error;
+    }
+};
+
 export const joinGroup = async (userId: string, userName: string, inviteCode: string): Promise<Group> => {
     if (!db) throw new Error("Base de données non disponible.");
 
@@ -140,7 +158,6 @@ export const joinGroup = async (userId: string, userName: string, inviteCode: st
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
     if (!db || !userId) return () => {};
     
-    // Requête alignée avec les nouvelles règles Firestore
     const q = query(collection(db, GROUPS_COLLECTION), where("memberIds", "array-contains", userId));
     
     return onSnapshot(q, (snapshot) => {
@@ -173,6 +190,17 @@ export const shareCapsuleToGroup = async (userId: string, group: Group, capsule:
     const capsuleRef = doc(db, GROUPS_COLLECTION, group.id, CAPSULES_SUBCOLLECTION, sharedCapsule.id);
     await setDoc(capsuleRef, sharedCapsule);
     return sharedCapsule;
+};
+
+export const unshareCapsuleFromGroup = async (groupId: string, capsuleId: string) => {
+    if (!db) return;
+    try {
+        const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsuleId);
+        await deleteDoc(capsuleRef);
+    } catch (error) {
+        console.error("Erreur dé-partage:", error);
+        throw error;
+    }
 };
 
 export const updateGroupCapsule = async (groupId: string, capsule: CognitiveCapsule, userId: string) => {
