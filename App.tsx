@@ -33,11 +33,17 @@ import {
     subscribeToGroupCapsules, 
     shareCapsuleToGroup, 
     updateUserProfileInCloud,
-    subscribeToModules
+    subscribeToModules,
+    subscribeToUserProfile
 } from './services/cloudService';
 import { migrateLocalModules } from './services/migrationService';
 import { useLanguage } from './contexts/LanguageContext';
 import { translations } from './i18n/translations';
+
+const DEFAULT_PROFILE = (t: any): AppData => ({
+    user: { name: t('default_username'), email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [], unlockedPackIds: [] },
+    capsules: []
+});
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -80,10 +86,7 @@ const AppContent: React.FC = () => {
         } catch (e) {
             console.error("Failed to load profile from localStorage", e);
         }
-        return {
-            user: { name: translations.fr.default_username, email: '', role: 'student', gamification: getInitialGamificationStats(), plans: [], unlockedPackIds: [] },
-            capsules: []
-        };
+        return DEFAULT_PROFILE(t);
     });
     
     const [activeCapsule, setActiveCapsule] = useState<CognitiveCapsule | null>(null);
@@ -110,18 +113,6 @@ const AppContent: React.FC = () => {
     const generationController = useRef({ isCancelled: false });
 
     useEffect(() => {
-        if (!currentUser) return;
-        let hasMigrated = false;
-        const unsubscribe = subscribeToModules(currentUser.uid, async (remoteModules) => {
-            if (hasMigrated) return;
-            const remoteIds = new Set(remoteModules.map(m => m.id));
-            await migrateLocalModules(currentUser.uid, remoteIds);
-            hasMigrated = true;
-        });
-        return () => unsubscribe();
-    }, [currentUser]);
-
-    useEffect(() => {
         const handleOnline = () => setIsOnline(true);
         const handleOffline = () => setIsOnline(false);
         window.addEventListener('online', handleOnline);
@@ -140,46 +131,73 @@ const AppContent: React.FC = () => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
             setIsAuthInitializing(false);
+
             if (user) {
-                setProfile(prev => ({ ...prev, user: { ...prev.user, name: user.displayName || prev.user.name, email: user.email || prev.user.email || '' } }));
+                // L'utilisateur vient de se connecter
+                // 1. On initialise avec les infos d'auth si le cloud est vide
+                setProfile(prev => ({ 
+                    ...prev, 
+                    user: { 
+                        ...prev.user, 
+                        name: user.displayName || prev.user.name, 
+                        email: user.email || prev.user.email || '' 
+                    } 
+                }));
                 
-                // Sync capsules
-                let unsubscribeSync = subscribeToCapsules(user.uid, (cloudCapsules) => setProfile(prev => ({ ...prev, capsules: cloudCapsules })));
+                // 2. Abonnement au PROFIL Cloud (Le nom personnalisé est ici)
+                const unsubProfile = subscribeToUserProfile(user.uid, (cloudUser) => {
+                    setProfile(prev => ({
+                        ...prev,
+                        user: { ...prev.user, ...cloudUser }
+                    }));
+                });
+
+                // 3. Sync capsules
+                const unsubCapsules = subscribeToCapsules(user.uid, (cloudCapsules) => {
+                    setProfile(prev => ({ ...prev, capsules: cloudCapsules }));
+                });
                 
-                // Sync groups & group capsules
+                // 4. Sync groupes
                 let groupSubscriptions: (() => void)[] = [];
-                let unsubscribeGroups = subscribeToUserGroups(user.uid, (groups) => {
+                const unsubGroups = subscribeToUserGroups(user.uid, (groups) => {
                     setUserGroups(groups);
-                    
-                    // Nettoyage des anciennes sous-souscriptions
                     groupSubscriptions.forEach(unsub => unsub());
-                    groupSubscriptions = [];
-                    
-                    // Nouvelle souscription pour chaque groupe
-                    groups.forEach(group => {
-                        const unsub = subscribeToGroupCapsules(group.id, (gCapsules) => {
+                    groupSubscriptions = groups.map(group => 
+                        subscribeToGroupCapsules(group.id, (gCapsules) => {
                             setGroupCapsules(prev => {
                                 const others = prev.filter(c => c.groupId !== group.id);
                                 return [...others, ...gCapsules];
                             });
-                        });
-                        groupSubscriptions.push(unsub);
-                    });
+                        })
+                    );
                 });
 
+                // 5. Migration des modules locaux vers le cloud si nécessaire
+                migrateLocalModules(user.uid).catch(console.error);
+
                 return () => { 
-                    unsubscribeSync(); 
-                    unsubscribeGroups(); 
+                    unsubProfile();
+                    unsubCapsules(); 
+                    unsubGroups(); 
                     groupSubscriptions.forEach(unsub => unsub());
                 };
+            } else {
+                // DÉCONNEXION : On nettoie TOUT
+                localStorage.removeItem('memoraid_profile');
+                setProfile(DEFAULT_PROFILE(t));
+                setUserGroups([]);
+                setGroupCapsules([]);
+                setActiveCapsule(null);
             }
         });
         return () => unsubscribe();
-    }, []);
+    }, [t]);
 
     useEffect(() => { 
-        if (profile) localStorage.setItem('memoraid_profile', JSON.stringify(profile)); 
-    }, [profile]);
+        if (profile && currentUser) {
+            localStorage.setItem('memoraid_profile', JSON.stringify(profile)); 
+        }
+    }, [profile, currentUser]);
 
     const saveCapsuleData = useCallback(async (capsule: CognitiveCapsule) => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
@@ -300,12 +318,19 @@ const AppContent: React.FC = () => {
         window.scrollTo({ top: 0, behavior: 'auto' });
     };
 
+    const handleUpdateProfile = useCallback(async (newProfile: UserProfile) => {
+        setProfile(prev => ({ ...prev, user: newProfile }));
+        if (currentUser) {
+            await updateUserProfileInCloud(currentUser.uid, newProfile);
+        }
+    }, [currentUser]);
+
     return (
         <div className={`min-h-screen flex flex-col transition-colors duration-500 ${theme === 'dark' ? 'dark bg-zinc-950 text-white' : 'bg-gray-50 text-slate-900'}`}>
             <Header currentView={view} userRole={profile.user.role} onNavigate={handleNavigate} onOpenProfile={() => { setView('profile'); setMobileTab('profile'); }} onLogin={() => setIsAuthModalOpen(true)} currentUser={currentUser} isOnline={isOnline} gamification={profile.user.gamification} addToast={addToast} onLogoClick={() => handleNavigate('create')} currentTheme={theme} onToggleTheme={toggleTheme} isPremium={profile.user.isPremium} />
             
             <main ref={mainContentRef} className="flex-grow container mx-auto px-4 py-6 md:py-10 pb-24 md:pb-10 max-w-7xl">
-                {view === 'create' && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} onCancel={() => setIsLoading(false)} isLoading={isLoading} error={error} onClearError={() => setError(null)} />}
+                {view === 'create' && <InputArea onGenerate={handleGenerate} onGenerateFromFile={handleGenerateFromFile} onCancel={() => setIsLoading(false)} isLoading={isLoading} error={error} onClearError={() => setError(null)} onOpenProfile={() => setView('profile')} />}
                 
                 {view === 'base' && (
                     <div className="w-full min-h-[60vh] animate-fade-in">
@@ -384,7 +409,7 @@ const AppContent: React.FC = () => {
                     />
                 )}
                 {view === 'store' && <PremiumStore onUnlockPack={handleUnlockPack} unlockedPackIds={profile.user.unlockedPackIds || []} />}
-                {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={p => setProfile(prev => ({ ...prev, user: p }))} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
+                {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
                 {view === 'classes' && <TeacherDashboard onClose={() => setView('create')} teacherGroups={userGroups.filter(g => g.ownerId === currentUser?.uid)} allGroupCapsules={groupCapsules} onAssignTask={() => {}} userId={currentUser?.uid || ''} userName={profile.user.name} />}
             </main>
 

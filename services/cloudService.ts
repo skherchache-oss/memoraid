@@ -33,6 +33,16 @@ export const updateUserProfileInCloud = async (userId: string, profile: Partial<
     }
 };
 
+export const subscribeToUserProfile = (userId: string, onUpdate: (profile: Partial<UserProfile>) => void) => {
+    if (!db || !userId) return () => {};
+    const userRef = doc(db, USERS_COLLECTION, userId);
+    return onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+            onUpdate(doc.data() as UserProfile);
+        }
+    });
+};
+
 export const deleteCapsuleFromCloud = async (userId: string, capsuleId: string) => {
     if (!db || !userId) return;
     try {

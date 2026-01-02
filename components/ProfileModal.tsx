@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole, CognitiveCapsule } from '../types';
-import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, SendIcon, GraduationCapIcon } from '../constants';
+import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, SendIcon, GraduationCapIcon, ChevronDownIcon } from '../constants';
 import { ToastType } from '../hooks/useToast';
 import ProgressionDashboard from './ProgressionDashboard';
 import { auth } from '../services/firebase';
@@ -24,49 +25,35 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     const { t, language } = useLanguage();
     const isInitialMount = useRef(true);
     
-    const [name, setName] = useState(() => {
-        if (profile.user.name === 'Apprenant' || profile.user.name === 'Learner') {
-            return t('default_username');
-        }
-        return profile.user.name;
-    });
-
+    const [name, setName] = useState(profile.user.name);
     const [email, setEmail] = useState(profile.user.email || '');
     const [level, setLevel] = useState<UserLevel>(profile.user.level || 'intermediate');
     const [role, setRole] = useState<UserRole>(profile.user.role || 'student');
     const [learningStyle, setLearningStyle] = useState<LearningStyle>(profile.user.learningStyle || 'textual');
     const [isPremium, setIsPremium] = useState(profile.user.isPremium || false);
     
+    // Sync local state with profile prop changes (when cloud updates)
     useEffect(() => {
-        if (profile.user.isPremium !== isPremium) setIsPremium(profile.user.isPremium || false);
-    }, [profile.user.isPremium]);
+        setName(profile.user.name);
+        setEmail(profile.user.email || '');
+        setLevel(profile.user.level || 'intermediate');
+        setRole(profile.user.role || 'student');
+        setLearningStyle(profile.user.learningStyle || 'textual');
+        setIsPremium(profile.user.isPremium || false);
+    }, [profile.user]);
 
-    useEffect(() => {
-        if (name === 'Apprenant' || name === 'Learner') {
-            setName(t('default_username'));
-        }
-    }, [language, t, name]);
-
-    useEffect(() => {
-        if (isInitialMount.current) {
-            isInitialMount.current = false;
-            return;
-        }
-        const isChanged = 
-            name !== profile.user.name ||
-            email !== (profile.user.email || '') ||
-            level !== profile.user.level ||
-            role !== profile.user.role ||
-            learningStyle !== profile.user.learningStyle ||
-            isPremium !== (profile.user.isPremium || false);
-
-        if (isChanged) {
-            const timer = setTimeout(() => {
-                onUpdateProfile({ ...profile.user, name: name.trim(), email: email.trim(), role, level, learningStyle, isPremium });
-            }, 1000);
-            return () => clearTimeout(timer);
-        }
-    }, [name, email, level, role, learningStyle, isPremium, onUpdateProfile, profile.user]);
+    const handleSaveProfile = () => {
+        onUpdateProfile({ 
+            ...profile.user, 
+            name: name.trim(), 
+            email: email.trim(), 
+            role, 
+            level, 
+            learningStyle, 
+            isPremium 
+        });
+        addToast("Profil mis à jour !", "success");
+    };
 
     const handleSendEmail = () => {
         if (selectedCapsuleIds.length === 0) { addToast(t('select_at_least_one'), 'info'); return; }
@@ -94,7 +81,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     {t('my_space')}
                 </h2>
                 {!isOpenAsPage && (
-                    <button onClick={onClose} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 transition-colors">
+                    <button onClick={onClose} className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 transition-colors" aria-label="Fermer">
                         <XIcon className="w-6 h-6 text-slate-500 dark:text-zinc-400" />
                     </button>
                 )}
@@ -131,7 +118,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 <div className="flex items-center gap-2.5 text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-4 py-2.5 rounded-2xl border border-orange-100 dark:border-orange-900/30">
                                     <FlameIcon className="w-4 h-4" /> {profile.user.gamification?.currentStreak || 0} {t('days')}
                                 </div>
-                                <div className="flex items-center gap-2.5 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2.5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                                <div className="flex items-center gap-2.5 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-2.5 rounded-2xl border border-emerald-100 dark:border-orange-900/30">
                                     <TrophyIcon className="w-4 h-4" /> {profile.user.gamification?.xp || 0} XP
                                 </div>
                             </div>
@@ -155,24 +142,45 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <div className="bg-indigo-50/10 dark:bg-indigo-900/5 rounded-[32px] border border-indigo-100 dark:border-indigo-900/30 overflow-hidden divide-y divide-indigo-50 dark:divide-indigo-900/20 shadow-sm">
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('username')}</label>
-                            <input type="text" value={name} onChange={e => setName(e.target.value)} className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1" />
+                            <input 
+                                type="text" 
+                                value={name} 
+                                onChange={e => setName(e.target.value)} 
+                                onBlur={handleSaveProfile}
+                                className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 border-b border-transparent focus:border-indigo-200" 
+                            />
                         </div>
-                        <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-indigo-50/20 dark:bg-indigo-900/5">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('account_type')}</label>
-                            <select 
-                                value={role} 
-                                onChange={e => setRole(e.target.value as UserRole)} 
-                                className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/30 dark:border-emerald-500/50 text-emerald-600 dark:text-emerald-400 font-black text-sm py-3 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[160px] text-right"
-                            >
-                                <option value="student" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold">{t('role_student')}</option>
-                                <option value="teacher" className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white font-bold">{t('role_teacher')}</option>
-                            </select>
+                        
+                        <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-indigo-50/20 dark:bg-zinc-800/40 border-l-4 border-emerald-500/50">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400 dark:text-emerald-400">{t('account_type')}</label>
+                            <div className="relative group">
+                                <select 
+                                    value={role} 
+                                    onChange={e => {
+                                        setRole(e.target.value as UserRole);
+                                        onUpdateProfile({ ...profile.user, role: e.target.value as UserRole });
+                                    }} 
+                                    className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/40 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-black text-sm py-3 px-6 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[180px] text-center"
+                                >
+                                    <option value="student">{t('role_student')}</option>
+                                    <option value="teacher">{t('role_teacher')}</option>
+                                </select>
+                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
+                            </div>
                         </div>
+
                         <div className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-indigo-50/30 dark:bg-indigo-900/10">
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                                 <BrainIcon className="w-4 h-4" /> {t('learning_style')}
                             </label>
-                            <select value={learningStyle} onChange={e => setLearningStyle(e.target.value as LearningStyle)} className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right">
+                            <select 
+                                value={learningStyle} 
+                                onChange={e => {
+                                    setLearningStyle(e.target.value as LearningStyle);
+                                    onUpdateProfile({ ...profile.user, learningStyle: e.target.value as LearningStyle });
+                                }} 
+                                className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right"
+                            >
                                 <option value="textual">{t('style_textual')}</option>
                                 <option value="visual">{t('style_visual')}</option>
                                 <option value="auditory">{t('style_auditory')}</option>
@@ -237,7 +245,15 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer scale-110">
-                            <input type="checkbox" className="sr-only peer" checked={isPremium} onChange={e => setIsPremium(e.target.checked)} />
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={isPremium} 
+                                onChange={e => {
+                                    setIsPremium(e.target.checked);
+                                    onUpdateProfile({ ...profile.user, isPremium: e.target.checked });
+                                }} 
+                            />
                             <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
                         </label>
                     </div>
