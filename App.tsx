@@ -33,13 +33,11 @@ import {
     subscribeToGroupCapsules, 
     shareCapsuleToGroup, 
     updateUserProfileInCloud,
-    subscribeToModules // Utilisé par le snippet de migration
+    subscribeToModules
 } from './services/cloudService';
 import { migrateLocalModules } from './services/migrationService';
 import { useLanguage } from './contexts/LanguageContext';
 import { translations } from './i18n/translations';
-
-console.log("Firebase Auth OK:", auth);
 
 const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -111,23 +109,15 @@ const AppContent: React.FC = () => {
     const { addToast } = useToast();
     const generationController = useRef({ isCancelled: false });
 
-    // --- STRATÉGIE DE MIGRATION ---
     useEffect(() => {
         if (!currentUser) return;
-
         let hasMigrated = false;
-
         const unsubscribe = subscribeToModules(currentUser.uid, async (remoteModules) => {
             if (hasMigrated) return;
-
             const remoteIds = new Set(remoteModules.map(m => m.id));
-            
-            // On lance la migration
             await migrateLocalModules(currentUser.uid, remoteIds);
-
             hasMigrated = true;
         });
-
         return () => unsubscribe();
     }, [currentUser]);
 
@@ -143,21 +133,6 @@ const AppContent: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const removeSplash = () => {
-            const splash = document.getElementById('splash-screen');
-            if (splash) {
-                splash.style.opacity = '0';
-                splash.style.pointerEvents = 'none';
-                setTimeout(() => {
-                    splash.style.display = 'none';
-                    splash.remove();
-                }, 600);
-            }
-        };
-        removeSplash();
-    }, []);
-
-    useEffect(() => {
         if (!auth) {
             setIsAuthInitializing(false);
             return;
@@ -167,12 +142,36 @@ const AppContent: React.FC = () => {
             setIsAuthInitializing(false);
             if (user) {
                 setProfile(prev => ({ ...prev, user: { ...prev.user, name: user.displayName || prev.user.name, email: user.email || prev.user.email || '' } }));
+                
+                // Sync capsules
                 let unsubscribeSync = subscribeToCapsules(user.uid, (cloudCapsules) => setProfile(prev => ({ ...prev, capsules: cloudCapsules })));
+                
+                // Sync groups & group capsules
+                let groupSubscriptions: (() => void)[] = [];
                 let unsubscribeGroups = subscribeToUserGroups(user.uid, (groups) => {
                     setUserGroups(groups);
-                    groups.forEach(group => subscribeToGroupCapsules(group.id, (gCapsules) => setGroupCapsules(prev => [...prev.filter(c => c.groupId !== group.id), ...gCapsules])));
+                    
+                    // Nettoyage des anciennes sous-souscriptions
+                    groupSubscriptions.forEach(unsub => unsub());
+                    groupSubscriptions = [];
+                    
+                    // Nouvelle souscription pour chaque groupe
+                    groups.forEach(group => {
+                        const unsub = subscribeToGroupCapsules(group.id, (gCapsules) => {
+                            setGroupCapsules(prev => {
+                                const others = prev.filter(c => c.groupId !== group.id);
+                                return [...others, ...gCapsules];
+                            });
+                        });
+                        groupSubscriptions.push(unsub);
+                    });
                 });
-                return () => { unsubscribeSync(); unsubscribeGroups(); };
+
+                return () => { 
+                    unsubscribeSync(); 
+                    unsubscribeGroups(); 
+                    groupSubscriptions.forEach(unsub => unsub());
+                };
             }
         });
         return () => unsubscribe();
@@ -185,7 +184,6 @@ const AppContent: React.FC = () => {
     const saveCapsuleData = useCallback(async (capsule: CognitiveCapsule) => {
         if (currentUser) await saveCapsuleToCloud(currentUser.uid, capsule);
         else setProfile(prev => ({ ...prev, capsules: [capsule, ...prev.capsules.filter(c => c.id !== capsule.id)] }));
-        
         setActiveCapsule(prev => prev?.id === capsule.id ? capsule : prev);
     }, [currentUser]);
 
@@ -398,7 +396,7 @@ const AppContent: React.FC = () => {
             {isActiveLearning && activeCapsule && <ActiveLearningModal capsule={activeCapsule} onClose={() => setIsActiveLearning(false)} />}
             {isGroupModalOpen && currentUser && <GroupModal userId={currentUser.uid} userName={profile.user.name} userGroups={userGroups} onClose={() => setIsGroupModalOpen(false)} addToast={addToast} />}
             {isPlanningWizardOpen && <PlanningWizard capsules={profile.capsules} onClose={() => setIsPlanningWizardOpen(false)} onPlanCreated={p => { setProfile(prev => ({ ...prev, user: { ...prev.user, plans: [...prev.user.plans, p], activePlanId: p.id } })); setIsPlanningWizardOpen(false); setView('agenda'); }} />}
-            {capsuleToDelete && <ConfirmationModal isOpen={!!capsuleToDelete} onClose={() => setCapsuleToDelete(null)} onConfirm={() => { deleteCapsuleFromCloud(currentUser?.uid || '', capsuleToDelete.id); setProfile(prev => ({ ...prev, capsules: prev.capsules.filter(c => c.id !== capsuleToDelete.id) })); setCapsuleToDelete(null); }} title="Supprimer ?" message={`Voulez-vous supprimer le module "${capsuleToDelete.title}" ?`} confirmText="Supprimer" cancelText="Annuler" variant="danger" />}
+            {capsuleToDelete && <ConfirmationModal isOpen={!!capsuleToDelete} onClose={() => setCapsuleToDelete(null)} onConfirm={() => { if(currentUser) deleteCapsuleFromCloud(currentUser.uid, capsuleToDelete.id); setProfile(prev => ({ ...prev, capsules: prev.capsules.filter(c => c.id !== capsuleToDelete.id) })); setCapsuleToDelete(null); }} title="Supprimer ?" message={`Voulez-vous supprimer le module "${capsuleToDelete.title}" ?`} confirmText="Supprimer" cancelText="Annuler" variant="danger" />}
         </div>
     );
 };
