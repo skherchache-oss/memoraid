@@ -389,6 +389,7 @@ const AppContent: React.FC = () => {
                                     }
                                     addToast(`${ids.length} modules classés.`, "success");
                                 }}
+                                onOpenGroupManager={() => setIsGroupModalOpen(true)}
                             />
                         )}
                     </div>

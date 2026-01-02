@@ -14,7 +14,8 @@ import {
     XIcon, 
     CheckCircleIcon,
     ClockIcon,
-    CrownIcon
+    CrownIcon,
+    SchoolIcon
 } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
 import ConfirmationModal from './ConfirmationModal';
@@ -35,6 +36,7 @@ interface KnowledgeBaseProps {
     setSelectedCapsuleIds: React.Dispatch<React.SetStateAction<string[]>>;
     onOpenStore: () => void;
     onBulkSetCategory?: (ids: string[], category: string) => void;
+    onOpenGroupManager?: () => void;
 }
 
 const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ 
@@ -47,7 +49,8 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
     selectedCapsuleIds, 
     setSelectedCapsuleIds, 
     onOpenStore, 
-    onBulkSetCategory 
+    onBulkSetCategory,
+    onOpenGroupManager
 }) => {
     const { t } = useLanguage();
     const [searchTerm, setSearchTerm] = useState('');
@@ -197,24 +200,36 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
     return (
         <div className="w-full min-h-screen animate-fade-in relative">
             <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 md:mb-16">
-                <h2 className="flex items-center text-2xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                <div className="flex items-center">
                     <div className="p-3 md:p-4 bg-emerald-500 text-white rounded-[20px] md:rounded-[24px] mr-4 md:mr-5 shadow-xl shadow-emerald-200/50 dark:shadow-none">
                         <BookOpenIcon className="w-7 h-7 md:w-9 md:h-9" />
                     </div>
-                    Bibliothèque
-                </h2>
+                    <div>
+                         <h2 className="text-2xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Bibliothèque</h2>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Vos connaissances structurées</p>
+                    </div>
+                </div>
                 <div className="flex items-center gap-3">
                     <div className="relative md:w-96 group flex-grow">
                         <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
                         <input type="text" placeholder={t('search_placeholder')} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); if (e.target.value) setSelectedCategory(null); }} className="w-full pl-12 pr-5 py-3.5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none dark:text-white shadow-sm text-base transition-all" />
                     </div>
+                    {onOpenGroupManager && (
+                         <button 
+                            onClick={onOpenGroupManager} 
+                            className="p-3.5 bg-indigo-500 text-white rounded-[20px] hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 dark:shadow-none active:scale-90 flex items-center gap-2"
+                            title="Rejoindre une classe"
+                         >
+                            <SchoolIcon className="w-6 h-6" />
+                            <span className="hidden lg:inline text-xs font-black uppercase tracking-widest pr-1">Code</span>
+                         </button>
+                    )}
                     <button onClick={onOpenStore} className="p-3.5 bg-amber-500 text-white rounded-[20px] hover:bg-amber-600 transition-all shadow-xl shadow-amber-100 dark:shadow-none active:scale-90"><ShoppingBagIcon className="w-6 h-6" /></button>
                 </div>
             </header>
 
             {dueCapsules.length > 0 && !selectedCategory && !searchTerm && (
                 <div className="mb-14 flex flex-col sm:flex-row items-center justify-between p-5 sm:p-7 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-[32px] sm:rounded-[40px] shadow-2xl shadow-emerald-200/40 dark:shadow-none overflow-hidden relative gap-5 sm:gap-4">
-                    {/* Decorative background icon */}
                     <div className="absolute top-0 right-0 p-8 sm:p-12 opacity-10 rotate-12 transform scale-150 pointer-events-none"><ClockIcon className="w-24 h-24 sm:w-32 sm:h-32" /></div>
                     
                     <div className="flex items-center gap-4 sm:gap-6 relative z-10 w-full sm:w-auto">
@@ -248,6 +263,21 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
                             <div className="h-px bg-slate-100 dark:bg-zinc-800 flex-grow ml-8 md:ml-10"></div>
                         </div>
                         {renderCategoryGrid()}
+                        
+                        {/* Invitation Prompt for Students */}
+                        {capsules.length < 5 && (
+                             <div className="mt-16 p-8 md:p-12 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-[48px] border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-center animate-fade-in">
+                                <SchoolIcon className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
+                                <h4 className="text-xl font-black text-indigo-900 dark:text-indigo-200 mb-2">Avez-vous un code classe ?</h4>
+                                <p className="text-sm text-indigo-700/60 dark:text-indigo-400/60 mb-6 max-w-sm mx-auto">Rejoignez la classe de votre professeur pour accéder automatiquement aux modules partagés.</p>
+                                <button 
+                                    onClick={onOpenGroupManager}
+                                    className="px-8 py-4 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none"
+                                >
+                                    Utiliser un code invitation
+                                </button>
+                             </div>
+                        )}
                     </section>
                 )}
             </div>
