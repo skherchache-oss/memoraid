@@ -1,105 +1,96 @@
 
-/**
- * Quota Manager - Production Grade
- * Gère les limites de l'API Gemini en mode Gratuit sans backend.
- */
-
-const TTS_SAFETY_KEY = 'memoraid_tts_safety_v3'; // Versionnée pour reset auto
+import type { UserProfile, AiUsage, UserPlan } from '../types';
 
 const LIMITS = {
-    FREE: {
-        DAILY_TOTAL: 50,        // Augmenté pour éviter la saturation précoce
-        MAX_CHUNKS: 8,          // Plus de phrases lues par session
-    },
-    PREMIUM: {
-        DAILY_TOTAL: 1000,
-        MAX_CHUNKS: 30,
-    }
+    free: 5,
+    premium: 100
 };
 
-interface TtsSafetyState {
-    date: string;
-    count: number;
-    isLocked: boolean; 
-}
-
-const getToday = () => new Date().toISOString().split('T')[0];
-
-const loadSafetyState = (): TtsSafetyState => {
-    try {
-        const stored = localStorage.getItem(TTS_SAFETY_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed.date === getToday()) return parsed;
-        }
-    } catch (e) {
-        console.error("Safety State Load Error", e);
-    }
-    // Si nouvelle journée ou erreur, on reset tout (y compris le lock)
-    return { date: getToday(), count: 0, isLocked: false };
-};
-
-const saveSafetyState = (state: TtsSafetyState) => {
-    localStorage.setItem(TTS_SAFETY_KEY, JSON.stringify(state));
-};
+const getTodayStr = () => new Date().toISOString().split('T')[0];
 
 /**
- * Vérifie si le TTS est disponible avant de lancer l'appel.
+ * Initialise ou réinitialise l'objet usage d'un utilisateur
  */
-export const checkTtsAvailability = (isPremium: boolean = false) => {
-    const state = loadSafetyState();
-    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
+export const getInitialUsage = (): AiUsage => ({
+    dailyCount: 0,
+    monthlyCount: 0,
+    lastReset: getTodayStr()
+});
 
-    if (state.isLocked) {
-        return { 
-            available: false, 
-            reason: "Le service vocal est temporairement indisponible (erreur API). Réessayez plus tard.",
-            code: 'LOCKED'
-        };
+/**
+ * Vérifie si l'utilisateur peut générer un module
+ * @param profile Profil complet de l'utilisateur
+ * @returns { allowed: boolean, remaining: number }
+ */
+export const canUserGenerate = (profile: UserProfile): { allowed: boolean; remaining: number } => {
+    const plan: UserPlan = profile.plan || (profile.isPremium ? 'premium' : 'free');
+    const usage = profile.aiUsage || getInitialUsage();
+    const today = getTodayStr();
+
+    // Reset si changement de jour
+    let currentCount = usage.dailyCount;
+    if (usage.lastReset !== today) {
+        currentCount = 0;
     }
 
-    if (state.count >= limits.DAILY_TOTAL) {
-        return { 
-            available: false, 
-            reason: "Limite quotidienne atteinte. Revenez demain !",
-            code: 'QUOTA'
-        };
-    }
-
-    return { 
-        available: true, 
-        maxChunks: limits.MAX_CHUNKS 
+    const limit = LIMITS[plan];
+    return {
+        allowed: currentCount < limit,
+        remaining: Math.max(0, limit - currentCount)
     };
 };
 
 /**
- * Enregistre un succès d'appel TTS.
+ * Met à jour le profil avec un nouvel usage (Incrémentation)
  */
+export const incrementUsage = (profile: UserProfile): UserProfile => {
+    const today = getTodayStr();
+    const usage = profile.aiUsage || getInitialUsage();
+    
+    const newUsage: AiUsage = {
+        ...usage,
+        dailyCount: usage.lastReset === today ? usage.dailyCount + 1 : 1,
+        monthlyCount: usage.monthlyCount + 1,
+        lastReset: today
+    };
+
+    return {
+        ...profile,
+        aiUsage: newUsage
+    };
+};
+
+// --- TTS QUOTAS (EXISTING) ---
+const TTS_SAFETY_KEY = 'memoraid_tts_safety_v3';
+
+export const checkTtsAvailability = (isPremium: boolean = false) => {
+    const stored = localStorage.getItem(TTS_SAFETY_KEY);
+    const state = stored ? JSON.parse(stored) : { date: getTodayStr(), count: 0, isLocked: false };
+    
+    const limit = isPremium ? 1000 : 50;
+    const maxChunks = isPremium ? 30 : 8;
+
+    if (state.isLocked) return { available: false, reason: "Service indisponible.", code: 'LOCKED' };
+    if (state.count >= limit) return { available: false, reason: "Quota quotidien atteint.", code: 'QUOTA' };
+
+    return { available: true, maxChunks };
+};
+
 export const recordTtsSuccess = () => {
-    const state = loadSafetyState();
+    const stored = localStorage.getItem(TTS_SAFETY_KEY);
+    const state = stored ? JSON.parse(stored) : { date: getTodayStr(), count: 0, isLocked: false };
     state.count += 1;
-    saveSafetyState(state);
+    localStorage.setItem(TTS_SAFETY_KEY, JSON.stringify(state));
 };
 
-/**
- * Verrouille le service suite à une erreur 429 réelle.
- */
 export const triggerTtsSafetyLock = () => {
-    const state = loadSafetyState();
+    const stored = localStorage.getItem(TTS_SAFETY_KEY);
+    const state = stored ? JSON.parse(stored) : { date: getTodayStr(), count: 0, isLocked: false };
     state.isLocked = true;
-    saveSafetyState(state);
+    localStorage.setItem(TTS_SAFETY_KEY, JSON.stringify(state));
 };
 
-// --- IMAGE QUOTA ---
-export const checkImageQuota = (capsuleId: string, isPremiumOrContentPremium: boolean = false) => {
-    // Si l'utilisateur est premium OU si le contenu spécifique est premium (pack acheté)
-    if (!isPremiumOrContentPremium) return { allowed: false, reason: "Mode Premium requis." };
+export const checkImageQuota = (capsuleId: string, isPremium: boolean = false) => {
+    if (!isPremium) return { allowed: false, reason: "Premium requis." };
     return { allowed: true };
-};
-export const incrementImageQuota = (capsuleId: string) => {};
-export const getTtsRemaining = (isPremium: boolean = false) => {
-    const state = loadSafetyState();
-    const limits = isPremium ? LIMITS.PREMIUM : LIMITS.FREE;
-    if (state.isLocked) return 0;
-    return Math.max(0, limits.DAILY_TOTAL - state.count);
 };

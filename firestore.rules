@@ -3,30 +3,27 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Dossiers personnels des utilisateurs
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
       
-      match /{allPaths=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+      // L'utilisateur peut mettre à jour son profil SAUF les champs sensibles
+      allow update: if request.auth != null && request.auth.uid == userId 
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                       .hasAny(['plan', 'aiUsage', 'isPremium']);
+                       
+      allow create: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Groupes / Classes
+    match /users/{userId}/capsules/{capsuleId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
     match /groups/{groupId} {
-      // Autorise la création si connecté
       allow create: if request.auth != null;
-      
-      // CRITIQUE : Autorise la lecture si l'UID de l'utilisateur est dans le tableau memberIds
-      // Cela permet à la requête query(..., where("memberIds", "array-contains", userId)) de fonctionner
       allow read: if request.auth != null && (request.auth.uid in resource.data.memberIds);
-      
-      // Autorise l'écriture (modification) seulement au propriétaire
       allow update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
       
-      // Sous-collections (capsules de groupe)
       match /capsules/{capsuleId} {
-        // Un membre du groupe peut lire et ajouter des capsules
         allow read, write: if request.auth != null && (get(/databases/$(database)/documents/groups/$(groupId)).data.memberIds.hasAny([request.auth.uid]));
       }
     }

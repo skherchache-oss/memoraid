@@ -2,13 +2,12 @@
 import React from 'react';
 import { HomeIcon, LayoutGridIcon, CalendarIcon, ShoppingBagIcon, UserIcon, SchoolIcon } from '../constants';
 import { useLanguage } from '../contexts/LanguageContext';
-import type { UserRole } from '../types';
-
-type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
+// Fix: Use unified MobileTab type from types.ts
+import type { UserRole, MobileTab } from '../types';
 
 interface MobileNavBarProps {
     activeTab: MobileTab | string;
-    onTabChange: (tab: any) => void;
+    onTabChange: (tab: MobileTab) => void;
     hasActivePlan: boolean;
     userRole: UserRole;
 }
@@ -17,14 +16,14 @@ const MobileNavBar: React.FC<MobileNavBarProps> = ({ activeTab, onTabChange, has
     const { t } = useLanguage();
 
     const navItems = [
-        { id: 'create', label: t('nav_create'), icon: HomeIcon },
-        { id: 'library', label: t('nav_library'), icon: LayoutGridIcon },
+        { id: 'create' as MobileTab, label: t('nav_create'), icon: HomeIcon },
+        { id: 'library' as MobileTab, label: t('nav_library'), icon: LayoutGridIcon },
         // Conditionnel : Agenda (Élève) vs Classes (Prof)
         userRole === 'teacher' 
-            ? { id: 'classes', label: t('my_classes'), icon: SchoolIcon }
-            : { id: 'agenda', label: t('nav_agenda'), icon: CalendarIcon },
-        { id: 'store', label: t('nav_store'), icon: ShoppingBagIcon },
-        { id: 'profile', label: t('nav_profile'), icon: UserIcon },
+            ? { id: 'classes' as MobileTab, label: t('my_classes'), icon: SchoolIcon }
+            : { id: 'agenda' as MobileTab, label: t('nav_agenda'), icon: CalendarIcon },
+        { id: 'store' as MobileTab, label: t('nav_store'), icon: ShoppingBagIcon },
+        { id: 'profile' as MobileTab, label: t('nav_profile'), icon: UserIcon },
     ];
 
     return (

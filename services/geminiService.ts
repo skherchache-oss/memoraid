@@ -1,6 +1,15 @@
-import { GoogleGenAI, Type, Chat } from "@google/genai";
-import type { CognitiveCapsule, QuizQuestion, FlashcardContent, CoachingMode, UserProfile, SourceType, LearningStyle } from '../types';
+
+import { httpsCallable } from "firebase/functions";
+import { functions } from "./firebase";
+import { GoogleGenAI } from "@google/genai";
+import type { CognitiveCapsule, SourceType, LearningStyle, CoachingMode, UserProfile } from '../types';
 import type { Language } from '../i18n/translations';
+
+/**
+ * BRIDGE FRONTEND -> BACKEND
+ * Plus aucune clé API n'est présente ici.
+ * L'usage de l'IA est désormais contrôlé par le serveur.
+ */
 
 export class GeminiError extends Error {
     public isQuotaError: boolean;
@@ -11,171 +20,115 @@ export class GeminiError extends Error {
     }
 }
 
-export const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Appelle la Cloud Function pour générer un module
+ */
+export const generateCognitiveCapsule = async (
+    inputText: string, 
+    sourceType: SourceType = 'text', 
+    language: Language = 'fr', 
+    style: LearningStyle = 'textual'
+) => {
+    if (!functions) throw new Error("Backend non initialisé");
 
-const getLangName = (lang: Language) => lang === 'fr' ? 'FRANÇAIS' : 'ENGLISH';
-
-// Schéma de structure pour un module cognitif enrichi
-const CAPSULE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    title: { type: Type.STRING },
-    summary: { type: Type.STRING },
-    keyConcepts: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          concept: { type: Type.STRING },
-          explanation: { type: Type.STRING, description: "Detailed explanation for the concept (3-4 sentences)." },
-          deepDive: { type: Type.STRING, description: "Advanced technical details or deeper analysis. Must be substantial." }
-        },
-        required: ["concept", "explanation", "deepDive"]
-      },
-      minItems: 4,
-      maxItems: 4,
-      description: "Exactly 4 key concepts are required for a balanced learning experience."
-    },
-    examples: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "List of exactly 3-4 practical examples."
-    },
-    quiz: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          question: { type: Type.STRING },
-          options: { type: Type.ARRAY, items: { type: Type.STRING } },
-          correctAnswer: { type: Type.STRING },
-          explanation: { type: Type.STRING }
-        },
-        required: ["question", "options", "correctAnswer", "explanation"]
-      },
-      minItems: 4,
-      maxItems: 4,
-      description: "Exactly 4 multiple-choice questions."
-    },
-    flashcards: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          front: { type: Type.STRING },
-          back: { type: Type.STRING }
-        },
-        required: ["front", "back"]
-      },
-      minItems: 5,
-      description: "At least 5 flashcards for spaced repetition."
-    }
-  },
-  required: ["title", "summary", "keyConcepts", "examples", "quiz", "flashcards"]
-};
-
-export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingMode = 'standard', userProfile?: UserProfile, language: Language = 'fr'): Chat => {
-    const ai = getAiClient();
-    const targetLang = getLangName(language);
-    const learningStyle = userProfile?.learningStyle || 'textual';
-    
-    let systemInstruction = `You are Memoraid Coach. Topic: "${capsule.title}". Mode: ${mode}. Style: ${learningStyle}. Language: ${targetLang}. 
-    Keep responses short. Never use markdown symbols like * or # in your responses. Refer to this learning content as a "module".`;
-    
-    return ai.chats.create({ model: 'gemini-3-flash-preview', config: { systemInstruction } });
-};
-
-const parseSafeJson = (text: string | undefined) => {
-    if (!text) return {};
-    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
     try {
-        return JSON.parse(cleanText);
-    } catch (e) {
-        console.error("JSON Parse Error:", text);
-        throw new Error("Format de réponse invalide.");
+        const generateModuleFn = httpsCallable(functions, 'generateModule');
+        const result = await generateModuleFn({
+            text: inputText,
+            sourceType,
+            language,
+            learningStyle: style
+        });
+
+        return (result.data as any).capsule;
+    } catch (error: any) {
+        console.error("Backend IA Error:", error);
+        
+        // Gestion des erreurs de quota renvoyées par le backend
+        if (error.code === 'resource-exhausted') {
+            throw new GeminiError("Quota atteint", true);
+        }
+        
+        throw new GeminiError(error.message || "Erreur lors de la génération");
     }
 };
 
-export const generateCognitiveCapsule = async (inputText: string, sourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual') => {
-  const ai = getAiClient();
-  const targetLang = getLangName(language);
-  const prompt = `Create a complete and deep learning module in ${targetLang} about: ${inputText}. 
-  The source is ${sourceType || 'text'}. Style: ${learningStyle}.
-  CRITICAL REQUIREMENTS: 
-  1. EXACTLY 4 key concepts (no more, no less).
-  2. EXACTLY 4 quiz questions.
-  3. AT LEAST 5 flashcards.
-  4. Each concept must be clear and have a substantial 'deepDive' section.
-  5. Exactly 3-4 practical examples in the 'examples' field.`;
-  
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: CAPSULE_SCHEMA
+/**
+ * Appelle la Cloud Function pour générer un module à partir d'un fichier (Image/PDF)
+ */
+export const generateCognitiveCapsuleFromFile = async (
+    filePart: { mimeType: string, data: string }, 
+    sourceType: SourceType = 'unknown', 
+    language: Language = 'fr', 
+    style: LearningStyle = 'textual'
+) => {
+    if (!functions) throw new Error("Backend non initialisé");
+
+    try {
+        const generateFromMediaFn = httpsCallable(functions, 'generateModuleFromMedia');
+        const result = await generateFromMediaFn({
+            media: filePart,
+            sourceType,
+            language,
+            learningStyle: style
+        });
+
+        return (result.data as any).capsule;
+    } catch (error: any) {
+        console.error("Backend Media Error:", error);
+        throw new GeminiError(error.message || "Erreur lors de l'analyse du fichier");
     }
-  });
-  
-  return parseSafeJson(response.text);
 };
 
-export const generateCognitiveCapsuleFromFile = async (filePart: { mimeType: string, data: string }, sourceType?: SourceType, language: Language = 'fr', learningStyle: LearningStyle = 'textual') => {
-  const ai = getAiClient();
-  const targetLang = getLangName(language);
-  const prompt = `Analyze this ${sourceType || 'file'} and create a complete learning module in ${targetLang}. 
-  CRITICAL REQUIREMENTS: 
-  1. EXACTLY 4 key concepts (mandatory).
-  2. EXACTLY 4 quiz questions.
-  3. AT LEAST 5 flashcards.
-  4. Very detailed concepts with technical 'deepDive' sections.
-  5. Practical examples are strictly required.`;
-  
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: {
-        parts: [
-            { inlineData: filePart },
-            { text: prompt }
-        ]
-    },
-    config: { 
-        responseMimeType: "application/json",
-        responseSchema: CAPSULE_SCHEMA
-    }
-  });
-  
-  return parseSafeJson(response.text);
-};
-
-export const generateMnemonic = async (capsule: Pick<CognitiveCapsule, 'title' | 'keyConcepts'>, language: Language = 'fr'): Promise<string> => {
-    const ai = getAiClient();
-    const prompt = `Create a 1-sentence mnemonic in ${getLangName(language)} for: ${capsule.title}. No formatting.`;
-    const res = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: prompt });
-    return res.text?.trim() || "";
-};
-
-export const generateMemoryAidDrawing = async (capsule: Pick<CognitiveCapsule, 'title' | 'summary' | 'keyConcepts'>, language: Language = 'fr') => {
-    const ai = getAiClient();
-    const targetLang = getLangName(language);
+/**
+ * Initialise une session de chat pour le coaching.
+ * Fix: Added exported createCoachingSession member to resolve compilation error in CoachingModal.tsx.
+ */
+export const createCoachingSession = (
+    capsule: CognitiveCapsule, 
+    mode: CoachingMode, 
+    userProfile: UserProfile, 
+    language: Language
+) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Prompt Image "Sketchbook" : Spirales et crayons de couleur
-    const promptImage = `An artistic sketchnote for learning about "${capsule.title}". 
-    BACKGROUND: The drawing is on a hand-drawn white paper of a spiral-bound notebook. Large black spirals are clearly visible on the far left edge of the page.
-    STYLE: Hand-drawn with textured vibrant colored pencils (blues, yellows, reds, greens). Artistic and pedagogical.
-    CONTENT PRIORITY: Highly visual. Use metaphors, symbols, arrows, and small schemas. 
-    TEXT: Minimize text. Use only 2 or 3 clear, large handwritten titles/labels for main concepts.
-    LAYOUT: Clean, centered infographic on the notebook page. No cluttered text blocks.
-    Language: ${targetLang}. Focus on visual aid.`;
+    let instruction = `Tu es l'IA Coach de Memoraid. Ton but est d'aider l'utilisateur à maîtriser ce module : "${capsule.title}".
+    Résumé : ${capsule.summary}
+    Concepts clés : ${capsule.keyConcepts.map(c => c.concept).join(', ')}
     
-    const res = await ai.models.generateContent({ model: 'gemini-2.5-flash-image', contents: { parts: [{ text: promptImage }] } });
-    const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-    if (!part || !part.inlineData) throw new Error("Drawing failed");
+    Niveau de l'utilisateur : ${userProfile.level || 'intermédiaire'}.
+    Style d'apprentissage : ${userProfile.learningStyle || 'textual'}.
+    Langue : ${language === 'fr' ? 'Français' : 'Anglais'}.
+    `;
 
-    // Prompt Description (Résumé court du croquis)
-    const promptDesc = `Describe in 2 very short sentences (max 30 words) what this visual sketchnote about "${capsule.title}" represents. Language: ${targetLang}. No formatting.`;
-    const resDesc = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: promptDesc });
-    const description = resDesc.text?.trim() || `Synthèse visuelle artistique sur le sujet "${capsule.title}".`;
+    if (mode === 'oral') {
+        instruction += "\nRéponds de manière concise, adaptée à une synthèse vocale (TTS).";
+    } else if (mode === 'exam') {
+        instruction += "\nPose des questions de type examen et évalue la précision des réponses.";
+    } else if (mode === 'solver') {
+        instruction += "\nL'utilisateur va te soumettre des problèmes. Guide-le vers la solution sans la donner directement.";
+    }
 
-    return { imageData: part.inlineData.data, description };
+    return ai.chats.create({
+        model: 'gemini-3-flash-preview',
+        config: {
+            systemInstruction: instruction,
+        },
+    });
+};
+
+/**
+ * Note: Pour les fonctions utilitaires comme mnémotechnique et image, 
+ * elles devraient également être migrées vers des Callables pour une sécurité totale.
+ */
+export const generateMnemonic = async (capsule: any, language: Language = 'fr'): Promise<string> => {
+    const fn = httpsCallable(functions, 'generateMnemonic');
+    const res = await fn({ title: capsule.title, language });
+    return (res.data as any).mnemonic;
+};
+
+export const generateMemoryAidDrawing = async (capsule: any, language: Language = 'fr') => {
+    const fn = httpsCallable(functions, 'generateVisualAid');
+    const res = await fn({ capsule, language });
+    return res.data as { imageData: string, description: string };
 };
