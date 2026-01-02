@@ -17,7 +17,7 @@ interface TeacherDashboardProps {
     userName: string;
 }
 
-const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGroups, allGroupCapsules, onAssignTask, userId, userName }) => {
+const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGroups = [], allGroupCapsules = [], onAssignTask, userId, userName }) => {
     const { t } = useLanguage();
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
@@ -27,7 +27,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
     const [newClassName, setNewClassName] = useState('');
     const [createLoading, setCreateLoading] = useState(false);
 
-    // Effet crucial : Sélectionne la première classe si aucune n'est sélectionnée
+    // Sélection automatique de la première classe au chargement
     useEffect(() => {
         if (!selectedGroupId && teacherGroups.length > 0) {
             setSelectedGroupId(teacherGroups[0].id);
@@ -39,21 +39,23 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
     [teacherGroups, selectedGroupId]);
     
     const classCapsules = useMemo(() => 
-        allGroupCapsules.filter(c => c.groupId === selectedGroupId), 
+        (allGroupCapsules || []).filter(c => c.groupId === selectedGroupId), 
     [allGroupCapsules, selectedGroupId]);
 
     const stats = useMemo(() => {
-        if (!selectedGroup) return null;
+        if (!selectedGroup) return { totalStudents: 0, totalCapsules: 0, averageMastery: 0 };
         
-        const totalStudents = selectedGroup.members.filter(m => m.role !== 'owner').length;
+        const members = selectedGroup.members || [];
+        const totalStudents = members.filter(m => m.role !== 'owner').length;
         const totalCapsules = classCapsules.length;
         
         let totalMasterySum = 0;
         let recordedScores = 0;
         
         classCapsules.forEach(cap => {
-            cap.groupProgress?.forEach(prog => {
-                totalMasterySum += prog.masteryScore;
+            const progress = cap.groupProgress || [];
+            progress.forEach(prog => {
+                totalMasterySum += (prog.masteryScore || 0);
                 recordedScores++;
             });
         });
@@ -77,19 +79,14 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
         setCreateLoading(true);
         try {
             const newGroup = await createGroup(userId, userName, trimmedName);
-            
-            // On réinitialise le formulaire
             setNewClassName('');
             setIsCreatingClass(false);
-            
-            // On sélectionne immédiatement la nouvelle classe
             setSelectedGroupId(newGroup.id);
             setActiveTab('overview');
             addToast(`Classe "${trimmedName}" créée !`, "success");
-            
         } catch (error: any) {
             console.error("Create Class Error:", error);
-            addToast("Erreur lors de la création. Vérifiez votre connexion.", "error");
+            addToast("Erreur lors de la création.", "error");
         } finally {
             setCreateLoading(false);
         }
@@ -101,47 +98,21 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
         
         try {
             const doc = await PDFDocument.create();
-            const font = await doc.embedFont(StandardFonts.Helvetica);
             const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+            const fontNormal = await doc.embedFont(StandardFonts.Helvetica);
             let page = doc.addPage();
             let y = page.getHeight() - 50;
-
-            const addBrandingToDoc = (page: any, width: number, height: number) => {
-                page.drawText('MEMORAID', {
-                    x: width - 80,
-                    y: height - 30,
-                    size: 10,
-                    font: fontBold,
-                    color: rgb(0.06, 0.73, 0.5), 
-                });
-            };
-            addBrandingToDoc(page, page.getWidth(), page.getHeight());
 
             page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
             y -= 40;
 
-            page.drawText("Étudiant", { x: 50, y, size: 12, font: fontBold });
-            page.drawText("Moyenne", { x: 250, y, size: 12, font: fontBold });
-            y -= 20;
-
-            const students = selectedGroup.members.filter(m => m.role !== 'owner');
+            const students = (selectedGroup.members || []).filter(m => m.role !== 'owner');
             for (const student of students) {
-                let studentTotal = 0;
-                let studentCount = 0;
-
-                classCapsules.forEach(cap => {
-                    const prog = cap.groupProgress?.find(p => p.userId === student.userId);
-                    if (prog) {
-                        studentTotal += prog.masteryScore;
-                        studentCount++;
-                    }
-                });
-
-                const avg = studentCount > 0 ? Math.round(studentTotal / studentCount) : 0;
-
-                if (y < 50) page = doc.addPage();
-                page.drawText(student.name, { x: 50, y, size: 10, font });
-                page.drawText(`${avg}%`, { x: 250, y, size: 10, font });
+                if (y < 50) {
+                    page = doc.addPage();
+                    y = page.getHeight() - 50;
+                }
+                page.drawText(student.name || "Inconnu", { x: 50, y, size: 12, font: fontNormal });
                 y -= 20;
             }
 
@@ -163,7 +134,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                             <SchoolIcon className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 dark:white tracking-tight">{t('teacher_space')}</h2>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{t('teacher_space')}</h2>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{t('class_management')}</p>
                         </div>
                     </div>
@@ -209,7 +180,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                         placeholder={t('class_name')}
                                         value={newClassName}
                                         onChange={(e) => setNewClassName(e.target.value)}
-                                        className="w-full p-3 text-sm border border-slate-100 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 dark:bg-zinc-800"
+                                        className="w-full p-3 text-sm border border-slate-100 dark:border-zinc-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 dark:bg-zinc-800 dark:text-white"
                                     />
                                     <div className="flex gap-2">
                                         <button 
@@ -280,17 +251,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                         <div className="grid grid-cols-3 gap-6">
                                             <div className="p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
                                                 <UsersIcon className="w-6 h-6 text-blue-500 mb-4" />
-                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats?.totalStudents}</p>
+                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalStudents}</p>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('students')}</p>
                                             </div>
                                             <div className="p-8 bg-emerald-50 dark:bg-emerald-900/10 rounded-[32px] border border-emerald-100 dark:border-emerald-900/30">
                                                 <SchoolIcon className="w-6 h-6 text-emerald-600 mb-4" />
-                                                <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{stats?.averageMastery}%</p>
+                                                <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{stats.averageMastery}%</p>
                                                 <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mt-1">{t('class_average')}</p>
                                             </div>
                                             <div className="p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
                                                 <BookOpenIcon className="w-6 h-6 text-purple-500 mb-4" />
-                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats?.totalCapsules}</p>
+                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalCapsules}</p>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">{t('shared_capsules')}</p>
                                             </div>
                                         </div>
@@ -310,9 +281,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
-                                                    {selectedGroup.members.map(member => (
+                                                    {(selectedGroup?.members || []).map(member => (
                                                         <tr key={member.userId} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name}</td>
+                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name || "Apprenant"}</td>
                                                             <td className="p-6">
                                                                 <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${member.role === 'owner' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
                                                                     {member.role === 'owner' ? "Prof" : "Élève"}
@@ -343,11 +314,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ onClose, teacherGro
                                                         <div className="w-32 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                                             <div 
                                                                 className="h-full bg-emerald-500 rounded-full"
-                                                                style={{ width: `${capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, selectedGroup.members.length - 1)) * 100) : 0}%` }}
+                                                                style={{ width: `${capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, (selectedGroup?.members?.length || 1) - 1)) * 100) : 0}%` }}
                                                             ></div>
                                                         </div>
                                                         <span className="text-xs font-black text-emerald-600">
-                                                            {capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, selectedGroup.members.length - 1)) * 100) : 0}%
+                                                            {capsule.groupProgress ? Math.round((capsule.groupProgress.length / Math.max(1, (selectedGroup?.members?.length || 1) - 1)) * 100) : 0}%
                                                         </span>
                                                     </div>
                                                 </div>
