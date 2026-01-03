@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Group, CognitiveCapsule, GroupMember } from '../types';
 import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, PlusIcon, MailIcon, SendIcon, SparklesIcon, Trash2Icon, ChevronDownIcon } from '../constants';
@@ -98,7 +97,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             setActiveTab('overview');
             addToast(`Classe "${trimmedName}" créée !`, "success");
         } catch (error) {
-            addToast("Erreur lors de la création.", "error");
+            console.error("Create Group Error:", error);
+            addToast("Erreur lors de la création. Vérifiez que votre profil est bien en mode Enseignant.", "error");
         } finally {
             setCreateLoading(false);
         }
@@ -184,7 +184,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 
                 <header className="bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800 p-5 md:p-6 flex justify-between items-center flex-shrink-0">
                     <div className="flex items-center gap-3 md:gap-4">
-                        <div className="p-2.5 md:p-3 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                        <div className="p-2.5 md:p-3 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-200/20">
                             <SchoolIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </div>
                         <div>
@@ -206,7 +206,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                 <div className="space-y-3">
                                     <div className="relative">
                                         <select 
-                                            className="w-full p-3.5 pr-10 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none"
+                                            className="w-full p-3.5 pr-10 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none"
                                             value={selectedGroupId || ''}
                                             onChange={(e) => setSelectedGroupId(e.target.value)}
                                         >
@@ -215,43 +215,50 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         </select>
                                         <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
-                                    <button onClick={() => setIsCreatingClass(true)} className="w-full flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 py-3 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 transition-all uppercase tracking-widest">
+                                    <button onClick={() => setIsCreatingClass(true)} className="w-full flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 py-3 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 transition-all uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/10">
                                         <PlusIcon className="w-3.5 h-3.5" /> Créer une classe
                                     </button>
                                 </div>
                             ) : (
                                 <form onSubmit={handleCreateClass} className="space-y-3 p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-emerald-100 shadow-sm animate-fade-in-fast">
-                                    <input type="text" autoFocus placeholder="Nom (Ex: 3ème B)" value={newClassName} onChange={(e) => setNewClassName(e.target.value)} className="w-full p-3 text-sm border rounded-xl dark:bg-zinc-800 dark:text-white" />
+                                    <input 
+                                        type="text" 
+                                        autoFocus 
+                                        placeholder="Nom (Ex: 3ème B)" 
+                                        value={newClassName} 
+                                        onChange={(e) => setNewClassName(e.target.value)} 
+                                        className="w-full p-3 text-sm border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none" 
+                                    />
                                     <div className="flex gap-2">
-                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest">{createLoading ? '...' : 'Créer'}</button>
-                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 text-slate-500 text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest">Annuler</button>
+                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors">{createLoading ? '...' : 'Créer'}</button>
+                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 dark:bg-zinc-700 text-slate-500 dark:text-zinc-300 text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-600 transition-colors">Annuler</button>
                                     </div>
                                 </form>
                             )}
                         </div>
                         
                         <nav className="hidden md:flex flex-grow flex-col px-4 space-y-2 mt-4">
-                            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white'}`}>
+                            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
                                 <SchoolIcon className="w-5 h-5" /> Vue d'ensemble
                             </button>
-                            <button onClick={() => setActiveTab('classes')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'classes' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white'}`}>
+                            <button onClick={() => setActiveTab('classes')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'classes' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
                                 <UsersIcon className="w-5 h-5" /> Étudiants
                             </button>
-                            <button onClick={() => setActiveTab('assignments')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'assignments' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white'}`}>
+                            <button onClick={() => setActiveTab('assignments')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'assignments' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
                                 <ClipboardListIcon className="w-5 h-5" /> Affectations
                             </button>
                         </nav>
                         
                         <nav className="flex md:hidden justify-around p-2 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800">
-                             <button onClick={() => setActiveTab('overview')} className={`p-3 rounded-xl ${activeTab === 'overview' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-400'}`}><SchoolIcon className="w-6 h-6" /></button>
-                             <button onClick={() => setActiveTab('classes')} className={`p-3 rounded-xl ${activeTab === 'classes' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-400'}`}><UsersIcon className="w-6 h-6" /></button>
-                             <button onClick={() => setActiveTab('assignments')} className={`p-3 rounded-xl ${activeTab === 'assignments' ? 'text-emerald-500 bg-emerald-50' : 'text-slate-400'}`}><ClipboardListIcon className="w-6 h-6" /></button>
+                             <button onClick={() => setActiveTab('overview')} className={`p-3 rounded-xl ${activeTab === 'overview' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400'}`}><SchoolIcon className="w-6 h-6" /></button>
+                             <button onClick={() => setActiveTab('classes')} className={`p-3 rounded-xl ${activeTab === 'classes' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400'}`}><UsersIcon className="w-6 h-6" /></button>
+                             <button onClick={() => setActiveTab('assignments')} className={`p-3 rounded-xl ${activeTab === 'assignments' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400'}`}><ClipboardListIcon className="w-6 h-6" /></button>
                         </nav>
                     </aside>
 
                     <main className="flex-grow p-4 md:p-8 overflow-y-auto bg-white dark:bg-zinc-900">
                         {!selectedGroup ? (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-300 opacity-30 text-center py-20">
+                            <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-zinc-700 opacity-30 text-center py-20">
                                 <SchoolIcon className="w-20 h-20 mb-6" />
                                 <p className="font-black uppercase tracking-widest text-xs">Sélectionnez une classe à gauche</p>
                             </div>
@@ -265,11 +272,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Code : <span className="text-emerald-600 dark:text-emerald-400 select-all font-mono text-base ml-2">{selectedGroup.inviteCode}</span></p>
                                             </div>
                                             <div className="flex items-center gap-2 w-full md:w-auto">
-                                                <button onClick={handleExportReport} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl">
+                                                <button onClick={handleExportReport} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-emerald-700 transition-all shadow-xl">
                                                     {exportStatus === 'loading' ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
                                                     Rapport
                                                 </button>
-                                                <button onClick={() => setGroupToDelete(selectedGroup)} className="p-3 bg-red-50 text-red-500 hover:bg-red-100 rounded-2xl transition-colors">
+                                                <button onClick={() => setGroupToDelete(selectedGroup)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-2xl transition-colors">
                                                     <Trash2Icon className="w-5 h-5" />
                                                 </button>
                                             </div>
@@ -297,7 +304,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                             <SparklesIcon className="w-8 h-8 text-indigo-500 mx-auto mb-4" />
                                             <h4 className="text-lg font-black text-indigo-900 dark:text-indigo-200 mb-2">Besoin d'un nouveau cours ?</h4>
                                             <p className="text-xs text-indigo-700/60 dark:text-indigo-400/60 mb-6">Générez un contenu spécifique pour cette classe.</p>
-                                            <button onClick={onNavigateToCreate} className="px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-700 shadow-xl">Générer maintenant</button>
+                                            <button onClick={onNavigateToCreate} className="px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-700 shadow-xl transition-all active:scale-95">Générer maintenant</button>
                                         </div>
                                     </div>
                                 )}
@@ -306,20 +313,20 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
                                             <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Liste des élèves</h3>
-                                            <button onClick={() => setIsInvitingStudent(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                            <button onClick={() => setIsInvitingStudent(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-colors">
                                                 <PlusIcon className="w-4 h-4" /> Inviter
                                             </button>
                                         </div>
                                         
                                         {isInvitingStudent && (
-                                            <form onSubmit={handleInviteStudent} className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-emerald-200 animate-fade-in-fast mb-6">
+                                            <form onSubmit={handleInviteStudent} className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 animate-fade-in-fast mb-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border dark:bg-zinc-900 dark:text-white text-sm" required />
-                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border dark:bg-zinc-900 dark:text-white text-sm" />
+                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
+                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
                                                 </div>
                                                 <div className="flex gap-3 justify-end">
-                                                    <button type="button" onClick={() => setIsInvitingStudent(false)} className="text-xs font-bold text-slate-500 px-4 py-2">Annuler</button>
-                                                    <button type="submit" className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest">
+                                                    <button type="button" onClick={() => setIsInvitingStudent(false)} className="text-xs font-bold text-slate-500 dark:text-zinc-400 px-4 py-2 hover:text-slate-700 transition-colors">Annuler</button>
+                                                    <button type="submit" className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all">
                                                         Générer lien
                                                     </button>
                                                 </div>
@@ -329,7 +336,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-sm">
                                             <div className="overflow-x-auto">
                                                 <table className="w-full text-left">
-                                                    <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                                                    <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest">
                                                         <tr>
                                                             <th className="p-5 md:p-6">Utilisateur</th>
                                                             <th className="p-5 md:p-6">Rôle</th>
@@ -343,17 +350,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                                                     {(member && typeof member === 'object' && member.name) ? member.name : "Apprenant"}
                                                                 </td>
                                                                 <td className="p-5 md:p-6">
-                                                                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(member && typeof member === 'object' && member.role === 'owner') ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(member && typeof member === 'object' && member.role === 'owner') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
                                                                         {(member && typeof member === 'object' && member.role === 'owner') ? "Prof" : "Élève"}
                                                                     </span>
                                                                 </td>
-                                                                <td className="p-5 md:p-6 text-right text-slate-400">-</td>
+                                                                <td className="p-5 md:p-6 text-right text-slate-400 dark:text-zinc-600">-</td>
                                                             </tr>
                                                         ))}
                                                         {groupMembersList.length === 0 && (
                                                             <tr>
-                                                                <td colSpan={3} className="p-10 text-center text-slate-400 italic text-sm">
-                                                                    Aucun étudiant dans cette classe.
+                                                                <td colSpan={3} className="p-10 text-center text-slate-400 dark:text-zinc-600 italic text-sm">
+                                                                    Aucun élève dans cette classe.
                                                                 </td>
                                                             </tr>
                                                         )}
@@ -368,24 +375,24 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
                                             <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
-                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-colors">
                                                 <SendIcon className="w-4 h-4" /> Assigner
                                             </button>
                                         </div>
 
                                         {isAssigningModule && (
-                                            <div className="p-6 bg-indigo-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-indigo-200 animate-fade-in-fast mb-6">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4">Choisir un module personnel</h4>
+                                            <div className="p-6 bg-indigo-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-indigo-200 dark:border-indigo-900/30 animate-fade-in-fast mb-6">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-4">Choisir un module personnel</h4>
                                                 <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
                                                     {teacherPersonalCapsules.length > 0 ? teacherPersonalCapsules.map(cap => (
-                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 rounded-xl hover:bg-indigo-600 hover:text-white transition-all group">
+                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-700 rounded-xl hover:bg-indigo-600 hover:text-white transition-all group">
                                                             <span className="font-bold text-sm truncate">{cap.title}</span>
                                                             <PlusIcon className="w-4 h-4 opacity-40 group-hover:opacity-100" />
                                                         </button>
-                                                    )) : <p className="text-xs text-slate-400 p-4">Aucun module disponible.</p>}
+                                                    )) : <p className="text-xs text-slate-400 dark:text-zinc-600 p-4">Aucun module disponible.</p>}
                                                 </div>
                                                 <div className="mt-4 flex justify-end">
-                                                    <button onClick={() => setIsAssigningModule(false)} className="text-xs font-bold text-slate-400 px-4 py-2 underline">Fermer</button>
+                                                    <button onClick={() => setIsAssigningModule(false)} className="text-xs font-bold text-slate-400 dark:text-zinc-500 px-4 py-2 underline hover:text-slate-600 transition-colors">Fermer</button>
                                                 </div>
                                             </div>
                                         )}
@@ -415,8 +422,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                                     </div>
                                                 );
                                             }) : (
-                                                <div className="text-center py-20 bg-slate-50/50 dark:bg-zinc-950/30 rounded-[40px] border-2 border-dashed border-slate-200">
-                                                    <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Aucun module partagé avec cette classe</p>
+                                                <div className="text-center py-20 bg-slate-50/50 dark:bg-zinc-950/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
+                                                    <p className="text-slate-400 dark:text-zinc-600 font-black uppercase tracking-widest text-[10px]">Aucun module partagé avec cette classe</p>
                                                 </div>
                                             )}
                                         </div>

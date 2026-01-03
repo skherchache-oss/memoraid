@@ -1,45 +1,42 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    /**
-     * PROFILS UTILISATEURS
-     * - Lecture/Création : Autorisé pour le propriétaire.
-     * - Mise à jour : Autorisé pour le propriétaire, MAIS on protège les champs sensibles.
-     */
+
+    /* ==============================
+       USERS (Profil & Préférences)
+    ============================== */
     match /users/{userId} {
       allow read, create: if request.auth != null && request.auth.uid == userId;
-      
+
+      // On retire 'role' de la liste des champs interdits pour permettre 
+      // à l'utilisateur de passer de 'student' à 'teacher'
       allow update: if request.auth != null && request.auth.uid == userId
-                    // Empêche l'utilisateur de modifier lui-même son plan ou sa conso IA
                     && !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['plan', 'aiUsage', 'chatUsage', 'isPremium']);
+                        .hasAny(['plan', 'aiUsage', 'chatUsage', 'isPremium', 'classes']);
+      
+      // Capsules personnelles stockées en sous-collection
+      match /capsules/{capId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
-    /**
-     * INVITATIONS
-     * - Nécessaire pour que le client puisse vérifier un code d'invitation.
-     */
-    match /invitations/{code} {
-      allow read: if request.auth != null;
-      // La création/suppression est gérée par les Cloud Functions (Admin SDK)
-      allow write: if false;
-    }
-
-    /**
-     * CLASSES / GROUPES
-     * - Lecture : Si l'utilisateur est le créateur (teacherId) ou un membre (memberIds).
-     * - Création : Autorisée pour tout utilisateur connecté (le rôle est vérifié côté backend).
-     * - Modif/Suppression : Uniquement pour le professeur propriétaire.
-     */
+    /* ==============================
+       CLASSES (Groupes d'étude)
+    ============================== */
     match /classes/{classId} {
+      // Lecture : Professeur propriétaire OU membre listé dans memberIds
       allow read: if request.auth != null && (
         resource.data.teacherId == request.auth.uid || 
         request.auth.uid in resource.data.memberIds
       );
-      
+
+      // Création : Autorisée pour tout utilisateur connecté. 
+      // La vérification métier "est-il prof ?" est gérée de manière plus fiable 
+      // par la Cloud Function 'createClass'.
       allow create: if request.auth != null;
-        
+
+      // Gestion : Uniquement le professeur
       allow update, delete: if request.auth != null && 
         resource.data.teacherId == request.auth.uid;
 
@@ -54,12 +51,12 @@ service cloud.firestore {
       }
     }
 
-    /**
-     * MODULES PERSONNELS (Sous-collection de l'utilisateur)
-     * - Accès total réservé au propriétaire.
-     */
-    match /users/{userId}/capsules/{capId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    /* ==============================
+       INVITATIONS (Codes d'accès)
+    ============================== */
+    match /invitations/{code} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
   }
 }
