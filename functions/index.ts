@@ -17,14 +17,8 @@ const db = admin.firestore();
  * LIMITES DE CRÉATION IA
  */
 const LIMITS = {
-  free: {
-    daily: 5,
-    monthly: 50,
-  },
-  premium: {
-    daily: 100,
-    monthly: 2000,
-  },
+  free: { daily: 5, monthly: 50 },
+  premium: { daily: 100, monthly: 2000 },
 };
 
 /**
@@ -78,9 +72,11 @@ const CAPSULE_SCHEMA = {
 
 /**
  * FONCTION PRINCIPALE : GENERATE MODULE
+ * Supporte le texte brut OU les fichiers base64 (multimodal)
  */
 export const generateModule = functions
   .region("europe-west1")
+  .runWith({ timeoutSeconds: 300, memory: "1GB" }) // Augmenté pour l'analyse de documents
   .https.onCall(async (data, context) => {
     // 1. Authentification
     if (!context.auth) {
@@ -88,24 +84,23 @@ export const generateModule = functions
     }
 
     const uid = context.auth.uid;
-    const { text, sourceType, language, learningStyle } = data;
+    const { text, fileData, sourceType, language, learningStyle } = data;
     
-    if (!text || text.length < 20) {
-      throw new functions.https.HttpsError("invalid-argument", "Contenu insuffisant pour l'analyse.");
+    if (!text && !fileData) {
+      throw new functions.https.HttpsError("invalid-argument", "Contenu manquant.");
     }
 
-    const safeText = text.slice(0, 10000); 
     const today = new Date().toISOString().split("T")[0];
     const currentMonth = new Date().getMonth();
     const userRef = db.collection("users").doc(uid);
 
     let userPlan = "free";
 
-    // 2. Transaction Firestore pour les Quotas
+    // 2. Transaction Firestore pour les Quotas (Inviolable)
     try {
       await db.runTransaction(async (transaction) => {
         const userDoc = await transaction.get(userRef);
-        if (!userDoc.exists) throw new Error("Profil utilisateur introuvable.");
+        if (!userDoc.exists) throw new Error("Profil introuvable.");
 
         const userData = userDoc.data()!;
         userPlan = userData.plan || "free";
@@ -118,72 +113,52 @@ export const generateModule = functions
           lastMonthlyReset: currentMonth,
         };
 
-        // Reset quotidien
-        if (aiUsage.lastDailyReset !== today) {
-          aiUsage.dailyCount = 0;
-          aiUsage.lastDailyReset = today;
-        }
+        if (aiUsage.lastDailyReset !== today) { aiUsage.dailyCount = 0; aiUsage.lastDailyReset = today; }
+        if (aiUsage.lastMonthlyReset !== currentMonth) { aiUsage.monthlyCount = 0; aiUsage.lastMonthlyReset = currentMonth; }
 
-        // Reset mensuel
-        if (aiUsage.lastMonthlyReset !== currentMonth) {
-          aiUsage.monthlyCount = 0;
-          aiUsage.lastMonthlyReset = currentMonth;
-        }
+        if (aiUsage.dailyCount >= limits.daily) throw new functions.https.HttpsError("resource-exhausted", "Quota journalier atteint.");
+        if (aiUsage.monthlyCount >= limits.monthly) throw new functions.https.HttpsError("resource-exhausted", "Quota mensuel atteint.");
 
-        // Vérification des seuils
-        if (aiUsage.dailyCount >= limits.daily) {
-          throw new functions.https.HttpsError("resource-exhausted", "Quota journalier atteint.");
-        }
-        if (aiUsage.monthlyCount >= limits.monthly) {
-          throw new functions.https.HttpsError("resource-exhausted", "Quota mensuel atteint.");
-        }
-
-        // Incrémentation
         aiUsage.dailyCount += 1;
         aiUsage.monthlyCount += 1;
-
         transaction.update(userRef, { aiUsage });
       });
 
-      // 3. Initialisation Gemini via GoogleGenAI
-      // La clé est extraite directement de process.env.API_KEY pour garantir l'utilisation du secret injecté.
+      // 3. Appel à Gemini (Côté Serveur)
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const modelName = "gemini-3-flash-preview";
       
-      const prompt = `Génère un module d'apprentissage Memoraid (Capsule Cognitive) basé sur ce contenu (${sourceType || 'text'}) : 
-      ${safeText}`;
+      const promptText = `Génère un module d'apprentissage Memoraid (Capsule Cognitive) basé sur ce contenu (${sourceType || 'auto'}) : ${text || ''}`;
+      
+      const contents = fileData 
+        ? { parts: [{ inlineData: fileData }, { text: promptText }] }
+        : promptText;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
+        model: modelName,
+        contents: contents as any,
         config: {
           systemInstruction: `Tu es l'Architecte Cognitif de Memoraid. 
-          Ta mission est de transformer du contenu brut en un module pédagogique parfait.
-          Langue : ${language || 'fr'}. 
-          Style d'apprentissage cible : ${learningStyle || 'textual'}.
-          Tu dois impérativement répondre avec un JSON valide respectant le schéma fourni.`,
+          Mission : Transformer le contenu en module pédagogique parfait.
+          Langue : ${language || 'fr'}. Style : ${learningStyle || 'textual'}.
+          Réponds EXCLUSIVEMENT en JSON valide.`,
           responseMimeType: "application/json",
           responseSchema: CAPSULE_SCHEMA,
-          temperature: 0.4
+          temperature: 0.3
         }
       });
 
       if (!response.text) throw new Error("Réponse IA vide");
-      const capsuleData = JSON.parse(response.text);
-
+      
       return {
         success: true,
         plan: userPlan,
-        capsule: capsuleData
+        capsule: JSON.parse(response.text)
       };
 
     } catch (error: any) {
-      console.error("Cloud Function generateModule Error:", error);
-      
+      console.error("Cloud Function Error:", error);
       if (error instanceof functions.https.HttpsError) throw error;
-      
-      throw new functions.https.HttpsError(
-        "internal", 
-        "Une erreur est survenue lors de la génération par l'IA."
-      );
+      throw new functions.https.HttpsError("internal", "Erreur IA serveur.");
     }
   });
