@@ -2,61 +2,45 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    /**
-     * PROFILS UTILISATEURS
-     * - Lecture : uniquement par le propriétaire.
-     * - Création : par l'utilisateur lui-même.
-     * - Mise à jour : l'utilisateur peut modifier ses préférences (nom, style) 
-     *   mais NE PEUT PAS modifier son plan, son rôle ou ses quotas (réservé au backend).
-     */
+    // PROFILS UTILISATEURS
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      
       allow create: if request.auth != null && request.auth.uid == userId;
       
+      // L'utilisateur ne peut pas modifier son rôle, son plan ou ses compteurs d'usage (Backend uniquement)
       allow update: if request.auth != null && request.auth.uid == userId
                     && !request.resource.data.diff(resource.data).affectedKeys()
                         .hasAny(['plan', 'role', 'aiUsage', 'chatUsage', 'classes', 'isPremium']);
     }
 
-    /**
-     * CLASSES / GROUPES
-     * - Lecture : autorisée si l'utilisateur est le professeur OU s'il est dans la liste memberIds.
-     * - Création : autorisée uniquement si l'utilisateur possède le rôle 'teacher' dans son profil.
-     * - Suppression/Modif : uniquement par le professeur propriétaire.
-     */
+    // CLASSES / GROUPES
     match /classes/{classId} {
+      // Lecture : Professeur OU membre de la liste memberIds
       allow read: if request.auth != null && (
         resource.data.teacherId == request.auth.uid || 
         request.auth.uid in resource.data.memberIds
       );
       
+      // Création : Uniquement pour les profs
       allow create: if request.auth != null && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
         
+      // Gestion : Uniquement le créateur
       allow update, delete: if request.auth != null && 
         resource.data.teacherId == request.auth.uid;
     }
 
-    /**
-     * MODULES PARTAGÉS (Sous-collection des classes)
-     * - Lecture : accessible aux membres et au professeur de la classe parente.
-     * - Écriture : uniquement par le professeur de la classe parente.
-     */
+    // MODULES DANS LES CLASSES (Sous-collection)
     match /classes/{classId}/capsules/{capId} {
       allow read: if request.auth != null && (
         get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid || 
         request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.memberIds
       );
-      
       allow write: if request.auth != null && 
         get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
     }
 
-    /**
-     * MODULES PERSONNELS (Sous-collection des utilisateurs)
-     * - Accès total (lecture/écriture) uniquement pour le propriétaire.
-     */
+    // MODULES PERSONNELS
     match /users/{userId}/capsules/{capId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }

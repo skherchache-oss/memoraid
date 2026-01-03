@@ -6,36 +6,27 @@ import {
     BookOpenIcon, 
     ChevronLeftIcon, 
     SearchIcon, 
-    PlayIcon, 
-    ShoppingBagIcon, 
     LearningIllustration, 
-    BrainIcon, 
     TagIcon, 
-    XIcon, 
     CheckCircleIcon,
     ClockIcon,
-    CrownIcon,
-    SchoolIcon
+    SchoolIcon,
+    XIcon
 } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
-import ConfirmationModal from './ConfirmationModal';
 import CapsuleListItem from './CapsuleListItem';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface KnowledgeBaseProps {
     capsules: CognitiveCapsule[];
-    activeCapsuleId?: string;
     onSelectCapsule: (capsule: CognitiveCapsule) => void;
     onNewCapsule: () => void;
-    notificationPermission: NotificationPermission;
-    onRequestNotificationPermission: () => void;
     onDeleteCapsule: (capsule: CognitiveCapsule) => void;
     newlyAddedCapsuleId: string | null;
     onClearNewCapsule: () => void;
     selectedCapsuleIds: string[];
     setSelectedCapsuleIds: React.Dispatch<React.SetStateAction<string[]>>;
     onOpenStore: () => void;
-    onBulkSetCategory?: (ids: string[], category: string) => void;
     onOpenGroupManager?: () => void;
 }
 
@@ -48,258 +39,103 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
     onClearNewCapsule, 
     selectedCapsuleIds, 
     setSelectedCapsuleIds, 
-    onOpenStore, 
-    onBulkSetCategory,
+    onOpenStore,
     onOpenGroupManager
 }) => {
     const { t } = useLanguage();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [isReviewConfirmOpen, setIsReviewConfirmOpen] = useState(false);
-    const [bulkCategoryInput, setBulkCategoryInput] = useState('');
 
+    // Filtrage et Tri
     const filteredCapsules = useMemo(() => {
-        if (!searchTerm.trim()) return capsules;
-        const term = searchTerm.toLowerCase();
-        return capsules.filter(c => 
-            c.title.toLowerCase().includes(term) || 
-            c.category?.toLowerCase().includes(term)
-        );
+        let list = capsules;
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            list = list.filter(c => c.title.toLowerCase().includes(term) || c.category?.toLowerCase().includes(term));
+        }
+        return list.sort((a, b) => b.createdAt - a.createdAt);
     }, [capsules, searchTerm]);
 
-    const groupedData = useMemo(() => {
-        const groups: Record<string, { capsules: CognitiveCapsule[], hasDue: boolean }> = {};
-        capsules.forEach(c => {
-            const cat = c.category || t('uncategorized');
-            if (!groups[cat]) groups[cat] = { capsules: [], hasDue: false };
-            groups[cat].capsules.push(c);
-            if (isCapsuleDue(c)) groups[cat].hasDue = true;
-        });
-        return groups;
-    }, [capsules, t]);
-
-    const categories = useMemo(() => {
-        return Object.keys(groupedData).sort((a, b) => {
-            if (a.includes("Apprendre")) return -1;
-            if (a === t('uncategorized')) return 1;
-            return a.localeCompare(b);
-        });
-    }, [groupedData, t]);
-
-    const dueCapsules = useMemo(() => capsules.filter(isCapsuleDue), [capsules]);
+    // Séparation par type pour l'affichage étudiant
+    const personalCapsules = useMemo(() => filteredCapsules.filter(c => !c.groupId), [filteredCapsules]);
+    const classCapsules = useMemo(() => filteredCapsules.filter(c => c.groupId), [filteredCapsules]);
 
     const handleToggleSelection = (id: string) => {
         setSelectedCapsuleIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
     };
 
-    const handleApplyBulkCategory = () => {
-        if (bulkCategoryInput.trim() && onBulkSetCategory) {
-            onBulkSetCategory(selectedCapsuleIds, bulkCategoryInput.trim());
-            setBulkCategoryInput('');
-            setSelectedCategory(bulkCategoryInput.trim());
-            setSelectedCapsuleIds([]);
-        }
-    };
-
-    const renderCategoryGrid = () => (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8 animate-fade-in">
-            {categories.map(category => {
-                const data = groupedData[category];
-                const isPremiumPack = category.includes("Apprendre");
-                
-                return (
-                    <button 
-                        key={category}
-                        onClick={() => setSelectedCategory(category)}
-                        className={`group relative aspect-square rounded-[40px] border transition-all duration-500 flex flex-col items-center justify-center p-6 text-center shadow-sm hover:shadow-2xl hover:-translate-y-2 ${
-                            isPremiumPack 
-                            ? 'bg-gradient-to-br from-indigo-600 to-violet-700 border-indigo-500 text-white dark:border-indigo-400' 
-                            : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 text-slate-800 dark:text-zinc-100'
-                        }`}
-                    >
-                        {/* Status Badges */}
-                        <div className="absolute top-6 right-6">
-                            {data.hasDue && (
-                                <div className={`w-3.5 h-3.5 rounded-full animate-pulse border-2 ${isPremiumPack ? 'bg-amber-400 border-indigo-600' : 'bg-amber-500 border-white dark:border-zinc-900'}`}></div>
-                            )}
-                        </div>
-                        
-                        {isPremiumPack && (
-                            <div className="absolute top-6 left-6 opacity-40 group-hover:opacity-100 transition-opacity">
-                                <CrownIcon className="w-5 h-5 text-amber-300" />
-                            </div>
-                        )}
-
-                        {/* Large Icon Container */}
-                        <div className={`mb-5 p-5 rounded-3xl transition-all duration-500 group-hover:scale-110 ${
-                            isPremiumPack 
-                            ? 'bg-white/10 text-white backdrop-blur-md group-hover:bg-white/20' 
-                            : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 group-hover:bg-emerald-100'
-                        }`}>
-                            {isPremiumPack ? <BrainIcon className="w-12 h-12" /> : <BookOpenIcon className="w-12 h-12" />}
-                        </div>
-
-                        {/* Labels */}
-                        <h3 className={`text-sm md:text-base font-black uppercase tracking-tighter line-clamp-2 px-2 ${isPremiumPack ? 'text-white' : 'text-slate-800 dark:text-white'}`}>
-                            {category}
-                        </h3>
-                        <span className={`mt-3 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full transition-colors ${
-                            isPremiumPack 
-                            ? 'bg-white/20 text-indigo-100' 
-                            : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'
-                        }`}>
-                            {data.capsules.length} modules
-                        </span>
-
-                        {/* Hover Decorative Element */}
-                        {!isPremiumPack && <div className="absolute inset-0 bg-emerald-600/5 rounded-[40px] opacity-0 group-hover:opacity-100 transition-opacity"></div>}
-                    </button>
-                );
-            })}
-
-            {/* Nouveau Module Square */}
-            <button 
-                onClick={onNewCapsule} 
-                className="aspect-square bg-slate-50/50 dark:bg-zinc-900/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800 hover:border-emerald-500/50 hover:bg-emerald-50/30 transition-all duration-300 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-600 group"
-            >
-                <div className="p-4 rounded-full bg-slate-100 dark:bg-zinc-800 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300 mb-4">
-                    <PlusIcon className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest">Nouveau module</span>
-            </button>
+    const renderCapsuleGrid = (list: CognitiveCapsule[]) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {list.map(c => (
+                <CapsuleListItem 
+                    key={c.id} 
+                    capsule={c} 
+                    isActive={false} 
+                    isExpanded={false} 
+                    isSelected={selectedCapsuleIds.includes(c.id)} 
+                    isDue={isCapsuleDue(c)} 
+                    onToggleExpand={() => onSelectCapsule(c)} 
+                    onToggleSelection={() => handleToggleSelection(c.id)} 
+                    onRequestDelete={onDeleteCapsule} 
+                    newlyAddedCapsuleId={newlyAddedCapsuleId} 
+                    onClearNewCapsule={onClearNewCapsule} 
+                />
+            ))}
         </div>
     );
 
-    const renderCapsuleList = (title: string, list: CognitiveCapsule[], showBackButton = false) => {
-        const sortedList = [...list].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
-        return (
-            <div className="space-y-10 animate-fade-in">
-                <div className="flex items-center gap-6 border-b border-slate-100 dark:border-zinc-800 pb-8">
-                    {showBackButton && (
-                        <button 
-                            onClick={() => setSelectedCategory(null)} 
-                            className="p-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 rounded-2xl hover:bg-emerald-500 hover:text-white hover:border-emerald-500 transition-all shadow-sm"
-                        >
-                            <ChevronLeftIcon className="w-6 h-6" />
-                        </button>
-                    )}
-                    <div>
-                        <h3 className="text-3xl font-black text-slate-900 dark:text-zinc-100 tracking-tight">{title}</h3>
-                        <p className="text-xs font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mt-1">Structure de progression croissante</p>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {sortedList.map(c => (
-                        <CapsuleListItem key={c.id} capsule={c} isActive={false} isExpanded={false} isSelected={selectedCapsuleIds.includes(c.id)} isDue={isCapsuleDue(c)} onToggleExpand={() => onSelectCapsule(c)} onToggleSelection={() => handleToggleSelection(c.id)} onRequestDelete={onDeleteCapsule} newlyAddedCapsuleId={newlyAddedCapsuleId} onClearNewCapsule={onClearNewCapsule} />
-                    ))}
-                </div>
-            </div>
-        );
-    };
-
     return (
-        <div className="w-full min-h-screen animate-fade-in relative">
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12 md:mb-16">
+        <div className="w-full min-h-screen animate-fade-in pb-32">
+            <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
                 <div className="flex items-center">
-                    <div className="p-3 md:p-4 bg-emerald-500 text-white rounded-[20px] md:rounded-[24px] mr-4 md:mr-5 shadow-xl shadow-emerald-200/50 dark:shadow-none">
-                        <BookOpenIcon className="w-7 h-7 md:w-9 md:h-9" />
+                    <div className="p-3 bg-emerald-500 text-white rounded-2xl mr-4 shadow-lg shadow-emerald-200/50">
+                        <BookOpenIcon className="w-8 h-8" />
                     </div>
                     <div>
-                         <h2 className="text-2xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Bibliothèque</h2>
-                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Vos connaissances structurées</p>
+                         <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Ma Bibliothèque</h2>
+                         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Savoirs et révisions</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="relative md:w-96 group flex-grow">
-                        <SearchIcon className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
-                        <input type="text" placeholder={t('search_placeholder')} value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); if (e.target.value) setSelectedCategory(null); }} className="w-full pl-12 pr-5 py-3.5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none dark:text-white shadow-sm text-base transition-all" />
+                    <div className="relative flex-grow md:w-64">
+                        <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder={t('search_placeholder')} 
+                            value={searchTerm} 
+                            onChange={(e) => setSearchTerm(e.target.value)} 
+                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                        />
                     </div>
-                    {onOpenGroupManager && (
-                         <button 
-                            onClick={onOpenGroupManager} 
-                            className="p-3.5 bg-indigo-500 text-white rounded-[20px] hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 dark:shadow-none active:scale-90 flex items-center gap-2"
-                            title="Rejoindre une classe"
-                         >
-                            <SchoolIcon className="w-6 h-6" />
-                            <span className="hidden lg:inline text-xs font-black uppercase tracking-widest pr-1">Code</span>
-                         </button>
-                    )}
-                    <button onClick={onOpenStore} className="p-3.5 bg-amber-500 text-white rounded-[20px] hover:bg-amber-600 transition-all shadow-xl shadow-amber-100 dark:shadow-none active:scale-90"><ShoppingBagIcon className="w-6 h-6" /></button>
+                    <button onClick={onOpenGroupManager} className="p-2.5 bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-600 transition-all"><SchoolIcon className="w-5 h-5"/></button>
                 </div>
             </header>
 
-            {dueCapsules.length > 0 && !selectedCategory && !searchTerm && (
-                <div className="mb-14 flex flex-col sm:flex-row items-center justify-between p-5 sm:p-7 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-[32px] sm:rounded-[40px] shadow-2xl shadow-emerald-200/40 dark:shadow-none overflow-hidden relative gap-5 sm:gap-4">
-                    <div className="absolute top-0 right-0 p-8 sm:p-12 opacity-10 rotate-12 transform scale-150 pointer-events-none"><ClockIcon className="w-24 h-24 sm:w-32 sm:h-32" /></div>
-                    
-                    <div className="flex items-center gap-4 sm:gap-6 relative z-10 w-full sm:w-auto">
-                        <div className="p-2.5 sm:p-5 bg-white/20 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/20 flex-shrink-0">
-                            <ClockIcon className="w-5 h-5 sm:w-10 sm:h-10" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="text-lg sm:text-2xl font-black uppercase tracking-tight truncate">
-                                {dueCapsules.length} modules à réviser
-                            </p>
-                            <p className="text-[10px] sm:text-sm font-bold text-emerald-100 opacity-80 uppercase tracking-widest truncate">
-                                Optimisez votre mémorisation
-                            </p>
-                        </div>
+            {/* SECTION CLASSES (Si l'étudiant a des modules partagés) */}
+            {classCapsules.length > 0 && (
+                <section className="mb-12">
+                    <div className="flex items-center gap-3 mb-6">
+                        <SchoolIcon className="w-5 h-5 text-indigo-500" />
+                        <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Modules de mes classes</h3>
                     </div>
-                    
-                    <button 
-                        onClick={() => setIsReviewConfirmOpen(true)} 
-                        className="w-full sm:w-auto px-8 py-3.5 sm:px-10 sm:py-4 bg-white text-emerald-600 rounded-xl sm:rounded-[20px] text-xs font-black uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl active:scale-95 relative z-10 flex-shrink-0 whitespace-nowrap"
-                    >
-                        Démarrer
-                    </button>
-                </div>
+                    {renderCapsuleGrid(classCapsules)}
+                </section>
             )}
 
-            <div className="pb-40">
-                {searchTerm.trim() ? renderCapsuleList("Recherche globale", filteredCapsules) : selectedCategory ? renderCapsuleList(selectedCategory, groupedData[selectedCategory].capsules, true) : (
-                    <section>
-                        <div className="flex items-center justify-between mb-8 md:mb-10">
-                            <h3 className="text-[10px] md:text-xs font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Mes Collections</h3>
-                            <div className="h-px bg-slate-100 dark:bg-zinc-800 flex-grow ml-8 md:ml-10"></div>
-                        </div>
-                        {renderCategoryGrid()}
-                        
-                        {/* Invitation Prompt for Students */}
-                        {capsules.length < 5 && (
-                             <div className="mt-16 p-8 md:p-12 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-[48px] border-2 border-dashed border-indigo-200 dark:border-indigo-800 text-center animate-fade-in">
-                                <SchoolIcon className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
-                                <h4 className="text-xl font-black text-indigo-900 dark:text-indigo-200 mb-2">Avez-vous un code classe ?</h4>
-                                <p className="text-sm text-indigo-700/60 dark:text-indigo-400/60 mb-6 max-w-sm mx-auto">Rejoignez la classe de votre professeur pour accéder automatiquement aux modules partagés.</p>
-                                <button 
-                                    onClick={onOpenGroupManager}
-                                    className="px-8 py-4 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 dark:shadow-none"
-                                >
-                                    Utiliser un code invitation
-                                </button>
-                             </div>
-                        )}
-                    </section>
+            {/* SECTION PERSONNELLE */}
+            <section>
+                <div className="flex items-center gap-3 mb-6">
+                    <TagIcon className="w-5 h-5 text-emerald-500" />
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Mes modules personnels</h3>
+                </div>
+                {personalCapsules.length > 0 ? renderCapsuleGrid(personalCapsules) : (
+                    <div className="text-center py-16 bg-slate-50/50 dark:bg-zinc-900/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
+                        <LearningIllustration className="w-32 h-32 mx-auto mb-4 opacity-40" />
+                        <p className="text-slate-400 font-bold mb-6">Votre bibliothèque personnelle est vide.</p>
+                        <button onClick={onNewCapsule} className="px-8 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-emerald-700 transition-all">Créer mon premier module</button>
+                    </div>
                 )}
-            </div>
-
-            {selectedCapsuleIds.length > 0 && (
-                <div className="fixed bottom-28 left-1/2 -translate-x-1/2 w-[95%] max-w-3xl bg-slate-900/90 dark:bg-zinc-900/95 backdrop-blur-2xl text-white p-6 rounded-[32px] shadow-2xl z-[60] flex items-center gap-6 border border-white/10 animate-toast-enter">
-                    <div className="flex items-center gap-3">
-                        <CheckCircleIcon className="w-8 h-8 text-emerald-500" />
-                        <span className="text-sm font-black uppercase tracking-widest">{selectedCapsuleIds.length} modules</span>
-                    </div>
-                    <div className="flex-grow flex items-center gap-4">
-                        <div className="relative flex-grow">
-                             <TagIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                             <input type="text" placeholder="Nom de collection..." value={bulkCategoryInput} onChange={(e) => setBulkCategoryInput(e.target.value)} className="w-full bg-white/10 border-none rounded-2xl pl-11 pr-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
-                        </div>
-                        <button onClick={handleApplyBulkCategory} className="bg-emerald-600 hover:bg-emerald-700 px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Classer</button>
-                    </div>
-                    <button onClick={() => setSelectedCapsuleIds([])} className="p-2 hover:bg-white/10 rounded-full transition-colors"><XIcon className="w-6 h-6 text-slate-400" /></button>
-                </div>
-            )}
-
-            <ConfirmationModal isOpen={isReviewConfirmOpen} onClose={() => setIsReviewConfirmOpen(false)} onConfirm={() => { if(dueCapsules.length > 0) onSelectCapsule(dueCapsules[0]); setIsReviewConfirmOpen(false); }} title="Lancer les révisions ?" message={`${dueCapsules.length} modules demandent votre attention aujourd'hui pour contrer l'oubli.`} confirmText="C'est parti" cancelText="Plus tard" variant="info" icon={<PlayIcon />} />
+            </section>
         </div>
     );
 };
