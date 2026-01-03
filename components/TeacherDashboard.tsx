@@ -220,18 +220,18 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                     </button>
                                 </div>
                             ) : (
-                                <form onSubmit={handleCreateClass} className="space-y-3 p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-emerald-100 shadow-sm animate-fade-in-fast">
+                                <form onSubmit={handleCreateClass} className="space-y-3 p-4 bg-white dark:bg-zinc-900 rounded-2xl border-2 border-emerald-500/20 shadow-xl animate-fade-in-fast">
                                     <input 
                                         type="text" 
                                         autoFocus 
                                         placeholder="Nom (Ex: 3ème B)" 
                                         value={newClassName} 
                                         onChange={(e) => setNewClassName(e.target.value)} 
-                                        className="w-full p-3 text-sm border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 !text-slate-900 dark:!text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none" 
+                                        className="w-full p-3.5 text-base border-2 border-slate-200 dark:border-zinc-700 rounded-xl bg-white !text-slate-950 dark:!text-slate-950 placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-bold" 
                                     />
                                     <div className="flex gap-2">
-                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors">{createLoading ? '...' : 'Créer'}</button>
-                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 dark:bg-zinc-700 text-slate-500 dark:text-zinc-300 text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-600 transition-colors">Annuler</button>
+                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-50">{createLoading ? '...' : 'Créer'}</button>
+                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 dark:bg-zinc-700 text-slate-500 dark:text-zinc-300 text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-600 transition-colors">Annuler</button>
                                     </div>
                                 </form>
                             )}
@@ -321,8 +321,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         {isInvitingStudent && (
                                             <form onSubmit={handleInviteStudent} className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 animate-fade-in-fast mb-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
-                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
+                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
                                                 </div>
                                                 <div className="flex gap-3 justify-end">
                                                     <button type="button" onClick={() => setIsInvitingStudent(false)} className="text-xs font-bold text-slate-500 dark:text-zinc-400 px-4 py-2 hover:text-slate-700 transition-colors">Annuler</button>
