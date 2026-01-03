@@ -1,4 +1,16 @@
 
+// Fix: Added SourceType export
+export type SourceType = 'text' | 'pdf' | 'ocr' | 'speech' | 'unknown';
+
+// Fix: Added LearningStyle export
+export type LearningStyle = 'visual' | 'auditory' | 'kinesthetic' | 'textual';
+
+// Fix: Added UserLevel export
+export type UserLevel = 'beginner' | 'intermediate' | 'advanced';
+
+// Fix: Added CoachingMode export
+export type CoachingMode = 'standard' | 'oral' | 'exam' | 'solver';
+
 export interface QuizQuestion {
   question: string;
   options: string[];
@@ -23,28 +35,11 @@ export interface ReviewLog {
   score: number;
 }
 
-export interface Comment {
-  id: string;
-  userId: string;
-  userName: string;
+export interface ChatMessage {
+  role: 'user' | 'model';
   content: string;
-  timestamp: number;
-}
-
-export interface GroupMember {
-  userId: string;
-  name: string;
-  email: string;
-  role: 'owner' | 'editor' | 'viewer';
-}
-
-export interface Group {
-  id: string;
-  name: string;
-  inviteCode: string;
-  ownerId: string;
-  members: GroupMember[];
-  memberIds: string[];
+  // Fix: Added image property
+  image?: string;
 }
 
 export interface AiUsage {
@@ -54,20 +49,89 @@ export interface AiUsage {
 }
 
 export type UserPlan = 'free' | 'premium';
+export type UserRole = 'student' | 'teacher';
+
+// Fix: Added Badge interface and BadgeId type
+export type BadgeId = 'first_capsule' | 'creator_10' | 'quiz_master' | 'streak_3' | 'streak_7' | 'social_butterfly';
+
+export interface Badge {
+  id: BadgeId;
+  name: string;
+  description: string;
+  icon: string;
+  unlockedAt?: number;
+}
+
+// Fix: Added GamificationStats interface
+export interface GamificationStats {
+  xp: number;
+  level: number;
+  currentStreak: number;
+  lastStudyDate: string;
+  badges: Badge[];
+}
+
+// Fix: Added MemberProgress interface
+export interface MemberProgress {
+  userId: string;
+  name: string;
+  masteryScore: number;
+  lastReviewed: number;
+}
 
 export interface UserProfile {
+  uid: string;
   name: string;
   email?: string;
   role: UserRole;
-  level?: UserLevel;
+  plan: UserPlan;
   learningStyle?: LearningStyle;
+  aiUsage?: AiUsage;
+  chatUsage?: { count: number; lastReset: string };
+  classes: string[]; // IDs des classes rejointes
+  gamification?: GamificationStats;
+  // Fix: Added missing properties
   plans?: StudyPlan[];
   activePlanId?: string;
-  isPremium?: boolean; // Legacy: mapped to plan
-  plan?: UserPlan;
-  aiUsage?: AiUsage;
   unlockedPackIds?: string[];
-  gamification?: GamificationStats;
+  isPremium?: boolean;
+  level?: UserLevel;
+}
+
+export interface ClassMember {
+  uid: string;
+  name: string;
+  joinedAt: number;
+  status: 'active' | 'revoked';
+}
+
+export interface ClassRoom {
+  id: string;
+  name: string;
+  teacherId: string;
+  inviteCode: string;
+  description?: string;
+  members: ClassMember[];
+  activePackIds: string[];
+  createdAt: number;
+}
+
+// Fix: Added GroupMember and Group interfaces
+export interface GroupMember {
+  userId: string;
+  name: string;
+  role: 'owner' | 'student';
+  joinedAt: number;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  teacherId: string;
+  inviteCode: string;
+  members: GroupMember[];
+  createdAt: number;
+  memberIds?: string[]; // Used for Firestore queries
 }
 
 export interface CognitiveCapsule {
@@ -82,66 +146,92 @@ export interface CognitiveCapsule {
   lastReviewed: number | null;
   reviewStage: number;
   category?: string;
-  memoryAidImage?: string;
-  memoryAidDescription?: string;
-  visualizations?: VisualizationData[];
-  mnemonic?: string;
-  history?: ReviewLog[];
   masteryLevel?: number;
-  sourceType?: SourceType;
-  isShared?: boolean;
-  groupId?: string;
-  groupName?: string;
-  comments?: Comment[];
-  sharedLink?: string;
-  lastModifiedBy?: string;
-  collaborativeTasks?: CollaborativeTask[];
-  groupProgress?: MemberProgress[];
-  activeChallenge?: GroupChallenge;
+  sourceType: SourceType;
+  ownerId: string;
+  classId?: string; // Si lié à une classe
+  mnemonic?: string;
+  memoryAidImage?: string;
+  // Fix: Added missing properties
+  memoryAidDescription?: string;
+  history: ReviewLog[];
   isPremiumContent?: boolean;
-  originalPackId?: string;
   migratedAt?: number;
+  groupId?: string;
+  groupProgress?: MemberProgress[];
 }
 
-// Fix: Added missing interfaces for collaboration and group features
-export interface CollaborativeTask {
-  id: string;
-  title: string;
-  assignedTo?: string;
-  status: 'pending' | 'completed';
-}
-
-export interface MemberProgress {
-  userId: string;
-  userName: string;
-  masteryScore: number;
-  lastActivity: number;
-}
-
-// Fix: Centralized shared UI types for navigation and views
 export type View = 'create' | 'base' | 'profile' | 'store' | 'agenda' | 'classes';
 export type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
 
-// ... Reste des types inchangés (Badge, GamificationStats, etc.)
-export type BadgeId = 'first_capsule' | 'quiz_master' | 'streak_3' | 'streak_7' | 'streak_30' | 'explorer' | 'creator_10' | 'social_butterfly';
-export interface Badge { id: BadgeId; name: string; description: string; icon: string; unlockedAt?: number; }
-export interface GamificationStats { xp: number; level: number; currentStreak: number; lastStudyDate: string; badges: Badge[]; }
-export interface GroupChallenge { id: string; capsuleId: string; capsuleTitle: string; challengerName: string; targetScore: number; endDate: number; }
-export interface MindMapNode { id: string; label: string; children?: MindMapNode[]; }
-export interface TimelineEvent { id: string; date: string; title: string; description: string; }
-export interface VisualizationData { type: 'mindmap' | 'timeline'; data: MindMapNode | TimelineEvent[]; }
-export type ExternalPlatform = 'classroom' | 'moodle' | 'pronote';
-export interface SchoolCourse { id: string; name: string; platform: ExternalPlatform; materials: SchoolMaterial[]; }
-export interface SchoolMaterial { id: string; title: string; type: 'pdf' | 'doc' | 'text'; content?: string; url?: string; }
-export interface StudyTask { capsuleId: string; title: string; estimatedMinutes: number; status: 'pending' | 'completed'; type: 'review' | 'learn' | 'quiz'; }
-export interface DailySession { date: string; tasks: StudyTask[]; totalMinutes: number; isRestDay?: boolean; }
-export interface StudyPlan { id: string; examDate: number; name: string; dailyMinutesAvailable: number; schedule: DailySession[]; createdAt: number; capsuleIds: string[]; }
-export type PremiumCategory = 'bac' | 'concours' | 'expert' | 'langues';
-export interface PremiumPack { id: string; title: string; description: string; category: PremiumCategory; price: number; capsuleCount: number; coverColor: string; capsules: CognitiveCapsule[]; }
-export type SourceType = 'text' | 'pdf' | 'web' | 'image' | 'presentation' | 'ocr' | 'speech' | 'unknown';
-export interface ChatMessage { role: 'user' | 'model'; content: string; image?: string; }
-export type UserLevel = 'beginner' | 'intermediate' | 'advanced';
-export type LearningStyle = 'visual' | 'auditory' | 'kinesthetic' | 'textual';
-export type CoachingMode = 'standard' | 'oral' | 'exam' | 'solver';
-export type UserRole = 'student' | 'teacher';
-export interface AppData { user: UserProfile; capsules: CognitiveCapsule[]; }
+export interface AppData {
+  user: UserProfile;
+  capsules: CognitiveCapsule[];
+}
+
+// Fix: Added PremiumPack interface
+export interface PremiumPack {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price: number;
+  capsuleCount: number;
+  coverColor: string;
+  capsules: CognitiveCapsule[];
+}
+
+// Fix: Added Planning related types
+export interface StudyTask {
+    capsuleId: string;
+    title: string;
+    estimatedMinutes: number;
+    status: 'pending' | 'completed';
+    type: 'learn' | 'review';
+}
+
+export interface DailySession {
+    date: string;
+    tasks: StudyTask[];
+    totalMinutes: number;
+    isRestDay: boolean;
+}
+
+export interface StudyPlan {
+    id: string;
+    name: string;
+    examDate: number;
+    dailyMinutesAvailable: number;
+    schedule: DailySession[];
+    createdAt: number;
+    capsuleIds: string[];
+}
+
+// Fix: Added Visualization related types
+export interface MindMapNode {
+    id: string;
+    label: string;
+    children?: MindMapNode[];
+}
+
+export interface VisualizationData {
+    type: 'mindmap' | 'timeline';
+    data: MindMapNode | any;
+}
+
+// Fix: Added School Import related types
+export type ExternalPlatform = 'classroom' | 'pronote' | 'moodle';
+
+export interface SchoolMaterial {
+    id: string;
+    title: string;
+    type: 'text' | 'pdf' | 'doc';
+    content?: string;
+}
+
+export interface SchoolCourse {
+    id: string;
+    name: string;
+    platform: ExternalPlatform;
+    materials: SchoolMaterial[];
+}

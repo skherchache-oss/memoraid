@@ -1,223 +1,137 @@
 
-import { db } from './firebase';
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, writeBatch, getDoc, where, updateDoc, arrayUnion, getDocs } from "firebase/firestore";
-import type { CognitiveCapsule, Group, GroupMember, Comment, CollaborativeTask, MemberProgress, UserProfile } from '../types';
-
-const USERS_COLLECTION = 'users';
-const GROUPS_COLLECTION = 'groups';
-const CAPSULES_SUBCOLLECTION = 'capsules';
+import { db, functions } from './firebase';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, where } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import type { CognitiveCapsule, ClassRoom, UserProfile, Group } from '../types';
 
 export const saveCapsuleToCloud = async (userId: string, capsule: CognitiveCapsule) => {
     if (!db || !userId) return;
-    try {
-        if (capsule.groupId) {
-            await updateGroupCapsule(capsule.groupId, capsule, userId);
-        } else {
-            const capsuleRef = doc(db, USERS_COLLECTION, userId, CAPSULES_SUBCOLLECTION, capsule.id);
-            await setDoc(capsuleRef, capsule, { merge: true });
-        }
-    } catch (error) {
-        console.error("Erreur sauvegarde cloud:", error);
-        throw error;
-    }
+    const capsuleRef = doc(db, 'users', userId, 'capsules', capsule.id);
+    await setDoc(capsuleRef, capsule, { merge: true });
 };
 
-export const updateUserProfileInCloud = async (userId: string, profile: Partial<UserProfile>) => {
+// Fix: Added deleteCapsuleFromCloud
+export const deleteCapsuleFromCloud = async (userId: string, capsuleId: string) => {
     if (!db || !userId) return;
-    try {
-        const userRef = doc(db, USERS_COLLECTION, userId);
-        await setDoc(userRef, profile, { merge: true });
-    } catch (error) {
-        console.error("Erreur mise à jour profil cloud:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, 'users', userId, 'capsules', capsuleId));
 };
 
 export const subscribeToUserProfile = (userId: string, onUpdate: (profile: Partial<UserProfile>) => void) => {
     if (!db || !userId) return () => {};
-    const userRef = doc(db, USERS_COLLECTION, userId);
-    return onSnapshot(userRef, (doc) => {
-        if (doc.exists()) {
-            onUpdate(doc.data() as UserProfile);
-        }
+    return onSnapshot(doc(db, 'users', userId), (doc) => {
+        if (doc.exists()) onUpdate(doc.data() as UserProfile);
     });
 };
 
-export const deleteCapsuleFromCloud = async (userId: string, capsuleId: string) => {
+// Fix: Added updateUserProfileInCloud
+export const updateUserProfileInCloud = async (userId: string, profile: Partial<UserProfile>) => {
     if (!db || !userId) return;
-    try {
-        const capsuleRef = doc(db, USERS_COLLECTION, userId, CAPSULES_SUBCOLLECTION, capsuleId);
-        await deleteDoc(capsuleRef);
-    } catch (error) {
-        console.error("Erreur suppression cloud:", error);
-        throw error;
-    }
+    await setDoc(doc(db, 'users', userId), profile, { merge: true });
 };
 
 export const subscribeToCapsules = (userId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
     if (!db || !userId) return () => {};
-
-    const capsulesQuery = query(
-        collection(db, USERS_COLLECTION, userId, CAPSULES_SUBCOLLECTION),
-        orderBy('createdAt', 'desc')
-    );
-
-    return onSnapshot(capsulesQuery, (snapshot) => {
-        const capsules: CognitiveCapsule[] = [];
-        snapshot.forEach((doc) => {
-            capsules.push(doc.data() as CognitiveCapsule);
-        });
-        onUpdate(capsules);
-    }, (error) => {
-        console.error("Erreur sync cloud:", error);
+    const q = query(collection(db, 'users', userId, 'capsules'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snap) => {
+        const caps: CognitiveCapsule[] = [];
+        snap.forEach(d => caps.push(d.data() as CognitiveCapsule));
+        onUpdate(caps);
     });
 };
 
-export const subscribeToModules = subscribeToCapsules;
+// Fix: Added subscribeToUserGroups
+export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
+    if (!db || !userId) return () => {};
+    const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
+    return onSnapshot(q, (snap) => {
+        const groups: Group[] = [];
+        snap.forEach(d => groups.push(d.data() as Group));
+        onUpdate(groups);
+    });
+};
 
-export const createGroup = async (userId: string, userName: string, groupName: string): Promise<Group> => {
-    if (!db) throw new Error("Base de données non disponible.");
-    
-    const groupId = `grp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+// Fix: Added subscribeToGroupCapsules
+export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
+    if (!db || !groupId) return () => {};
+    const q = query(collection(db, 'classes', groupId, 'capsules'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snap) => {
+        const caps: CognitiveCapsule[] = [];
+        snap.forEach(d => caps.push(d.data() as CognitiveCapsule));
+        onUpdate(caps);
+    });
+};
+
+/**
+ * APPEL SÉCURISÉ AU BACKEND POUR REJOINDRE UNE CLASSE
+ */
+export const joinClassWithCode = async (code: string, userName: string) => {
+    if (!functions) throw new Error("Backend non initialisé");
+    const joinFn = httpsCallable(functions, 'joinClassByCode');
+    const result = await joinFn({ code, userName });
+    return result.data;
+};
+
+// Fix: Added createGroup
+export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
+    if (!db) throw new Error("Base de données non initialisée");
     const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    const newMember: GroupMember = {
-        userId,
-        name: userName,
-        email: "",
-        role: 'owner'
-    };
-
+    const groupId = `class_${Date.now()}`;
     const newGroup: Group = {
         id: groupId,
-        name: groupName,
+        name,
+        teacherId,
         inviteCode,
-        ownerId: userId,
-        members: [newMember],
-        memberIds: [userId] 
+        members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
+        createdAt: Date.now()
     };
-
-    await setDoc(doc(db, GROUPS_COLLECTION, groupId), newGroup);
+    await setDoc(doc(db, 'classes', groupId), { ...newGroup, memberIds: [teacherId] });
     return newGroup;
 };
 
+// Fix: Added joinGroup using backend function
+export const joinGroup = async (userId: string, userName: string, code: string) => {
+    if (!functions) throw new Error("Backend non initialisé");
+    const joinFn = httpsCallable(functions, 'joinClassByCode');
+    await joinFn({ code, userName });
+};
+
+// Fix: Added deleteGroup
 export const deleteGroup = async (groupId: string) => {
     if (!db) return;
-    try {
-        // 1. Supprimer les capsules du groupe
-        const capsulesRef = collection(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION);
-        const capsSnapshot = await getDocs(capsulesRef);
-        const batch = writeBatch(db);
-        capsSnapshot.forEach(doc => batch.delete(doc.ref));
-        
-        // 2. Supprimer le groupe lui-même
-        batch.delete(doc(db, GROUPS_COLLECTION, groupId));
-        await batch.commit();
-    } catch (error) {
-        console.error("Erreur suppression groupe:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, 'classes', groupId));
 };
 
-export const joinGroup = async (userId: string, userName: string, inviteCode: string): Promise<Group> => {
-    if (!db) throw new Error("Base de données non disponible.");
-
-    const q = query(collection(db, GROUPS_COLLECTION), where("inviteCode", "==", inviteCode.toUpperCase()));
-    const querySnapshot = await getDocs(q);
-
-    if (querySnapshot.empty) {
-        throw new Error("Code d'invitation invalide.");
-    }
-
-    const groupDoc = querySnapshot.docs[0];
-    const groupData = groupDoc.data() as Group;
-
-    if (groupData.memberIds.includes(userId)) {
-        throw new Error("Vous êtes déjà membre de ce groupe.");
-    }
-
-    const newMember: GroupMember = {
-        userId,
-        name: userName,
-        email: "",
-        role: 'editor'
-    };
-
-    await updateDoc(doc(db, GROUPS_COLLECTION, groupData.id), {
-        members: arrayUnion(newMember),
-        memberIds: arrayUnion(userId)
-    });
-
-    return { 
-        ...groupData, 
-        members: [...groupData.members, newMember],
-        memberIds: [...groupData.memberIds, userId]
-    };
-};
-
-export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
-    if (!db || !userId) return () => {};
-    
-    const q = query(collection(db, GROUPS_COLLECTION), where("memberIds", "array-contains", userId));
-    
-    return onSnapshot(q, (snapshot) => {
-        const userGroups: Group[] = [];
-        snapshot.forEach((doc) => {
-            userGroups.push(doc.data() as Group);
-        });
-        onUpdate(userGroups);
-    }, (error) => {
-        console.error("Erreur sync groupes:", error);
-    });
-};
-
+// Fix: Added shareCapsuleToGroup
 export const shareCapsuleToGroup = async (userId: string, group: Group, capsule: CognitiveCapsule) => {
     if (!db) return;
-
-    const sharedCapsule: CognitiveCapsule = {
+    const sharedCapsule = {
         ...capsule,
-        id: `shared_${capsule.id}_${Date.now()}`,
         groupId: group.id,
-        groupName: group.name,
-        isShared: true,
-        sharedLink: `https://memoraid-app.fr/share/${group.inviteCode}/${capsule.id}`,
-        comments: [],
-        collaborativeTasks: [],
-        groupProgress: [],
-        lastModifiedBy: userId
+        sharedBy: userId,
+        sharedAt: Date.now(),
+        groupProgress: []
     };
-
-    const capsuleRef = doc(db, GROUPS_COLLECTION, group.id, CAPSULES_SUBCOLLECTION, sharedCapsule.id);
-    await setDoc(capsuleRef, sharedCapsule);
-    return sharedCapsule;
+    await setDoc(doc(db, 'classes', group.id, 'capsules', capsule.id), sharedCapsule);
 };
 
+// Fix: Added unshareCapsuleFromGroup
 export const unshareCapsuleFromGroup = async (groupId: string, capsuleId: string) => {
     if (!db) return;
-    try {
-        const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsuleId);
-        await deleteDoc(capsuleRef);
-    } catch (error) {
-        console.error("Erreur dé-partage:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, 'classes', groupId, 'capsules', capsuleId));
 };
 
-export const updateGroupCapsule = async (groupId: string, capsule: CognitiveCapsule, userId: string) => {
-    if (!db) return;
-    const capsuleRef = doc(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION, capsule.id);
-    await setDoc(capsuleRef, { ...capsule, lastModifiedBy: userId }, { merge: true });
-};
-
-export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: CognitiveCapsule[]) => void) => {
-    if (!db) return () => {};
-
-    const q = query(collection(db, GROUPS_COLLECTION, groupId, CAPSULES_SUBCOLLECTION));
-    return onSnapshot(q, (snapshot) => {
-        const capsules: CognitiveCapsule[] = [];
-        snapshot.forEach((doc) => {
-            capsules.push(doc.data() as CognitiveCapsule);
-        });
-        onUpdate(capsules);
-    });
+export const createClass = async (teacherId: string, name: string): Promise<string> => {
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const classId = `class_${Date.now()}`;
+    const newClass: ClassRoom = {
+        id: classId,
+        name,
+        teacherId,
+        inviteCode,
+        members: [],
+        activePackIds: [],
+        createdAt: Date.now()
+    };
+    await setDoc(doc(db, 'classes', classId), newClass);
+    return classId;
 };

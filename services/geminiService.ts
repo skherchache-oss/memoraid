@@ -1,108 +1,109 @@
 
+import { GoogleGenAI } from "@google/genai";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
-import { GoogleGenAI } from "@google/genai";
-import type { CognitiveCapsule, SourceType, LearningStyle, CoachingMode, UserProfile } from '../types';
+import type { ChatMessage, SourceType, LearningStyle, CognitiveCapsule, CoachingMode, UserProfile } from '../types';
 import type { Language } from '../i18n/translations';
 
 /**
- * BRIDGE FRONTEND -> BACKEND (CITADELLE)
+ * PAS DE CLÉ API ICI POUR LES MODULES (BACKEND FIREBASE).
+ * CERTAINES FONCTIONS UTILISENT LE SDK CLIENT AVEC process.env.API_KEY.
  */
 
-export class GeminiError extends Error {
-    public isQuotaError: boolean;
-    constructor(message: string, isQuotaError: boolean = false) {
-        super(message);
-        this.name = "GeminiError";
-        this.isQuotaError = isQuotaError;
-    }
-}
-
-/**
- * Génération de module (Texte ou Lien)
- */
 export const generateCognitiveCapsule = async (
     inputText: string, 
     sourceType: SourceType = 'text', 
     language: Language = 'fr', 
     style: LearningStyle = 'textual'
 ) => {
-    if (!functions) throw new Error("Backend non initialisé");
-    try {
-        const generateModuleFn = httpsCallable(functions, 'generateModule');
-        const result = await generateModuleFn({
-            text: inputText,
-            sourceType,
-            language,
-            learningStyle: style
-        });
-        return (result.data as any).capsule;
-    } catch (error: any) {
-        const isQuota = error.code === 'resource-exhausted' || error.message?.includes('Quota');
-        throw new GeminiError(error.message || "Erreur de génération", isQuota);
-    }
+    if (!functions) throw new Error("Backend indisponible");
+    const fn = httpsCallable(functions, 'generateModule');
+    const result = await fn({ text: inputText, sourceType, language, learningStyle: style });
+    return (result.data as any).capsule;
 };
 
-/**
- * Génération de module (Fichier PDF/Image)
- * Sécurisé : Envoie les données à la Cloud Function pour vérification de quota
- */
 export const generateCognitiveCapsuleFromFile = async (
     fileData: { mimeType: string, data: string },
     sourceType: SourceType = 'pdf',
     language: Language = 'fr',
     style: LearningStyle = 'textual'
 ) => {
-    if (!functions) throw new Error("Backend non initialisé");
-    try {
-        const generateModuleFn = httpsCallable(functions, 'generateModule');
-        const result = await generateModuleFn({
-            fileData, // Envoi sécurisé au backend
-            sourceType,
-            language,
-            learningStyle: style
-        });
-        return (result.data as any).capsule;
-    } catch (error: any) {
-        const isQuota = error.code === 'resource-exhausted' || error.message?.includes('Quota');
-        throw new GeminiError(error.message || "Erreur d'analyse de fichier", isQuota);
-    }
+    if (!functions) throw new Error("Backend indisponible");
+    const fn = httpsCallable(functions, 'generateModule');
+    const result = await fn({ fileData, sourceType, language, learningStyle: style });
+    return (result.data as any).capsule;
 };
 
-/**
- * Session de chat pour le coaching IA
- */
-export const createCoachingSession = (
-    capsule: CognitiveCapsule, 
-    mode: CoachingMode, 
-    userProfile: UserProfile, 
-    language: Language
-) => {
-    // Note: Dans une version "Startup Pro +", le coaching devrait aussi
-    // passer par une Cloud Function pour compter les messages (token usage).
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    let instruction = `Tu es l'IA Coach de Memoraid. Aide l'utilisateur à maîtriser : "${capsule.title}".
-    Style : ${userProfile.learningStyle || 'textual'}. Langue : ${language}.`;
+export const sendMessageToCoach = async (
+    history: ChatMessage[], 
+    message: string, 
+    capsuleTitle: string
+): Promise<string> => {
+    if (!functions) throw new Error("Backend indisponible");
+    const fn = httpsCallable(functions, 'chatWithGemini');
+    const result = await fn({ history, message, capsuleTitle });
+    return (result.data as any).reply;
+};
 
-    if (mode === 'oral') instruction += "\nRéponds de manière courte pour synthèse vocale.";
-    else if (mode === 'exam') instruction += "\nPose des questions et évalue les réponses.";
-    else if (mode === 'solver') instruction += "\nGuide l'utilisateur vers la solution sans la donner.";
+// Fix: Added generateMemoryAidDrawing using gemini-2.5-flash-image
+export const generateMemoryAidDrawing = async (capsule: CognitiveCapsule, language: Language) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    const prompt = `Génère un croquis aide-mémoire (Sketchnote) pour le module : "${capsule.title}". 
+    Le croquis doit illustrer visuellement les concepts suivants : ${capsule.keyConcepts.map(c => c.concept).join(', ')}.
+    Réponds avec une image au format PNG et une brève description du visuel en ${language === 'fr' ? 'français' : 'anglais'}.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: { parts: [{ text: prompt }] },
+    });
+
+    let imageData = '';
+    let description = '';
+
+    // Fix: Iterating through parts to find the image part
+    if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                imageData = part.inlineData.data;
+            } else if (part.text) {
+                description = part.text;
+            }
+        }
+    }
+
+    return { imageData, description };
+};
+
+// Fix: Added generateMnemonic using gemini-3-flash-preview
+export const generateMnemonic = async (capsule: CognitiveCapsule, language: Language) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    const prompt = `Génère un secret de mémorisation (phrase mnémotechnique, acronyme ou rime) pour retenir l'essentiel de : "${capsule.title}". 
+    Concepts : ${capsule.keyConcepts.map(c => c.concept).join(', ')}.
+    Langue : ${language}. Sois créatif et efficace.`;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: { parts: [{ text: prompt }] },
+    });
+
+    return response.text || '';
+};
+
+// Fix: Added createCoachingSession initializing a Gemini chat
+export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingMode, userProfile: UserProfile, language: Language) => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    const systemInstruction = `Tu es le Coach IA de Memoraid. Ton but est d'aider l'utilisateur à maîtriser le module : "${capsule.title}".
+    Résumé du module : ${capsule.summary}.
+    Concepts clés : ${capsule.keyConcepts.map(c => `${c.concept}: ${c.explanation}`).join(' | ')}.
+    Style d'apprentissage de l'utilisateur : ${userProfile.learningStyle || 'textual'}.
+    Mode actuel : ${mode}.
+    Langue : ${language}. 
+    Sois encourageant, pédagogique et concis.`;
 
     return ai.chats.create({
         model: 'gemini-3-flash-preview',
-        config: { systemInstruction: instruction },
+        config: {
+            systemInstruction,
+        }
     });
-};
-
-export const generateMnemonic = async (capsule: any, language: Language = 'fr'): Promise<string> => {
-    const fn = httpsCallable(functions, 'generateMnemonic');
-    const res = await fn({ title: capsule.title, language });
-    return (res.data as any).mnemonic;
-};
-
-export const generateMemoryAidDrawing = async (capsule: any, language: Language = 'fr') => {
-    const fn = httpsCallable(functions, 'generateVisualAid');
-    const res = await fn({ capsule, language });
-    return res.data as { imageData: string, description: string };
 };

@@ -1,3 +1,4 @@
+
 import type { CognitiveCapsule, PremiumPack } from '../types';
 
 export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
@@ -21,7 +22,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "But principal du rappel ?", back: "Renforcer la trace mnésique et ralentir l'oubli futur." },
             { front: "Auteur de la courbe de l'oubli ?", back: "Hermann Ebbinghaus (1885)." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_2',
@@ -42,7 +45,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Principe du SRS ?", back: "Espacer de plus en plus les révisions dans le temps." },
             { front: "Quand réviser selon le SRS ?", back: "Juste au moment où on est sur le point d'oublier." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_3',
@@ -63,7 +68,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Étape 1 de la méthode Feynman ?", back: "Choisir un concept et tenter de l'expliquer simplement." },
             { front: "Que révèle un blocage lors de l'explication ?", back: "Une zone d'ombre ou une lacune dans votre compréhension." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_4',
@@ -84,7 +91,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Où va une carte ratée ?", back: "Retour immédiat en Boîte 1, peu importe son niveau actuel." },
             { front: "Avantage principal de Leitner ?", back: "Optimiser le temps en se focalisant sur le contenu difficile." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_5',
@@ -105,7 +114,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Durée d'un cycle Pomodoro ?", back: "25 minutes de travail + 5 minutes de pause." },
             { front: "Nombre de cycles avant pause longue ?", back: "4 cycles consécutifs." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_6',
@@ -126,7 +137,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "À quoi sert la colonne de gauche Cornell ?", back: "À noter des mots-clés ou des questions d'auto-test." },
             { front: "Où va le résumé dans la méthode Cornell ?", back: "Tout en bas de la page (les 5-6 dernières lignes)." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_7',
@@ -147,7 +160,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Élément central d'une carte mentale ?", back: "L'idée ou le sujet principal (Image ou Mot)." },
             { front: "Avantage de la pensée radiale ?", back: "Refléter le fonctionnement naturel associatif du cerveau." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_8',
@@ -168,7 +183,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "C'est quoi un 'Palais Mental' ?", back: "Un lieu connu utilisé pour stocker des souvenirs sous forme d'images." },
             { front: "Pourquoi utiliser des images absurdes ?", back: "Pour créer un impact émotionnel et faciliter le rappel." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_9',
@@ -189,7 +206,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Rôle du sommeil paradoxal ?", back: "Consolidation des souvenirs et gestion des émotions." },
             { front: "Que se passe-t-il si on manque de sommeil ?", back: "La capacité d'apprentissage chute drastiquement (saturation)." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_10',
@@ -210,7 +229,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Meilleur carburant cérébral ?", back: "Glucose (issu des sucres lents) et bons lipides (Oméga-3)." },
             { front: "Impact d'un manque d'eau ?", back: "Baisse immédiate du focus et de la vitesse de traitement." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     },
     {
         id: 'pack_aa_11',
@@ -231,7 +252,9 @@ export const LEARNING_PACK_DATA: CognitiveCapsule[] = [
             { front: "Principe du rappel actif ?", back: "Se poser une question et y répondre sans regarder le cours." },
             { front: "Pourquoi la relecture est trompeuse ?", back: "Elle crée une illusion de savoir basée sur la reconnaissance visuelle." }
         ],
-        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true
+        createdAt: Date.now(), lastReviewed: null, reviewStage: 0, category: "Apprendre à apprendre", isPremiumContent: true,
+        // Fix: Added missing properties for CognitiveCapsule type
+        sourceType: 'text', ownerId: 'system', history: []
     }
 ];
 

@@ -40,12 +40,15 @@ import { migrateLocalModules } from './services/migrationService';
 import { useLanguage } from './contexts/LanguageContext';
 import { canUserGenerate, incrementUsage, getInitialUsage } from './services/quotaManager';
 
+// Fix: Added missing uid and classes properties to satisfy UserProfile type
 const DEFAULT_PROFILE = (t: any): AppData => ({
     user: { 
+        uid: '', 
         name: t('default_username'), 
         email: '', 
         role: 'student', 
         plan: 'free', 
+        classes: [],
         aiUsage: getInitialUsage(),
         gamification: getInitialGamificationStats(), 
         plans: [], 
