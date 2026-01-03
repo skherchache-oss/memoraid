@@ -4,13 +4,12 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
-  // Charge les variables d'environnement, y compris celles sans préfixe VITE_
   const env = loadEnv(mode, (process as any).cwd(), '');
 
   return {
-    // Expose explicitement la clé API au code client sous forme de process.env.API_KEY
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || '')
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.VITE_API_KEY || ''),
+      'process.env.VITE_FIREBASE_API_KEY': JSON.stringify(env.VITE_FIREBASE_API_KEY || env.API_KEY || '')
     },
     plugins: [
       react(),

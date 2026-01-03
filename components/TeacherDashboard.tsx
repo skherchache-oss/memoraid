@@ -34,7 +34,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
     const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     
-    // States pour les formulaires et modals
     const [isCreatingClass, setIsCreatingClass] = useState(false);
     const [newClassName, setNewClassName] = useState('');
     const [isInvitingStudent, setIsInvitingStudent] = useState(false);
@@ -43,7 +42,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const [isAssigningModule, setIsAssigningModule] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
     
-    // Deletion modals state
     const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
     const [capsuleToUnshare, setCapsuleToUnshare] = useState<CognitiveCapsule | null>(null);
 
@@ -96,9 +94,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             setSelectedGroupId(newGroup.id);
             setActiveTab('overview');
             addToast(`Classe "${trimmedName}" créée !`, "success");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Create Group Error:", error);
-            addToast("Erreur lors de la création. Vérifiez que votre profil est bien en mode Enseignant.", "error");
+            const msg = error.message?.includes("permission-denied") 
+                ? "Permission refusée. Vérifiez que vous êtes bien en mode Enseignant dans votre profil." 
+                : "Une erreur est survenue lors de la création de la classe.";
+            addToast(msg, "error");
         } finally {
             setCreateLoading(false);
         }
@@ -173,7 +174,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         } catch (e) { setExportStatus('error'); }
     };
 
-    // Helper pour récupérer la liste sécurisée des membres
     const groupMembersList = useMemo(() => {
         return Array.isArray(selectedGroup?.members) ? selectedGroup.members : [];
     }, [selectedGroup]);
@@ -227,7 +227,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         placeholder="Nom (Ex: 3ème B)" 
                                         value={newClassName} 
                                         onChange={(e) => setNewClassName(e.target.value)} 
-                                        className="w-full p-3 text-sm border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none" 
+                                        className="w-full p-3 text-sm border border-slate-200 dark:border-zinc-700 rounded-xl bg-white dark:bg-zinc-800 !text-slate-900 dark:!text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none" 
                                     />
                                     <div className="flex gap-2">
                                         <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-2.5 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors">{createLoading ? '...' : 'Créer'}</button>
@@ -321,8 +321,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         {isInvitingStudent && (
                                             <form onSubmit={handleInviteStudent} className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 animate-fade-in-fast mb-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
-                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
+                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
                                                 </div>
                                                 <div className="flex gap-3 justify-end">
                                                     <button type="button" onClick={() => setIsInvitingStudent(false)} className="text-xs font-bold text-slate-500 dark:text-zinc-400 px-4 py-2 hover:text-slate-700 transition-colors">Annuler</button>

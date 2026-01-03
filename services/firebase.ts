@@ -9,7 +9,7 @@ import { getFunctions } from "firebase/functions";
  * CONFIGURATION FIREBASE
  */
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "VOTRE_CLE_API_REELLE_ICI",
+  apiKey: process.env.VITE_FIREBASE_API_KEY || process.env.API_KEY || "",
   authDomain: "memoraid-7cd9d.firebaseapp.com",
   projectId: "memoraid-7cd9d",
   storageBucket: "memoraid-7cd9d.firebasestorage.app",
@@ -35,8 +35,8 @@ try {
 
     auth = getAuth(app);
     db = getFirestore(app);
-    functions = getFunctions(app, "europe-west1"); // Recommandé: spécifier la région
-    console.log("Firebase & Functions initialisés.");
+    functions = getFunctions(app, "europe-west1");
+    console.log("Firebase initialisé avec la clé disponible.");
 } catch (error) {
     console.error("Erreur d'initialisation Firebase:", error);
 }

@@ -9,8 +9,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, create: if request.auth != null && request.auth.uid == userId;
 
-      // On retire 'role' de la liste des champs interdits pour permettre 
-      // à l'utilisateur de passer de 'student' à 'teacher'
+      // On autorise la modification du rôle pour que l'utilisateur puisse devenir enseignant
       allow update: if request.auth != null && request.auth.uid == userId
                     && !request.resource.data.diff(resource.data).affectedKeys()
                         .hasAny(['plan', 'aiUsage', 'chatUsage', 'isPremium', 'classes']);
@@ -25,18 +24,14 @@ service cloud.firestore {
        CLASSES (Groupes d'étude)
     ============================== */
     match /classes/{classId} {
-      // Lecture : Professeur propriétaire OU membre listé dans memberIds
       allow read: if request.auth != null && (
         resource.data.teacherId == request.auth.uid || 
         request.auth.uid in resource.data.memberIds
       );
 
-      // Création : Autorisée pour tout utilisateur connecté. 
-      // La vérification métier "est-il prof ?" est gérée de manière plus fiable 
-      // par la Cloud Function 'createClass'.
+      // Création gérée par Cloud Function, mais on laisse un accès client basique pour la flexibilité initiale
       allow create: if request.auth != null;
 
-      // Gestion : Uniquement le professeur
       allow update, delete: if request.auth != null && 
         resource.data.teacherId == request.auth.uid;
 
