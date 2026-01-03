@@ -69,7 +69,6 @@ const fileToBase64 = (file: File): Promise<string> => {
 const AppContent: React.FC = () => {
     const { theme, toggleTheme } = useTheme();
     const { language, t } = useLanguage();
-    // Fix: Types are now imported from types.ts
     const [view, setView] = useState<View>('create');
     const [mobileTab, setMobileTab] = useState('create' as MobileTab);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -141,33 +140,14 @@ const AppContent: React.FC = () => {
 
     const handleGenerate = useCallback(async (inputText: string, sourceType?: SourceType) => {
         if (!isOnline) { setError(t('gen_needs_online')); return; }
-        
-        // 1. Vérification quota
         const quota = canUserGenerate(profile.user);
-        if (!quota.allowed) {
-            addToast(t('error_quota_reached'), 'error');
-            return;
-        }
-
+        if (!quota.allowed) { addToast(t('error_quota_reached'), 'error'); return; }
         setIsLoading(true); setError(null);
         generationController.current.isCancelled = false;
-        
         try {
             const capsuleData = await generateCognitiveCapsule(inputText, sourceType, language, profile.user.learningStyle);
             if (generationController.current.isCancelled) return;
-            
-            const newCapsule: CognitiveCapsule = { 
-                ...capsuleData, 
-                id: `cap_${Date.now()}`, 
-                createdAt: Date.now(), 
-                lastReviewed: null, 
-                reviewStage: 0, 
-                history: [], 
-                masteryLevel: 0, 
-                sourceType: sourceType || 'text' 
-            };
-
-            // 2. Sauvegarde et mise à jour usage
+            const newCapsule: CognitiveCapsule = { ...capsuleData, id: `cap_${Date.now()}`, createdAt: Date.now(), lastReviewed: null, reviewStage: 0, history: [], masteryLevel: 0, sourceType: sourceType || 'text' };
             if (currentUser) {
                 await saveCapsuleToCloud(currentUser.uid, newCapsule);
                 const updatedProfile = incrementUsage(profile.user);
@@ -175,41 +155,50 @@ const AppContent: React.FC = () => {
             } else {
                 setProfile(prev => ({ ...prev, capsules: [newCapsule, ...prev.capsules] }));
             }
-            
             setActiveCapsule(newCapsule);
             setNewlyAddedCapsuleId(newCapsule.id);
             setView('base'); setMobileTab('library');
             addToast(t('capsule_created'), 'success');
-        } catch (e) {
-            setError(t('error_generation'));
-        } finally {
-            setIsLoading(false);
-        }
+        } catch (e) { setError(t('error_generation')); } finally { setIsLoading(false); }
     }, [profile, currentUser, language, t, isOnline, addToast, handleUpdateProfile]);
 
     const handleGenerateFromFile = useCallback(async (file: File, sourceType?: SourceType) => {
         const quota = canUserGenerate(profile.user);
         if (!quota.allowed) { addToast(t('error_quota_reached'), 'error'); return; }
-
         setIsLoading(true); setError(null);
         try {
             const base64Data = await fileToBase64(file);
             const capsuleData = await generateCognitiveCapsuleFromFile({ mimeType: file.type, data: base64Data }, sourceType, language, profile.user.learningStyle);
-            
             const newCapsule: CognitiveCapsule = { ...capsuleData, id: `cap_${Date.now()}`, createdAt: Date.now(), lastReviewed: null, reviewStage: 0, history: [], masteryLevel: 0, sourceType: sourceType || 'unknown' };
-            
             if (currentUser) {
                 await saveCapsuleToCloud(currentUser.uid, newCapsule);
                 await handleUpdateProfile(incrementUsage(profile.user));
             }
-            
             setActiveCapsule(newCapsule);
             setNewlyAddedCapsuleId(newCapsule.id);
             setView('base'); setMobileTab('library');
         } catch (e) { setError(t('error_generation')); } finally { setIsLoading(false); }
     }, [profile, currentUser, language, t, addToast, handleUpdateProfile]);
 
-    // ... Reste des handlers (Gamification, Packs, Navigation) inchangés
+    // Plan Handlers
+    const handleUpdatePlan = (updatedPlan: StudyPlan) => {
+        const newPlans = (profile.user.plans || []).map(p => p.id === updatedPlan.id ? updatedPlan : p);
+        handleUpdateProfile({ ...profile.user, plans: newPlans });
+    };
+
+    const handleDeletePlan = (planId: string) => {
+        const newPlans = (profile.user.plans || []).filter(p => p.id !== planId);
+        const activeId = profile.user.activePlanId === planId ? (newPlans[0]?.id || '') : profile.user.activePlanId;
+        handleUpdateProfile({ ...profile.user, plans: newPlans, activePlanId: activeId });
+    };
+
+    const handlePlanCreated = (plan: StudyPlan) => {
+        const newPlans = [...(profile.user.plans || []), plan];
+        handleUpdateProfile({ ...profile.user, plans: newPlans, activePlanId: plan.id });
+        setIsPlanningWizardOpen(false);
+        addToast("Planning généré avec succès !", "success");
+    };
+
     const displayCapsules = useMemo(() => {
         const all = [...profile.capsules, ...groupCapsules];
         return Array.from(new Map(all.map(item => [item.id, item])).values()).sort((a, b) => b.createdAt - a.createdAt);
@@ -227,18 +216,33 @@ const AppContent: React.FC = () => {
                         {activeCapsule ? (
                             <CapsuleView capsule={activeCapsule} allCapsules={displayCapsules} selectedCapsuleIds={selectedCapsuleIds} onStartCoaching={() => setIsCoaching(true)} onStartFlashcards={() => setIsFlashcardMode(true)} onStartActiveLearning={() => setIsActiveLearning(true)} onMarkAsReviewed={() => {}} onSetCategory={() => {}} allCategories={[]} onSetMemoryAid={() => {}} onSetMnemonic={() => {}} onUpdateQuiz={() => {}} onBackToList={() => setActiveCapsule(null)} onNavigateToProfile={() => setView('profile')} onSelectCapsule={c => setActiveCapsule(c)} addToast={addToast} userGroups={userGroups} onShareCapsule={() => {}} isPremium={profile.user.plan === 'premium'} />
                         ) : (
-                            <KnowledgeBase capsules={displayCapsules} onSelectCapsule={c => setActiveCapsule(c)} onNewCapsule={() => setView('create')} notificationPermission="default" onRequestNotificationPermission={() => {}} onDeleteCapsule={setCapsuleToDelete} newlyAddedCapsuleId={newlyAddedCapsuleId} onClearNewCapsule={() => setNewlyAddedCapsuleId(null)} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} onOpenStore={() => setView('store')} />
+                            <KnowledgeBase capsules={displayCapsules} onSelectCapsule={c => setActiveCapsule(c)} onNewCapsule={() => setView('create')} notificationPermission="default" onRequestNotificationPermission={() => {}} onDeleteCapsule={setCapsuleToDelete} newlyAddedCapsuleId={newlyAddedCapsuleId} onClearNewCapsule={() => setNewlyAddedCapsuleId(null)} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} onOpenStore={() => setView('store')} onOpenGroupManager={() => setIsGroupModalOpen(true)} />
                         )}
                     </div>
                 )}
+
+                {view === 'agenda' && (
+                    <div className="w-full max-w-4xl mx-auto h-full min-h-[70vh] animate-fade-in">
+                        <AgendaView plans={profile.user.plans || []} activePlanId={profile.user.activePlanId} onSetActivePlan={id => handleUpdateProfile({...profile.user, activePlanId: id})} onUpdatePlan={handleUpdatePlan} onDeletePlan={handleDeletePlan} onOpenCapsule={id => { const c = displayCapsules.find(x => x.id === id); if(c) { setActiveCapsule(c); setView('base'); } }} onCreateNew={() => setIsPlanningWizardOpen(true)} />
+                    </div>
+                )}
+
+                {view === 'classes' && (
+                    <div className="w-full h-full min-h-[70vh] animate-fade-in">
+                        <TeacherDashboard onClose={() => setView('create')} teacherGroups={userGroups} allGroupCapsules={groupCapsules} teacherPersonalCapsules={profile.capsules} onAssignTask={(gid, cap) => shareCapsuleToGroup(currentUser?.uid || '', userGroups.find(g => g.id === gid)!, cap)} userId={currentUser?.uid || ''} userName={profile.user.name} onNavigateToCreate={() => setView('create')} />
+                    </div>
+                )}
+
                 {view === 'profile' && <ProfileModal profile={profile} onClose={() => setView('create')} onUpdateProfile={handleUpdateProfile} addToast={addToast} selectedCapsuleIds={selectedCapsuleIds} setSelectedCapsuleIds={setSelectedCapsuleIds} currentUser={currentUser} onOpenGroupManager={() => setIsGroupModalOpen(true)} isOpenAsPage={true} />}
                 {view === 'store' && <PremiumStore onUnlockPack={() => {}} unlockedPackIds={profile.user.unlockedPackIds || []} />}
             </main>
 
-            <MobileNavBar activeTab={mobileTab} onTabChange={t => { setMobileTab(t); setView(t === 'library' ? 'base' : t); }} hasActivePlan={false} userRole={profile.user.role} />
+            <MobileNavBar activeTab={mobileTab} onTabChange={t => { setMobileTab(t); setView(t === 'library' ? 'base' : t); }} hasActivePlan={(profile.user.plans || []).length > 0} userRole={profile.user.role} />
             
             {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} addToast={addToast} />}
             {isCoaching && activeCapsule && <CoachingModal capsule={activeCapsule} userProfile={profile.user} onClose={() => setIsCoaching(false)} />}
+            {isGroupModalOpen && currentUser && <GroupModal onClose={() => setIsGroupModalOpen(false)} userId={currentUser.uid} userName={profile.user.name} userGroups={userGroups} addToast={addToast} />}
+            {isPlanningWizardOpen && <PlanningWizard capsules={profile.capsules} onClose={() => setIsPlanningWizardOpen(false)} onPlanCreated={handlePlanCreated} />}
         </div>
     );
 };
