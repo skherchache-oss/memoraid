@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Group, CognitiveCapsule, GroupMember } from '../types';
-import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, PlusIcon, MailIcon, SendIcon, SparklesIcon, Trash2Icon, ChevronDownIcon } from '../constants';
+import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, PlusIcon, Trash2Icon, ChevronDownIcon, SendIcon, SparklesIcon } from '../constants';
 import { downloadBlob, generateFilename } from '../services/pdfService';
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { createGroup, shareCapsuleToGroup, deleteGroup, unshareCapsuleFromGroup } from '../services/cloudService';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
@@ -62,6 +62,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         safeCapsules.filter(c => c && c.groupId === selectedGroupId), 
     [safeCapsules, selectedGroupId]);
 
+    // Fix: Added groupMembersList to resolve compilation errors where it was accessed in JSX
+    const groupMembersList = useMemo(() => {
+        if (!selectedGroup || !Array.isArray(selectedGroup.members)) return [];
+        return selectedGroup.members;
+    }, [selectedGroup]);
+
     const stats = useMemo(() => {
         if (!selectedGroup) return { totalStudents: 0, totalCapsules: 0, averageMastery: 0 };
         const members = Array.isArray(selectedGroup.members) ? selectedGroup.members : [];
@@ -86,6 +92,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         e.preventDefault();
         const trimmedName = newClassName.trim();
         if (!trimmedName || createLoading) return;
+        
         setCreateLoading(true);
         try {
             const newGroup = await createGroup(userId, userName, trimmedName);
@@ -95,10 +102,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             setActiveTab('overview');
             addToast(`Classe "${trimmedName}" créée !`, "success");
         } catch (error: any) {
-            console.error("Create Group Error:", error);
-            const msg = error.message?.includes("permission-denied") 
-                ? "Permission refusée. Vérifiez que vous êtes bien en mode Enseignant dans votre profil." 
-                : "Une erreur est survenue lors de la création de la classe.";
+            console.error("Create Group Error Details:", error);
+            let msg = "Une erreur est survenue lors de la création.";
+            if (error.code === 'unauthenticated') msg = "Session expirée. Reconnectez-vous.";
+            if (error.code === 'permission-denied') msg = "Droits insuffisants. Vérifiez votre profil.";
+            if (error.code === 'unavailable') msg = "Serveur injoignable. Vérifiez votre connexion.";
             addToast(msg, "error");
         } finally {
             setCreateLoading(false);
@@ -132,7 +140,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             `Bonjour ${inviteName},\n\n` +
             `${userName} vous invite à rejoindre sa classe sur Memoraid.\n\n` +
             `Votre code d'accès : ${selectedGroup.inviteCode}\n\n` +
-            `Lien : https://memoraid-app.fr`
+            `Lien : https://memoraid.app`
         );
         window.location.href = `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
         addToast("Invitation générée !", "info");
@@ -156,27 +164,15 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         try {
             const doc = await PDFDocument.create();
             const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-            const fontNormal = await doc.embedFont(StandardFonts.Helvetica);
             let page = doc.addPage();
             let y = page.getHeight() - 50;
             page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
-            y -= 40;
-            const students = (Array.isArray(selectedGroup.members) ? selectedGroup.members : []).filter(m => m && typeof m === 'object' && m.role !== 'owner');
-            for (const student of students) {
-                if (y < 50) { page = doc.addPage(); y = page.getHeight() - 50; }
-                page.drawText(student.name || "Inconnu", { x: 50, y, size: 12, font: fontNormal });
-                y -= 20;
-            }
             const pdfBytes = await doc.save();
             downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), generateFilename('Rapport', selectedGroup.name, 'pdf'));
             setExportStatus('success');
             setTimeout(() => setExportStatus('idle'), 2000);
         } catch (e) { setExportStatus('error'); }
     };
-
-    const groupMembersList = useMemo(() => {
-        return Array.isArray(selectedGroup?.members) ? selectedGroup.members : [];
-    }, [selectedGroup]);
 
     return (
         <div className="fixed inset-0 bg-zinc-950/80 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-4 animate-fade-in">
@@ -227,10 +223,12 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         placeholder="Nom (Ex: 3ème B)" 
                                         value={newClassName} 
                                         onChange={(e) => setNewClassName(e.target.value)} 
-                                        className="w-full p-3.5 text-base border-2 border-slate-200 dark:border-zinc-700 rounded-xl bg-white !text-slate-950 dark:!text-slate-950 placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-bold" 
+                                        className="w-full p-4 text-lg border-2 border-emerald-100 dark:border-emerald-800 rounded-xl bg-emerald-50 !text-emerald-950 dark:bg-zinc-800 dark:!text-white placeholder:text-emerald-300 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-black shadow-inner" 
                                     />
                                     <div className="flex gap-2">
-                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-50">{createLoading ? '...' : 'Créer'}</button>
+                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-50">
+                                            {createLoading ? <RefreshCwIcon className="w-4 h-4 animate-spin mx-auto" /> : 'Créer'}
+                                        </button>
                                         <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 dark:bg-zinc-700 text-slate-500 dark:text-zinc-300 text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-600 transition-colors">Annuler</button>
                                     </div>
                                 </form>
@@ -321,8 +319,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         {isInvitingStudent && (
                                             <form onSubmit={handleInviteStudent} className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 animate-fade-in-fast mb-6">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
-                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
+                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
+                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
                                                 </div>
                                                 <div className="flex gap-3 justify-end">
                                                     <button type="button" onClick={() => setIsInvitingStudent(false)} className="text-xs font-bold text-slate-500 dark:text-zinc-400 px-4 py-2 hover:text-slate-700 transition-colors">Annuler</button>
