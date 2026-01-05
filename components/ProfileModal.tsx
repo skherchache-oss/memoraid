@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole, CognitiveCapsule } from '../types';
 import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, SendIcon, GraduationCapIcon, ChevronDownIcon } from '../constants';
@@ -23,7 +22,6 @@ interface ProfileModalProps {
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, onNavigateToReviews }) => {
     const { t, language } = useLanguage();
-    const isInitialMount = useRef(true);
     
     const [name, setName] = useState(profile.user.name);
     const [email, setEmail] = useState(profile.user.email || '');
@@ -32,7 +30,6 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     const [learningStyle, setLearningStyle] = useState<LearningStyle>(profile.user.learningStyle || 'textual');
     const [isPremium, setIsPremium] = useState(profile.user.isPremium || false);
     
-    // Sync local state with profile prop changes (when cloud updates)
     useEffect(() => {
         setName(profile.user.name);
         setEmail(profile.user.email || '');
@@ -43,6 +40,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     }, [profile.user]);
 
     const handleSaveProfile = () => {
+        if (!currentUser) return;
         onUpdateProfile({ 
             ...profile.user, 
             name: name.trim(), 
@@ -106,7 +104,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             )}
                         </div>
                         <div className="text-center md:text-left flex-grow">
-                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">{name}</h3>
+                            <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">
+                                {currentUser ? name : "Invité"}
+                            </h3>
                             <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
                                 <span>{t('level_short')} {profile.user.gamification?.level || 1}</span>
                                 <span className="text-slate-200 dark:text-zinc-800">•</span>
@@ -144,10 +144,11 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('username')}</label>
                             <input 
                                 type="text" 
-                                value={name} 
+                                value={currentUser ? name : "Invité"} 
+                                disabled={!currentUser}
                                 onChange={e => setName(e.target.value)} 
                                 onBlur={handleSaveProfile}
-                                className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 border-b border-transparent focus:border-indigo-200" 
+                                className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 border-b border-transparent focus:border-indigo-200 disabled:opacity-50" 
                             />
                         </div>
                         
@@ -156,11 +157,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <div className="relative group">
                                 <select 
                                     value={role} 
+                                    disabled={!currentUser}
                                     onChange={e => {
                                         setRole(e.target.value as UserRole);
-                                        onUpdateProfile({ ...profile.user, role: e.target.value as UserRole });
+                                        if (currentUser) onUpdateProfile({ ...profile.user, role: e.target.value as UserRole });
                                     }} 
-                                    className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/40 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-black text-sm py-3 px-6 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[180px] text-center"
+                                    className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/40 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-black text-sm py-3 px-6 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[180px] text-center disabled:opacity-50"
                                 >
                                     <option value="student">{t('role_student')}</option>
                                     <option value="teacher">{t('role_teacher')}</option>
@@ -175,11 +177,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             </label>
                             <select 
                                 value={learningStyle} 
+                                disabled={!currentUser}
                                 onChange={e => {
                                     setLearningStyle(e.target.value as LearningStyle);
-                                    onUpdateProfile({ ...profile.user, learningStyle: e.target.value as LearningStyle });
+                                    if (currentUser) onUpdateProfile({ ...profile.user, learningStyle: e.target.value as LearningStyle });
                                 }} 
-                                className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right"
+                                className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right disabled:opacity-50"
                             >
                                 <option value="textual">{t('style_textual')}</option>
                                 <option value="visual">{t('style_visual')}</option>
@@ -251,7 +254,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 checked={isPremium} 
                                 onChange={e => {
                                     setIsPremium(e.target.checked);
-                                    onUpdateProfile({ ...profile.user, isPremium: e.target.checked });
+                                    if (currentUser) onUpdateProfile({ ...profile.user, isPremium: e.target.checked });
                                 }} 
                             />
                             <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
@@ -260,7 +263,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                 </div>
 
                 {currentUser && (
-                    <button onClick={async () => { await signOut(auth!); onClose(); }} className="w-full py-6 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-3xl text-xs font-black uppercase tracking-[0.25em] flex items-center justify-center gap-4 transition-all border border-transparent hover:border-red-100 dark:hover:border-red-900/30">
+                    <button onClick={async () => { await signOut(auth!); onClose(); }} className="w-full py-6 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-3xl text-xs font-black uppercase tracking-[0.25em] flex items-center justify-center gap-4 transition-all border border-transparent hover:border-red-100 dark:hover:red-900/30">
                         <LogOutIcon className="w-5 h-5" /> {t('logout')}
                     </button>
                 )}
