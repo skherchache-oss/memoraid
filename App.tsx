@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { CognitiveCapsule, AppData, UserProfile, Group, View, MobileTab } from './types';
+import type { CognitiveCapsule, AppData, UserProfile, Group, View, MobileTab, PremiumPack } from './types';
 import Header from './components/Header';
 import InputArea from './components/InputArea';
 import CapsuleView from './components/CapsuleView';
@@ -10,6 +10,7 @@ import AuthModal from './components/AuthModal';
 import GroupModal from './components/GroupModal';
 import AgendaView from './components/AgendaView';
 import TeacherDashboard from './components/TeacherDashboard';
+import PremiumStore from './components/PremiumStore';
 import MobileNavBar from './components/MobileNavBar';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
@@ -19,7 +20,8 @@ import {
     subscribeToCapsules, 
     subscribeToUserGroups, 
     updateUserProfileInCloud,
-    subscribeToUserProfile
+    subscribeToUserProfile,
+    saveCapsuleToCloud
 } from './services/cloudService';
 import { useLanguage } from './contexts/LanguageContext';
 import { getInitialUsage } from './services/quotaManager';
@@ -88,12 +90,10 @@ const AppContent: React.FC = () => {
                     console.error("Sync Error:", err);
                 }
             } else {
-                // Logout logic
                 setProfile(DEFAULT_PROFILE(t));
                 setUserGroups([]);
-                // Redirect to create if on a personal/auth-only page
-                setView(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda') ? 'create' : prev);
-                setMobileTab(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda') ? 'create' : prev);
+                setView(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda' || prev === 'store') ? 'create' : prev);
+                setMobileTab(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda' || prev === 'store') ? 'create' : prev);
             }
         }, (error) => {
             console.error("Auth State Error:", error);
@@ -116,6 +116,42 @@ const AppContent: React.FC = () => {
         if (tabMap[newView]) setMobileTab(tabMap[newView]);
     };
 
+    const handleUnlockPack = async (pack: PremiumPack) => {
+        if (!currentUser) {
+            setIsAuthModalOpen(true);
+            addToast("Connectez-vous pour débloquer des packs.", "info");
+            return;
+        }
+
+        const isAlreadyUnlocked = profile.user.unlockedPackIds?.includes(pack.id);
+        if (isAlreadyUnlocked) {
+            handleNavigate('base');
+            addToast("Ce pack est déjà dans votre bibliothèque.", "info");
+            return;
+        }
+
+        try {
+            // Mise à jour de l'utilisateur avec le nouveau pack
+            const updatedPackIds = [...(profile.user.unlockedPackIds || []), pack.id];
+            await updateUserProfileInCloud(currentUser.uid, { unlockedPackIds: updatedPackIds });
+
+            // Sauvegarde des capsules du pack dans le cloud de l'utilisateur
+            for (const capsule of pack.capsules) {
+                await saveCapsuleToCloud(currentUser.uid, {
+                    ...capsule,
+                    ownerId: currentUser.uid,
+                    createdAt: Date.now()
+                });
+            }
+
+            addToast(t('pack_added'), "success");
+            handleNavigate('base');
+        } catch (err) {
+            console.error(err);
+            addToast(t('pack_error'), "error");
+        }
+    };
+
     if (!isAppReady) return null;
 
     return (
@@ -132,6 +168,7 @@ const AppContent: React.FC = () => {
                 onLogoClick={() => handleNavigate('create')} 
                 currentTheme={theme} 
                 onToggleTheme={toggleTheme} 
+                isPremium={profile.user.isPremium}
             />
             
             <main className="flex-grow container mx-auto px-4 py-6 max-w-7xl pb-24 md:pb-10">
@@ -168,6 +205,7 @@ const AppContent: React.FC = () => {
                             addToast={addToast} 
                             userGroups={userGroups} 
                             onShareCapsule={() => {}} 
+                            isPremium={profile.user.isPremium}
                         />
                     ) : (
                         <KnowledgeBase 
@@ -194,6 +232,13 @@ const AppContent: React.FC = () => {
                         onDeletePlan={() => {}} 
                         onOpenCapsule={() => {}} 
                         onCreateNew={() => {}} 
+                    />
+                )}
+                
+                {view === 'store' && (
+                    <PremiumStore 
+                        onUnlockPack={handleUnlockPack} 
+                        unlockedPackIds={profile.user.unlockedPackIds || []} 
                     />
                 )}
                 
@@ -231,7 +276,7 @@ const AppContent: React.FC = () => {
                     setMobileTab(t); 
                     handleNavigate(t === 'library' ? 'base' : t as View); 
                 }} 
-                hasActivePlan={false} 
+                hasActivePlan={profile.user.plans && profile.user.plans.length > 0} 
                 userRole={profile.user.role} 
             />
             
