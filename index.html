@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
   <head>
@@ -24,6 +25,7 @@
               'fade-in': 'fadeIn 0.3s ease-out forwards',
               'toast-enter': 'toastEnter 0.3s ease-out forwards',
               'toast-exit': 'toastExit 0.3s ease-in forwards',
+              'pulse-slow': 'pulseSlow 2s infinite ease-in-out',
             },
             keyframes: {
               fadeIn: {
@@ -37,6 +39,10 @@
               toastExit: {
                 '0%': { opacity: '1', transform: 'scale(1)' },
                 '100%': { opacity: '0', transform: 'scale(0.9)' },
+              },
+              pulseSlow: {
+                '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+                '50%': { opacity: '0.8', transform: 'scale(0.95)' },
               }
             }
           } 
@@ -78,19 +84,32 @@
   <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200 selection:bg-emerald-200">
-    <div id="splash-screen" style="position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s">
-      <div style="width:48px;height:48px;border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;animation:spin 1s linear infinite"></div>
-      <h1 style="margin-top:20px;font-family:Inter,sans-serif;font-weight:900;color:#065f46;letter-spacing:-0.05em">MEMORAID</h1>
-      <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
+    <!-- Splash Screen avec Logo -->
+    <div id="splash-screen" style="position:fixed;inset:0;background:#ffffff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s">
+      <div style="position:relative;margin-bottom:24px;">
+        <!-- Logo Image -->
+        <img src="/icon.svg" alt="Memoraid Logo" style="width:80px;height:80px;animation:pulse-slow 2s infinite ease-in-out;" />
+        <!-- Spinner around the logo -->
+        <div style="position:absolute;top:-10px;left:-10px;right:-10px;bottom:-10px;border:3px solid transparent;border-top:3px solid #10b981;border-radius:50%;animation:spin 1.5s linear infinite"></div>
+      </div>
+      <h1 style="font-family:Inter,sans-serif;font-weight:900;color:#065f46;letter-spacing:-0.05em;font-size:24px;margin:0;">MEMORAID</h1>
+      <p style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.3em;margin-top:8px;">Architecture Cognitive</p>
+      
+      <style>
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        @keyframes pulse-slow{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(0.92);opacity:0.8}}
+      </style>
+      
       <script>
         window.addEventListener('load', () => {
           setTimeout(()=>{
             const s=document.getElementById('splash-screen');
             if(s){s.style.opacity='0';setTimeout(()=>s.remove(),500)}
-          },1000);
+          },1200);
         });
       </script>
     </div>
+    
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   <script type="module" src="/index.tsx"></script>
