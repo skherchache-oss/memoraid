@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^1.27.0",
     "firebase": "^12.6.0",
+    "firebase-functions": "^7.0.3",
     "html2canvas": "latest",
     "jszip": "3.10.1",
     "lucide-react": "^0.554.0",

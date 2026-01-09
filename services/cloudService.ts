@@ -59,36 +59,41 @@ export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: C
 /**
  * CRÉER UN GROUPE / CLASSE VIA CLOUD FUNCTION
  */
-export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
-    if (!functions) throw new Error("Backend non initialisé");
-    const createFn = httpsCallable(functions, 'createClass');
-    const result = await createFn({ name, teacherName: userName });
-    const data = result.data as any;
-    
-    return {
-        id: data.classId,
-        name,
-        teacherId,
-        inviteCode: data.inviteCode,
-        members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
-        createdAt: Date.now()
-    };
+export const createGroup = async (name: string): Promise<Group> => {
+  if (!functions) throw new Error("Backend non initialisé");
+
+  const createFn = httpsCallable(functions, "createClass");
+
+  const result = await createFn({ className: name });
+  const data = result.data as any;
+
+  return {
+    id: data.classId,
+    name,
+    teacherId: "",          // sera résolu via Firestore
+    inviteCode: data.code,  // ✅ correspond à la CF
+    members: [],            // chargé plus tard
+    createdAt: Date.now(),
+  };
 };
 
 /**
  * REJOINDRE UN GROUPE / CLASSE VIA CLOUD FUNCTION
  */
-export const joinGroup = async (userId: string, userName: string, code: string) => {
-    if (!functions) throw new Error("Backend non initialisé");
-    const joinFn = httpsCallable(functions, 'joinClass');
-    await joinFn({ code, userName });
+export const joinGroupByCode = async (code: string) => {
+  if (!functions) throw new Error("Functions non initialisées");
+
+  const fn = httpsCallable(functions, "joinClassByCode");
+  await fn({ code });
 };
 
+
 export const deleteGroup = async (groupId: string) => {
-    if (!db) return;
-    // Note: Pour une suppression complète (avec capsules), il faudrait une Cloud Function récursive
-    await deleteDoc(doc(db, 'classes', groupId));
+  throw new Error(
+    "Suppression de classe non implémentée côté Cloud Function"
+  );
 };
+
 
 export const shareCapsuleToGroup = async (userId: string, group: Group, capsule: CognitiveCapsule) => {
     if (!db) return;

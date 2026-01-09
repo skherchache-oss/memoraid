@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 /* Import RefreshCwIcon from constants */
 import { XIcon, UserIcon, SparklesIcon, ZapIcon, SchoolIcon, ChevronRightIcon, PlusIcon, GraduationCapIcon, RefreshCwIcon } from '../constants';
 import type { Group } from '../types';
-import { createGroup, joinGroup } from '../services/cloudService';
+import { joinGroupByCode } from '../services/cloudService';
 import { useToast } from '../hooks/useToast';
 import { useLanguage } from '../contexts/LanguageContext';
 

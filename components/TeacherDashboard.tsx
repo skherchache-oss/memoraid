@@ -7,6 +7,8 @@ import { createGroup, shareCapsuleToGroup, deleteGroup, unshareCapsuleFromGroup 
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import ConfirmationModal from './ConfirmationModal';
+import { createClass, deleteClass } from "../services/classService";
+
 
 interface TeacherDashboardProps {
     onClose: () => void;
@@ -88,40 +90,55 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         return { totalStudents, totalCapsules, averageMastery: recordedScores > 0 ? Math.round(totalMasterySum / recordedScores) : 0 };
     }, [selectedGroup, classCapsules]);
 
-    const handleCreateClass = async (e: React.FormEvent) => {
-        e.preventDefault();
-        const trimmedName = newClassName.trim();
-        if (!trimmedName || createLoading) return;
-        
-        setCreateLoading(true);
-        try {
-            const newGroup = await createGroup(userId, userName, trimmedName);
-            setNewClassName('');
-            setIsCreatingClass(false);
-            setSelectedGroupId(newGroup.id);
-            setActiveTab('overview');
-            addToast(`Classe "${trimmedName}" créée !`, "success");
-        } catch (error: any) {
-            console.error("Create Group Error Details:", error);
-            let msg = "Une erreur est survenue lors de la création.";
-            if (error.code === 'unauthenticated') msg = "Session expirée. Reconnectez-vous.";
-            if (error.code === 'permission-denied') msg = "Droits insuffisants. Vérifiez votre profil.";
-            if (error.code === 'unavailable') msg = "Serveur injoignable. Vérifiez votre connexion.";
-            addToast(msg, "error");
-        } finally {
-            setCreateLoading(false);
-        }
-    };
+const handleCreateClass = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const handleDeleteClassConfirm = async () => {
-        if (!groupToDelete) return;
-        try {
-            await deleteGroup(groupToDelete.id);
-            addToast("Classe supprimée.", "success");
-            if (selectedGroupId === groupToDelete.id) setSelectedGroupId(null);
-            setGroupToDelete(null);
-        } catch (e) { addToast("Erreur suppression.", "error"); }
-    };
+    const trimmedName = newClassName.trim();
+    if (!trimmedName || createLoading) return;
+
+    console.log("🔥 createClass clicked", trimmedName);
+
+    setCreateLoading(true);
+    try {
+        const newGroup = await createGroup(trimmedName);
+
+        setNewClassName('');
+        setIsCreatingClass(false);
+        setSelectedGroupId(newGroup.id);
+        setActiveTab('overview');
+
+        addToast(`Classe "${trimmedName}" créée !`, "success");
+    } catch (error: any) {
+        console.error("Create Class Error:", error);
+
+        let msg = "Une erreur est survenue.";
+        if (error.code === 'unauthenticated') msg = "Veuillez vous reconnecter.";
+        if (error.code === 'permission-denied') msg = "Droits insuffisants.";
+        if (error.code === 'invalid-argument') msg = "Nom de classe invalide.";
+
+        addToast(msg, "error");
+    } finally {
+        setCreateLoading(false);
+    }
+};
+
+const handleDeleteClassConfirm = async () => {
+    if (!groupToDelete) return;
+
+    try {
+        await deleteGroup(groupToDelete.id); // ⚠️ doit appeler une Cloud Function
+        addToast("Classe supprimée.", "success");
+
+        if (selectedGroupId === groupToDelete.id) {
+            setSelectedGroupId(null);
+        }
+
+        setGroupToDelete(null);
+    } catch (error) {
+        console.error("Delete Class Error:", error);
+        addToast("Erreur lors de la suppression.", "error");
+    }
+};
 
     const handleUnshareConfirm = async () => {
         if (!capsuleToUnshare || !selectedGroupId) return;
