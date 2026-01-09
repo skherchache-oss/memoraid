@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Group, CognitiveCapsule, GroupMember } from '../types';
+import type { Group, CognitiveCapsule } from '../types';
 import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, PlusIcon, Trash2Icon, ChevronDownIcon, SendIcon, SparklesIcon } from '../constants';
 import { downloadBlob, generateFilename } from '../services/pdfService';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
@@ -7,8 +7,6 @@ import { createGroup, shareCapsuleToGroup, deleteGroup, unshareCapsuleFromGroup 
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import ConfirmationModal from './ConfirmationModal';
-import { createClass, deleteClass } from "../services/classService";
-
 
 interface TeacherDashboardProps {
     onClose: () => void;
@@ -47,130 +45,73 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
     const [capsuleToUnshare, setCapsuleToUnshare] = useState<CognitiveCapsule | null>(null);
 
-    const safeGroups = useMemo(() => Array.isArray(teacherGroups) ? teacherGroups.filter(g => g && g.id) : [], [teacherGroups]);
-    const safeCapsules = useMemo(() => Array.isArray(allGroupCapsules) ? allGroupCapsules : [], [allGroupCapsules]);
-
+    // Synchronisation de la sélection au démarrage ou si la liste change
     useEffect(() => {
-        if (!selectedGroupId && safeGroups.length > 0) {
-            setSelectedGroupId(safeGroups[0].id);
+        if (!selectedGroupId && teacherGroups.length > 0) {
+            setSelectedGroupId(teacherGroups[0].id);
         }
-    }, [safeGroups, selectedGroupId]);
+    }, [teacherGroups, selectedGroupId]);
 
     const selectedGroup = useMemo(() => 
-        safeGroups.find(g => g.id === selectedGroupId), 
-    [safeGroups, selectedGroupId]);
+        teacherGroups.find(g => g.id === selectedGroupId), 
+    [teacherGroups, selectedGroupId]);
     
     const classCapsules = useMemo(() => 
-        safeCapsules.filter(c => c && c.groupId === selectedGroupId), 
-    [safeCapsules, selectedGroupId]);
-
-    // Fix: Added groupMembersList to resolve compilation errors where it was accessed in JSX
-    const groupMembersList = useMemo(() => {
-        if (!selectedGroup || !Array.isArray(selectedGroup.members)) return [];
-        return selectedGroup.members;
-    }, [selectedGroup]);
+        allGroupCapsules.filter(c => c && c.groupId === selectedGroupId), 
+    [allGroupCapsules, selectedGroupId]);
 
     const stats = useMemo(() => {
         if (!selectedGroup) return { totalStudents: 0, totalCapsules: 0, averageMastery: 0 };
         const members = Array.isArray(selectedGroup.members) ? selectedGroup.members : [];
-        const totalStudents = members.filter(m => m && typeof m === 'object' && m.role !== 'owner').length;
+        const totalStudents = members.filter(m => m.role === 'student').length;
         const totalCapsules = classCapsules.length;
         let totalMasterySum = 0;
         let recordedScores = 0;
         classCapsules.forEach(cap => {
             if (cap && Array.isArray(cap.groupProgress)) {
                 cap.groupProgress.forEach(prog => {
-                    if (prog && typeof prog === 'object') {
-                        totalMasterySum += (prog.masteryScore || 0);
-                        recordedScores++;
-                    }
+                    totalMasterySum += (prog.masteryScore || 0);
+                    recordedScores++;
                 });
             }
         });
         return { totalStudents, totalCapsules, averageMastery: recordedScores > 0 ? Math.round(totalMasterySum / recordedScores) : 0 };
     }, [selectedGroup, classCapsules]);
 
-const handleCreateClass = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const trimmedName = newClassName.trim();
-    if (!trimmedName || createLoading) return;
-
-    console.log("🔥 createClass clicked", trimmedName);
-
-    setCreateLoading(true);
-    try {
-        const newGroup = await createGroup(trimmedName);
-
-        setNewClassName('');
-        setIsCreatingClass(false);
-        setSelectedGroupId(newGroup.id);
-        setActiveTab('overview');
-
-        addToast(`Classe "${trimmedName}" créée !`, "success");
-    } catch (error: any) {
-        console.error("Create Class Error:", error);
-
-        let msg = "Une erreur est survenue.";
-        if (error.code === 'unauthenticated') msg = "Veuillez vous reconnecter.";
-        if (error.code === 'permission-denied') msg = "Droits insuffisants.";
-        if (error.code === 'invalid-argument') msg = "Nom de classe invalide.";
-
-        addToast(msg, "error");
-    } finally {
-        setCreateLoading(false);
-    }
-};
-
-const handleDeleteClassConfirm = async () => {
-    if (!groupToDelete) return;
-
-    try {
-        await deleteGroup(groupToDelete.id); // ⚠️ doit appeler une Cloud Function
-        addToast("Classe supprimée.", "success");
-
-        if (selectedGroupId === groupToDelete.id) {
-            setSelectedGroupId(null);
-        }
-
-        setGroupToDelete(null);
-    } catch (error) {
-        console.error("Delete Class Error:", error);
-        addToast("Erreur lors de la suppression.", "error");
-    }
-};
-
-    const handleUnshareConfirm = async () => {
-        if (!capsuleToUnshare || !selectedGroupId) return;
+    const handleCreateClass = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmedName = newClassName.trim();
+        if (!trimmedName || createLoading) return;
+        
+        setCreateLoading(true);
         try {
-            await unshareCapsuleFromGroup(selectedGroupId, capsuleToUnshare.id);
-            addToast("Module retiré de la classe.", "success");
-            setCapsuleToUnshare(null);
-        } catch (e) { addToast("Erreur lors du retrait.", "error"); }
+            const newGroup = await createGroup(userId, userName, trimmedName);
+            setNewClassName('');
+            setIsCreatingClass(false);
+            setSelectedGroupId(newGroup.id); // Sélection automatique
+            addToast(`Classe "${trimmedName}" créée !`, "success");
+        } catch (error: any) {
+            addToast("Erreur lors de la création.", "error");
+        } finally {
+            setCreateLoading(false);
+        }
     };
 
-    const handleInviteStudent = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedGroup || !inviteName.trim()) return;
-        const subject = encodeURIComponent(`Invitation : ${selectedGroup.name}`);
-        const body = encodeURIComponent(
-            `Bonjour ${inviteName},\n\n` +
-            `${userName} vous invite à rejoindre sa classe sur Memoraid.\n\n` +
-            `Votre code d'accès : ${selectedGroup.inviteCode}\n\n` +
-            `Lien : https://memoraid.app`
-        );
-        window.location.href = `mailto:${inviteEmail}?subject=${subject}&body=${body}`;
-        addToast("Invitation générée !", "info");
-        setIsInvitingStudent(false);
-        setInviteName('');
-        setInviteEmail('');
+    const handleDeleteClassConfirm = async () => {
+        if (!groupToDelete) return;
+        try {
+            await deleteGroup(groupToDelete.id);
+            addToast("Classe supprimée.", "success");
+            if (selectedGroupId === groupToDelete.id) setSelectedGroupId(null);
+            setGroupToDelete(null);
+        } catch (e) { addToast("Erreur suppression.", "error"); }
     };
 
     const handleAssignModule = async (capsule: CognitiveCapsule) => {
         if (!selectedGroup) return;
         try {
             await shareCapsuleToGroup(userId, selectedGroup, capsule);
-            addToast(`Module partagé !`, "success");
+            addToast(`Module partagé avec la classe !`, "success");
             setIsAssigningModule(false);
         } catch (error) { addToast("Erreur de partage.", "error"); }
     };
@@ -182,8 +123,7 @@ const handleDeleteClassConfirm = async () => {
             const doc = await PDFDocument.create();
             const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
             let page = doc.addPage();
-            let y = page.getHeight() - 50;
-            page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y, size: 20, font: fontBold });
+            page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y: 750, size: 20, font: fontBold });
             const pdfBytes = await doc.save();
             downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), generateFilename('Rapport', selectedGroup.name, 'pdf'));
             setExportStatus('success');
@@ -202,7 +142,6 @@ const handleDeleteClassConfirm = async () => {
                         </div>
                         <div>
                             <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">Espace Classes</h2>
-                            <p className="hidden md:block text-[10px] font-black uppercase tracking-widest text-slate-400">Gestion pédagogique</p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
@@ -223,8 +162,8 @@ const handleDeleteClassConfirm = async () => {
                                             value={selectedGroupId || ''}
                                             onChange={(e) => setSelectedGroupId(e.target.value)}
                                         >
-                                            <option value="" disabled>{safeGroups.length > 0 ? "Vos classes..." : "Aucune classe"}</option>
-                                            {safeGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                            <option value="" disabled>Mes classes...</option>
+                                            {teacherGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                                         </select>
                                         <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
@@ -237,22 +176,22 @@ const handleDeleteClassConfirm = async () => {
                                     <input 
                                         type="text" 
                                         autoFocus 
-                                        placeholder="Nom (Ex: 3ème B)" 
+                                        placeholder="Nom de classe" 
                                         value={newClassName} 
                                         onChange={(e) => setNewClassName(e.target.value)} 
-                                        className="w-full p-4 text-lg border-2 border-emerald-100 dark:border-emerald-800 rounded-xl bg-emerald-50 !text-emerald-950 dark:bg-zinc-800 dark:!text-white placeholder:text-emerald-300 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none font-black shadow-inner" 
+                                        className="w-full p-4 border-2 border-emerald-300 rounded-xl bg-white text-slate-950 outline-none font-bold" 
                                     />
                                     <div className="flex gap-2">
-                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-emerald-700 transition-colors shadow-lg active:scale-95 disabled:opacity-50">
-                                            {createLoading ? <RefreshCwIcon className="w-4 h-4 animate-spin mx-auto" /> : 'Créer'}
+                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-black uppercase text-[10px] tracking-widest">
+                                            {createLoading ? '...' : 'Créer'}
                                         </button>
-                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 dark:bg-zinc-700 text-slate-500 dark:text-zinc-300 text-[10px] py-3 rounded-lg font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-600 transition-colors">Annuler</button>
+                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest">Annuler</button>
                                     </div>
                                 </form>
                             )}
                         </div>
                         
-                        <nav className="hidden md:flex flex-grow flex-col px-4 space-y-2 mt-4">
+                        <nav className="flex flex-grow flex-col px-4 space-y-2 mt-4">
                             <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
                                 <SchoolIcon className="w-5 h-5" /> Vue d'ensemble
                             </button>
@@ -263,17 +202,11 @@ const handleDeleteClassConfirm = async () => {
                                 <ClipboardListIcon className="w-5 h-5" /> Affectations
                             </button>
                         </nav>
-                        
-                        <nav className="flex md:hidden justify-around p-2 bg-white dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800">
-                             <button onClick={() => setActiveTab('overview')} className={`p-3 rounded-xl ${activeTab === 'overview' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400'}`}><SchoolIcon className="w-6 h-6" /></button>
-                             <button onClick={() => setActiveTab('classes')} className={`p-3 rounded-xl ${activeTab === 'classes' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400'}`}><UsersIcon className="w-6 h-6" /></button>
-                             <button onClick={() => setActiveTab('assignments')} className={`p-3 rounded-xl ${activeTab === 'assignments' ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-slate-400'}`}><ClipboardListIcon className="w-6 h-6" /></button>
-                        </nav>
                     </aside>
 
                     <main className="flex-grow p-4 md:p-8 overflow-y-auto bg-white dark:bg-zinc-900">
                         {!selectedGroup ? (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-300 dark:text-zinc-700 opacity-30 text-center py-20">
+                            <div className="flex flex-col items-center justify-center h-full text-slate-300 opacity-30 text-center py-20">
                                 <SchoolIcon className="w-20 h-20 mb-6" />
                                 <p className="font-black uppercase tracking-widest text-xs">Sélectionnez une classe à gauche</p>
                             </div>
@@ -286,15 +219,9 @@ const handleDeleteClassConfirm = async () => {
                                                 <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">{selectedGroup.name}</h3>
                                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Code : <span className="text-emerald-600 dark:text-emerald-400 select-all font-mono text-base ml-2">{selectedGroup.inviteCode}</span></p>
                                             </div>
-                                            <div className="flex items-center gap-2 w-full md:w-auto">
-                                                <button onClick={handleExportReport} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 dark:bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 dark:hover:bg-emerald-700 transition-all shadow-xl">
-                                                    {exportStatus === 'loading' ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
-                                                    Rapport
-                                                </button>
-                                                <button onClick={() => setGroupToDelete(selectedGroup)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-2xl transition-colors">
-                                                    <Trash2Icon className="w-5 h-5" />
-                                                </button>
-                                            </div>
+                                            <button onClick={() => setGroupToDelete(selectedGroup)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 rounded-2xl transition-colors">
+                                                <Trash2Icon className="w-5 h-5" />
+                                            </button>
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
@@ -314,74 +241,33 @@ const handleDeleteClassConfirm = async () => {
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Modules</p>
                                             </div>
                                         </div>
-
-                                        <div className="p-8 md:p-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-[40px] border border-indigo-100 dark:border-indigo-900/30 text-center">
-                                            <SparklesIcon className="w-8 h-8 text-indigo-500 mx-auto mb-4" />
-                                            <h4 className="text-lg font-black text-indigo-900 dark:text-indigo-200 mb-2">Besoin d'un nouveau cours ?</h4>
-                                            <p className="text-xs text-indigo-700/60 dark:text-indigo-400/60 mb-6">Générez un contenu spécifique pour cette classe.</p>
-                                            <button onClick={onNavigateToCreate} className="px-8 py-3.5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-indigo-700 shadow-xl transition-all active:scale-95">Générer maintenant</button>
-                                        </div>
                                     </div>
                                 )}
 
                                 {activeTab === 'classes' && (
                                     <div className="space-y-6">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Liste des élèves</h3>
-                                            <button onClick={() => setIsInvitingStudent(true)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-700 transition-colors">
-                                                <PlusIcon className="w-4 h-4" /> Inviter
-                                            </button>
-                                        </div>
-                                        
-                                        {isInvitingStudent && (
-                                            <form onSubmit={handleInviteStudent} className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-emerald-200 dark:border-emerald-900/30 animate-fade-in-fast mb-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <input type="text" placeholder="Nom complet" value={inviteName} onChange={e => setInviteName(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" required />
-                                                    <input type="email" placeholder="Email (Lien mailto)" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} className="p-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white text-sm outline-none focus:ring-2 focus:ring-emerald-500" />
-                                                </div>
-                                                <div className="flex gap-3 justify-end">
-                                                    <button type="button" onClick={() => setIsInvitingStudent(false)} className="text-xs font-bold text-slate-500 dark:text-zinc-400 px-4 py-2 hover:text-slate-700 transition-colors">Annuler</button>
-                                                    <button type="submit" className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all">
-                                                        Générer lien
-                                                    </button>
-                                                </div>
-                                            </form>
-                                        )}
-
                                         <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-sm">
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-left">
-                                                    <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest">
-                                                        <tr>
-                                                            <th className="p-5 md:p-6">Utilisateur</th>
-                                                            <th className="p-5 md:p-6">Rôle</th>
-                                                            <th className="p-5 md:p-6 text-right">Maîtrise</th>
+                                            <table className="w-full text-left">
+                                                <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                                                    <tr>
+                                                        <th className="p-6">Élève</th>
+                                                        <th className="p-6 text-right">Maîtrise</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
+                                                    {selectedGroup.members.filter(m => m.role === 'student').map((member, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name}</td>
+                                                            <td className="p-6 text-right text-slate-400">-</td>
                                                         </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
-                                                        {groupMembersList.map((member, idx) => (
-                                                            <tr key={member && typeof member === 'object' && member.userId ? member.userId : idx} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                                                                <td className="p-5 md:p-6 font-bold text-slate-700 dark:text-zinc-200 truncate max-w-[120px] md:max-w-none">
-                                                                    {(member && typeof member === 'object' && member.name) ? member.name : "Apprenant"}
-                                                                </td>
-                                                                <td className="p-5 md:p-6">
-                                                                    <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${(member && typeof member === 'object' && member.role === 'owner') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'}`}>
-                                                                        {(member && typeof member === 'object' && member.role === 'owner') ? "Prof" : "Élève"}
-                                                                    </span>
-                                                                </td>
-                                                                <td className="p-5 md:p-6 text-right text-slate-400 dark:text-zinc-600">-</td>
-                                                            </tr>
-                                                        ))}
-                                                        {groupMembersList.length === 0 && (
-                                                            <tr>
-                                                                <td colSpan={3} className="p-10 text-center text-slate-400 dark:text-zinc-600 italic text-sm">
-                                                                    Aucun élève dans cette classe.
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                    ))}
+                                                    {selectedGroup.members.length <= 1 && (
+                                                        <tr>
+                                                            <td colSpan={2} className="p-10 text-center text-slate-400 italic text-sm">Aucun élève n'a encore rejoint cette classe.</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     </div>
                                 )}
@@ -389,58 +275,39 @@ const handleDeleteClassConfirm = async () => {
                                 {activeTab === 'assignments' && (
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
-                                            <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
-                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-indigo-700 transition-colors">
-                                                <SendIcon className="w-4 h-4" /> Assigner
+                                            <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
+                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                                <PlusIcon className="w-4 h-4" /> Partager un module
                                             </button>
                                         </div>
 
                                         {isAssigningModule && (
-                                            <div className="p-6 bg-indigo-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-indigo-200 dark:border-indigo-900/30 animate-fade-in-fast mb-6">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-4">Choisir un module personnel</h4>
-                                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
-                                                    {teacherPersonalCapsules.length > 0 ? teacherPersonalCapsules.map(cap => (
-                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-700 rounded-xl hover:bg-indigo-600 hover:text-white transition-all group">
+                                            <div className="p-6 bg-indigo-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-indigo-200 animate-fade-in-fast mb-6">
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4">Mes modules personnels</h4>
+                                                <div className="max-h-60 overflow-y-auto space-y-2">
+                                                    {teacherPersonalCapsules.map(cap => (
+                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-100 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
                                                             <span className="font-bold text-sm truncate">{cap.title}</span>
-                                                            <PlusIcon className="w-4 h-4 opacity-40 group-hover:opacity-100" />
+                                                            <PlusIcon className="w-4 h-4" />
                                                         </button>
-                                                    )) : <p className="text-xs text-slate-400 dark:text-zinc-600 p-4">Aucun module disponible.</p>}
+                                                    ))}
                                                 </div>
-                                                <div className="mt-4 flex justify-end">
-                                                    <button onClick={() => setIsAssigningModule(false)} className="text-xs font-bold text-slate-400 dark:text-zinc-500 px-4 py-2 underline hover:text-slate-600 transition-colors">Fermer</button>
-                                                </div>
+                                                <button onClick={() => setIsAssigningModule(false)} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">Annuler</button>
                                             </div>
                                         )}
 
                                         <div className="space-y-4">
-                                            {classCapsules.length > 0 ? classCapsules.map(capsule => {
-                                                const totalMembers = Array.isArray(selectedGroup?.members) ? selectedGroup.members.length : 1;
-                                                const progressCount = Array.isArray(capsule.groupProgress) ? capsule.groupProgress.length : 0;
-                                                const completionRate = Math.round((progressCount / Math.max(1, totalMembers - 1)) * 100);
-                                                return (
-                                                    <div key={capsule.id} className="flex items-center justify-between p-4 md:p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm group">
-                                                        <div className="flex items-center gap-4 min-w-0">
-                                                            <div className="hidden sm:block p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-600"><BookOpenIcon className="w-5 h-5" /></div>
-                                                            <h4 className="font-black text-slate-900 dark:text-white truncate">{capsule.title}</h4>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="hidden sm:flex items-center gap-3">
-                                                                <div className="w-20 h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                                                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${completionRate}%` }}></div>
-                                                                </div>
-                                                                <span className="text-[10px] font-black text-emerald-600">{completionRate}%</span>
-                                                            </div>
-                                                            <button onClick={() => setCapsuleToUnshare(capsule)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors">
-                                                                <Trash2Icon className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
+                                            {classCapsules.map(capsule => (
+                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
+                                                    <div className="flex items-center gap-4 min-w-0">
+                                                        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600"><BookOpenIcon className="w-5 h-5" /></div>
+                                                        <h4 className="font-black text-slate-900 dark:text-white truncate">{capsule.title}</h4>
                                                     </div>
-                                                );
-                                            }) : (
-                                                <div className="text-center py-20 bg-slate-50/50 dark:bg-zinc-950/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
-                                                    <p className="text-slate-400 dark:text-zinc-600 font-black uppercase tracking-widest text-[10px]">Aucun module partagé avec cette classe</p>
+                                                    <button onClick={() => setCapsuleToUnshare(capsule)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors">
+                                                        <Trash2Icon className="w-4 h-4" />
+                                                    </button>
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                     </div>
                                 )}
@@ -462,7 +329,13 @@ const handleDeleteClassConfirm = async () => {
             <ConfirmationModal 
                 isOpen={!!capsuleToUnshare} 
                 onClose={() => setCapsuleToUnshare(null)} 
-                onConfirm={handleUnshareConfirm} 
+                onConfirm={async () => {
+                    if (selectedGroupId) {
+                        await unshareCapsuleFromGroup(selectedGroupId, capsuleToUnshare!.id);
+                        addToast("Module retiré.", "success");
+                        setCapsuleToUnshare(null);
+                    }
+                }} 
                 title="Retirer ce module ?" 
                 message="Les élèves ne pourront plus accéder à ce contenu depuis cette classe."
                 confirmText="Retirer" 

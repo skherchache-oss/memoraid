@@ -38,11 +38,14 @@ export const subscribeToCapsules = (userId: string, onUpdate: (capsules: Cogniti
 
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
     if (!db || !userId) return () => {};
+    // La requête doit filtrer les documents de la collection 'classes' où memberIds contient l'UID
     const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
     return onSnapshot(q, (snap) => {
         const groups: Group[] = [];
         snap.forEach(d => groups.push(d.data() as Group));
         onUpdate(groups);
+    }, (err) => {
+        console.error("Firestore Subscribe Error:", err);
     });
 };
 
@@ -59,41 +62,36 @@ export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: C
 /**
  * CRÉER UN GROUPE / CLASSE VIA CLOUD FUNCTION
  */
-export const createGroup = async (name: string): Promise<Group> => {
-  if (!functions) throw new Error("Backend non initialisé");
-
-  const createFn = httpsCallable(functions, "createClass");
-
-  const result = await createFn({ className: name });
-  const data = result.data as any;
-
-  return {
-    id: data.classId,
-    name,
-    teacherId: "",          // sera résolu via Firestore
-    inviteCode: data.code,  // ✅ correspond à la CF
-    members: [],            // chargé plus tard
-    createdAt: Date.now(),
-  };
+export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
+    if (!functions) throw new Error("Backend non initialisé");
+    const createFn = httpsCallable(functions, 'createClass');
+    const result = await createFn({ name, teacherName: userName });
+    const data = result.data as any;
+    
+    return {
+        id: data.classId,
+        name,
+        teacherId,
+        inviteCode: data.inviteCode,
+        members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
+        memberIds: [teacherId],
+        createdAt: Date.now()
+    };
 };
 
 /**
  * REJOINDRE UN GROUPE / CLASSE VIA CLOUD FUNCTION
  */
-export const joinGroupByCode = async (code: string) => {
-  if (!functions) throw new Error("Functions non initialisées");
-
-  const fn = httpsCallable(functions, "joinClassByCode");
-  await fn({ code });
+export const joinGroup = async (userId: string, userName: string, code: string) => {
+    if (!functions) throw new Error("Backend non initialisé");
+    const joinFn = httpsCallable(functions, 'joinClass');
+    await joinFn({ code, userName });
 };
-
 
 export const deleteGroup = async (groupId: string) => {
-  throw new Error(
-    "Suppression de classe non implémentée côté Cloud Function"
-  );
+    if (!db) return;
+    await deleteDoc(doc(db, 'classes', groupId));
 };
-
 
 export const shareCapsuleToGroup = async (userId: string, group: Group, capsule: CognitiveCapsule) => {
     if (!db) return;

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { XIcon, UserIcon, SparklesIcon, ZapIcon, SchoolIcon, ChevronRightIcon, PlusIcon, GraduationCapIcon, RefreshCwIcon } from '../constants';
+import { XIcon, SparklesIcon, ZapIcon, SchoolIcon, ChevronRightIcon, PlusIcon, GraduationCapIcon, RefreshCwIcon } from '../constants';
 import type { Group, UserRole } from '../types';
-import { createGroup, joinGroup } from '../services/cloudService';
-import { useToast } from '../hooks/useToast';
+import { joinGroup } from '../services/cloudService';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface GroupModalProps {
@@ -11,10 +10,8 @@ interface GroupModalProps {
     userName: string;
     userGroups: Group[];
     userRole?: UserRole;
-    addToast: (message: string, type: ToastType) => void;
+    addToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
-
-type ToastType = 'success' | 'error' | 'info';
 
 const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, userGroups, userRole = 'student', addToast }) => {
     const { t } = useLanguage();
@@ -31,7 +28,6 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
         try {
             await joinGroup(userId, userName, code);
             addToast("Félicitations ! Vous avez rejoint la classe.", "success");
-            setMode('list');
             setInviteCode('');
             onClose();
         } catch (error: any) {
