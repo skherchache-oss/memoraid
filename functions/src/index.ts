@@ -11,28 +11,29 @@ const db = admin.firestore();
 export const createClass = functions
   .region("europe-west1")
   .https.onCall(async (data, context) => {
-    // Log crucial pour voir ce qui arrive vraiment au serveur
-    console.log("--- DÉBUT createClass ---");
-    console.log("Raw Data:", JSON.stringify(data));
-    
-    if (!context.auth) {
-      console.error("Erreur: Non authentifié");
-      throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
-    }
-    
-    const uid = context.auth.uid;
-    
-    // Extraction sécurisée des données
-    // Selon la version du SDK client, les données sont dans data ou data.data
-    const input = (data && data.data) ? data.data : data;
-    const className = input?.name || "Sans nom";
-    const teacherName = input?.teacherName || "Enseignant";
+    // LOGS CRUCIAUX : Allez dans Console Firebase > Functions > Logs pour voir ça
+    console.log("--- APPEL createClass ---");
+    console.log("Data brute reçue:", JSON.stringify(data));
+    console.log("UID Utilisateur:", context.auth ? context.auth.uid : "NON AUTHENTIFIÉ");
 
-    console.log(`Traitement pour: ${className} (Enseignant: ${teacherName}, UID: ${uid})`);
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Vous devez être connecté.");
+    }
+
+    // On essaie d'extraire le nom peu importe comment il est enveloppé
+    const payload = (data && data.data) ? data.data : data;
+    const className = (payload?.name || "").trim();
+    const teacherName = (payload?.teacherName || "Enseignant").trim();
+
+    if (!className) {
+      console.error("Erreur: className est vide. Payload:", JSON.stringify(payload));
+      throw new functions.https.HttpsError("invalid-argument", "Le nom de la classe est obligatoire.");
+    }
 
     try {
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       const classId = `class_${Date.now()}`;
+      const uid = context.auth.uid;
 
       const batch = db.batch();
       const classRef = db.collection("classes").doc(classId);
@@ -44,7 +45,7 @@ export const createClass = functions
         teacherName: teacherName,
         inviteCode: inviteCode,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        memberIds: [uid], // Indispensable pour la règle Firestore
+        memberIds: [uid],
         members: [{
           uid,
           name: teacherName,
@@ -62,12 +63,12 @@ export const createClass = functions
       });
 
       await batch.commit();
-      console.log("Succès: Classe créée", classId);
+      console.log(`Classe créée avec succès: ${classId} (${className})`);
       
       return { success: true, classId, inviteCode };
 
     } catch (error: any) {
-      console.error("Erreur fatale createClass:", error);
+      console.error("Erreur lors de la création en base:", error);
       throw new functions.https.HttpsError("internal", error.message);
     }
   });
@@ -80,10 +81,10 @@ export const joinClass = functions
   .https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Non connecté");
 
-    const input = (data && data.data) ? data.data : data;
+    const payload = (data && data.data) ? data.data : data;
     const uid = context.auth.uid;
-    const code = (input?.code || "").trim().toUpperCase();
-    const userName = input?.userName || "Étudiant";
+    const code = (payload?.code || "").trim().toUpperCase();
+    const userName = payload?.userName || "Étudiant";
 
     if (!code) throw new functions.https.HttpsError("invalid-argument", "Code manquant");
 
@@ -132,8 +133,8 @@ export const generateModule = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const input = (data && data.data) ? data.data : data;
-      const { text, fileData, language, learningStyle } = input;
+      const payload = (data && data.data) ? data.data : data;
+      const { text, fileData, language, learningStyle } = payload;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const prompt = `Génère un module d'apprentissage Memoraid. Contenu : ${text || 'Analyse le fichier joint.'}`;
       
@@ -161,8 +162,8 @@ export const chatWithGemini = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const input = (data && data.data) ? data.data : data;
-      const { history, message, capsuleTitle } = input;
+      const payload = (data && data.data) ? data.data : data;
+      const { history, message, capsuleTitle } = payload;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       
       const response = await ai.models.generateContent({
