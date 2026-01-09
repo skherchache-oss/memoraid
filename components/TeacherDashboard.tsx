@@ -36,9 +36,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     
     const [isCreatingClass, setIsCreatingClass] = useState(false);
     const [newClassName, setNewClassName] = useState('');
-    const [isInvitingStudent, setIsInvitingStudent] = useState(false);
-    const [inviteName, setInviteName] = useState('');
-    const [inviteEmail, setInviteEmail] = useState('');
     const [isAssigningModule, setIsAssigningModule] = useState(false);
     const [createLoading, setCreateLoading] = useState(false);
     
@@ -63,7 +60,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const stats = useMemo(() => {
         if (!selectedGroup) return { totalStudents: 0, totalCapsules: 0, averageMastery: 0 };
         const members = Array.isArray(selectedGroup.members) ? selectedGroup.members : [];
-        const totalStudents = members.filter(m => m.role === 'student').length;
+        const totalStudents = members.filter(m => m.role === 'student' || m.role === undefined).length;
         const totalCapsules = classCapsules.length;
         let totalMasterySum = 0;
         let recordedScores = 0;
@@ -88,7 +85,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             const newGroup = await createGroup(userId, userName, trimmedName);
             setNewClassName('');
             setIsCreatingClass(false);
-            setSelectedGroupId(newGroup.id); // Sélection automatique
+            setSelectedGroupId(newGroup.id); 
             addToast(`Classe "${trimmedName}" créée !`, "success");
         } catch (error: any) {
             addToast("Erreur lors de la création.", "error");
@@ -114,21 +111,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
             addToast(`Module partagé avec la classe !`, "success");
             setIsAssigningModule(false);
         } catch (error) { addToast("Erreur de partage.", "error"); }
-    };
-
-    const handleExportReport = async () => {
-        if (!selectedGroup) return;
-        setExportStatus('loading');
-        try {
-            const doc = await PDFDocument.create();
-            const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
-            let page = doc.addPage();
-            page.drawText(`Rapport : ${selectedGroup.name}`, { x: 50, y: 750, size: 20, font: fontBold });
-            const pdfBytes = await doc.save();
-            downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), generateFilename('Rapport', selectedGroup.name, 'pdf'));
-            setExportStatus('success');
-            setTimeout(() => setExportStatus('idle'), 2000);
-        } catch (e) { setExportStatus('error'); }
     };
 
     return (
@@ -158,12 +140,19 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                 <div className="space-y-3">
                                     <div className="relative">
                                         <select 
-                                            className="w-full p-3.5 pr-10 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none"
+                                            className="w-full p-3.5 pr-10 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none disabled:opacity-50"
                                             value={selectedGroupId || ''}
                                             onChange={(e) => setSelectedGroupId(e.target.value)}
+                                            disabled={teacherGroups.length === 0}
                                         >
-                                            <option value="" disabled>Mes classes...</option>
-                                            {teacherGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                            {teacherGroups.length === 0 ? (
+                                                <option value="">Aucune classe</option>
+                                            ) : (
+                                                <>
+                                                    <option value="" disabled>Sélectionner...</option>
+                                                    {teacherGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                                </>
+                                            )}
                                         </select>
                                         <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                                     </div>
@@ -180,10 +169,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         value={newClassName} 
                                         onChange={(e) => setNewClassName(e.target.value)} 
                                         className="w-full p-4 border-2 border-emerald-300 rounded-xl bg-white text-slate-950 outline-none font-bold" 
+                                        required
                                     />
                                     <div className="flex gap-2">
-                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-black uppercase text-[10px] tracking-widest">
-                                            {createLoading ? '...' : 'Créer'}
+                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-black uppercase text-[10px] tracking-widest flex items-center justify-center">
+                                            {createLoading ? <RefreshCwIcon className="w-3 h-3 animate-spin" /> : 'Créer'}
                                         </button>
                                         <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest">Annuler</button>
                                     </div>
@@ -208,7 +198,9 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                         {!selectedGroup ? (
                             <div className="flex flex-col items-center justify-center h-full text-slate-300 opacity-30 text-center py-20">
                                 <SchoolIcon className="w-20 h-20 mb-6" />
-                                <p className="font-black uppercase tracking-widest text-xs">Sélectionnez une classe à gauche</p>
+                                <p className="font-black uppercase tracking-widest text-xs">
+                                    {teacherGroups.length === 0 ? "Créez votre première classe pour commencer" : "Sélectionnez une classe à gauche"}
+                                </p>
                             </div>
                         ) : (
                             <div className="max-w-4xl mx-auto animate-fade-in-fast pb-20 md:pb-0">
@@ -255,13 +247,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
-                                                    {selectedGroup.members.filter(m => m.role === 'student').map((member, idx) => (
+                                                    {selectedGroup.members?.filter(m => m.role === 'student' || m.role === undefined).map((member, idx) => (
                                                         <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                                                             <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name}</td>
                                                             <td className="p-6 text-right text-slate-400">-</td>
                                                         </tr>
                                                     ))}
-                                                    {selectedGroup.members.length <= 1 && (
+                                                    {(selectedGroup.members?.filter(m => m.role === 'student').length === 0) && (
                                                         <tr>
                                                             <td colSpan={2} className="p-10 text-center text-slate-400 italic text-sm">Aucun élève n'a encore rejoint cette classe.</td>
                                                         </tr>
@@ -276,7 +268,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
                                             <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
-                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">
+                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
                                                 <PlusIcon className="w-4 h-4" /> Partager un module
                                             </button>
                                         </div>
@@ -284,30 +276,37 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         {isAssigningModule && (
                                             <div className="p-6 bg-indigo-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-indigo-200 animate-fade-in-fast mb-6">
                                                 <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4">Mes modules personnels</h4>
-                                                <div className="max-h-60 overflow-y-auto space-y-2">
-                                                    {teacherPersonalCapsules.map(cap => (
-                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-100 rounded-xl hover:bg-indigo-600 hover:text-white transition-all">
+                                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                                                    {teacherPersonalCapsules.length > 0 ? teacherPersonalCapsules.map(cap => (
+                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-100 rounded-xl hover:bg-indigo-600 hover:text-white transition-all group">
                                                             <span className="font-bold text-sm truncate">{cap.title}</span>
-                                                            <PlusIcon className="w-4 h-4" />
+                                                            <PlusIcon className="w-4 h-4 text-indigo-200 group-hover:text-white" />
                                                         </button>
-                                                    ))}
+                                                    )) : (
+                                                        <p className="text-center text-slate-400 py-4 italic text-xs">Vous n'avez pas encore créé de modules personnels.</p>
+                                                    )}
                                                 </div>
                                                 <button onClick={() => setIsAssigningModule(false)} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">Annuler</button>
                                             </div>
                                         )}
 
                                         <div className="space-y-4">
-                                            {classCapsules.map(capsule => (
-                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm">
+                                            {classCapsules.length > 0 ? classCapsules.map(capsule => (
+                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm group">
                                                     <div className="flex items-center gap-4 min-w-0">
-                                                        <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600"><BookOpenIcon className="w-5 h-5" /></div>
+                                                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600"><BookOpenIcon className="w-5 h-5" /></div>
                                                         <h4 className="font-black text-slate-900 dark:text-white truncate">{capsule.title}</h4>
                                                     </div>
-                                                    <button onClick={() => setCapsuleToUnshare(capsule)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors">
+                                                    <button onClick={() => setCapsuleToUnshare(capsule)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                                                         <Trash2Icon className="w-4 h-4" />
                                                     </button>
                                                 </div>
-                                            ))}
+                                            )) : (
+                                                <div className="text-center py-10 opacity-30">
+                                                    <BookOpenIcon className="w-12 h-12 mx-auto mb-2" />
+                                                    <p className="text-xs font-bold uppercase tracking-widest">Aucun module partagé</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -330,8 +329,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 isOpen={!!capsuleToUnshare} 
                 onClose={() => setCapsuleToUnshare(null)} 
                 onConfirm={async () => {
-                    if (selectedGroupId) {
-                        await unshareCapsuleFromGroup(selectedGroupId, capsuleToUnshare!.id);
+                    if (selectedGroupId && capsuleToUnshare) {
+                        await unshareCapsuleFromGroup(selectedGroupId, capsuleToUnshare.id);
                         addToast("Module retiré.", "success");
                         setCapsuleToUnshare(null);
                     }

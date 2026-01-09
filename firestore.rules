@@ -4,90 +4,53 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /* ==============================
-       USERS (profil utilisateur)
+       USERS (Profil & Préférences)
     ============================== */
     match /users/{userId} {
-      // Lire uniquement son propre profil
-      allow read: if request.auth != null
-                  && request.auth.uid == userId;
+      allow read, create: if request.auth != null && request.auth.uid == userId;
 
-      // Mise à jour autorisée SAUF champs sensibles
-      allow update: if request.auth != null
-                    && request.auth.uid == userId
-                    && !request.resource.data.diff(resource.data)
-                      .affectedKeys()
-                      .hasAny([
-                        'role',
-                        'plan',
-                        'aiUsage',
-                        'classes'
-                      ]);
-
-      // Création autorisée (signup)
-      allow create: if request.auth != null
-                    && request.auth.uid == userId;
-
-      allow delete: if false;
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['plan', 'isPremium']);
+      
+      match /capsules/{capId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     /* ==============================
-       CLASSES
+       CLASSES (Groupes d'étude)
     ============================== */
     match /classes/{classId} {
+      // Autorise la lecture si l'UID est dans memberIds OU si l'utilisateur est le professeur
+      // Utilisation de .get() pour éviter les erreurs si le champ n'existe pas sur un vieux doc
+      allow read: if request.auth != null && (
+        request.auth.uid in resource.data.get('memberIds', []) || 
+        resource.data.get('teacherId', '') == request.auth.uid
+      );
 
-      // Lecture : prof propriétaire OU élève membre
-      allow read: if request.auth != null
-        && (
-          resource.data.teacherId == request.auth.uid
-          || request.auth.uid in resource.data.memberIds
-        );
+      // La création est gérée par Cloud Functions (Admin SDK)
+      allow create: if false;
 
-      // Création : uniquement un enseignant
-      allow create: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid))
-          .data.role == 'teacher';
+      // Seul l'enseignant peut modifier/supprimer la classe
+      allow update, delete: if request.auth != null && 
+        resource.data.get('teacherId', '') == request.auth.uid;
 
-      // Modification / suppression : uniquement le prof
-      allow update, delete: if request.auth != null
-        && resource.data.teacherId == request.auth.uid;
+      // MODULES PARTAGÉS DANS LA CLASSE
+      match /capsules/{capId} {
+        allow read: if request.auth != null && 
+          request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.get('memberIds', []);
+          
+        allow write: if request.auth != null && 
+          get(/databases/$(database)/documents/classes/$(classId)).data.get('teacherId', '') == request.auth.uid;
+      }
     }
 
     /* ==============================
-       MODULES / CAPSULES
-    ============================== */
-    match /modules/{moduleId} {
-
-      // Lecture :
-      // - propriétaire
-      // - OU membre de la classe associée
-      allow read: if request.auth != null
-        && (
-          resource.data.ownerId == request.auth.uid
-          || (
-            resource.data.classId != null
-            && request.auth.uid in
-              get(/databases/$(database)/documents/classes/$(resource.data.classId))
-              .data.memberIds
-          )
-        );
-
-      // Création / modification :
-      // uniquement le propriétaire (prof ou élève)
-      allow create, update: if request.auth != null
-        && request.resource.data.ownerId == request.auth.uid;
-
-      allow delete: if request.auth != null
-        && resource.data.ownerId == request.auth.uid;
-    }
-
-    /* ==============================
-       INVITATIONS (codes)
+       INVITATIONS (Codes d'accès)
     ============================== */
     match /invitations/{code} {
-      // Lecture autorisée (vérification du code)
       allow read: if request.auth != null;
-
-      // Écriture STRICTEMENT interdite côté client
       allow write: if false;
     }
   }
