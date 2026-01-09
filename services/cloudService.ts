@@ -39,11 +39,13 @@ export const subscribeToCapsules = (userId: string, onUpdate: (capsules: Cogniti
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
     if (!db || !userId) return () => {};
     console.log("Firestore: Souscription aux groupes pour", userId);
+    
+    // Requête alignée avec les nouvelles règles simplifiées
     const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
+    
     return onSnapshot(q, (snap) => {
         const groups: Group[] = [];
         snap.forEach(d => groups.push(d.data() as Group));
-        console.log("Firestore: Groupes reçus", groups.length);
         onUpdate(groups);
     }, (err) => {
         console.error("Firestore Subscribe Error (classes):", err);
@@ -61,7 +63,7 @@ export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: C
 };
 
 /**
- * CRÉER UN GROUPE / CLASSE VIA CLOUD FUNCTION
+ * CRÉER UN GROUPE / CLASSE
  */
 export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
     if (!functions) throw new Error("Backend non initialisé");
@@ -70,13 +72,17 @@ export const createGroup = async (teacherId: string, userName: string, name: str
     const createFn = httpsCallable(functions, 'createClass');
     
     try {
-        const result = await createFn({ name, teacherName: userName });
+        // On envoie un objet plat pour maximiser la compatibilité
+        const result = await createFn({ 
+            name: name.trim(), 
+            teacherName: userName.trim() 
+        });
+        
         const data = result.data as any;
-        console.log("Cloud Functions: Succès createClass", data);
         
         return {
             id: data.classId,
-            name,
+            name: name.trim(),
             teacherId,
             inviteCode: data.inviteCode,
             members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
@@ -84,21 +90,19 @@ export const createGroup = async (teacherId: string, userName: string, name: str
             createdAt: Date.now()
         };
     } catch (err: any) {
-        console.error("Cloud Functions: Erreur lors de l'appel createClass", err);
+        console.error("Cloud Functions: Erreur createClass", err);
         throw err;
     }
 };
 
 /**
- * REJOINDRE UN GROUPE / CLASSE VIA CLOUD FUNCTION
+ * REJOINDRE UN GROUPE / CLASSE
  */
 export const joinGroup = async (userId: string, userName: string, code: string) => {
     if (!functions) throw new Error("Backend non initialisé");
-    console.log("Cloud Functions: Appel joinClass avec code", code);
     const joinFn = httpsCallable(functions, 'joinClass');
     try {
-        await joinFn({ code, userName });
-        console.log("Cloud Functions: Succès joinClass");
+        await joinFn({ code: code.trim(), userName: userName.trim() });
     } catch (err: any) {
         console.error("Cloud Functions: Erreur joinClass", err);
         throw err;

@@ -11,19 +11,24 @@ const db = admin.firestore();
 export const createClass = functions
   .region("europe-west1")
   .https.onCall(async (data, context) => {
-    // Log pour debug dans la console Firebase
-    console.log("Payload reçu:", JSON.stringify(data));
-    console.log("Auth context:", context.auth ? context.auth.uid : "Non authentifié");
-
+    // Log crucial pour voir ce qui arrive vraiment au serveur
+    console.log("--- DÉBUT createClass ---");
+    console.log("Raw Data:", JSON.stringify(data));
+    
     if (!context.auth) {
+      console.error("Erreur: Non authentifié");
       throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     }
     
-    // On supporte data directement ou data.data selon la version du SDK
-    const payload = data?.data || data;
-    const className = payload?.name || "Sans nom";
-    const teacherName = payload?.teacherName || "Enseignant";
     const uid = context.auth.uid;
+    
+    // Extraction sécurisée des données
+    // Selon la version du SDK client, les données sont dans data ou data.data
+    const input = (data && data.data) ? data.data : data;
+    const className = input?.name || "Sans nom";
+    const teacherName = input?.teacherName || "Enseignant";
+
+    console.log(`Traitement pour: ${className} (Enseignant: ${teacherName}, UID: ${uid})`);
 
     try {
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -39,7 +44,7 @@ export const createClass = functions
         teacherName: teacherName,
         inviteCode: inviteCode,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        memberIds: [uid],
+        memberIds: [uid], // Indispensable pour la règle Firestore
         members: [{
           uid,
           name: teacherName,
@@ -57,12 +62,12 @@ export const createClass = functions
       });
 
       await batch.commit();
-      console.log("Classe créée avec succès:", classId);
+      console.log("Succès: Classe créée", classId);
       
       return { success: true, classId, inviteCode };
 
     } catch (error: any) {
-      console.error("Erreur createClass détaillée:", error);
+      console.error("Erreur fatale createClass:", error);
       throw new functions.https.HttpsError("internal", error.message);
     }
   });
@@ -75,10 +80,10 @@ export const joinClass = functions
   .https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Non connecté");
 
-    const payload = data?.data || data;
+    const input = (data && data.data) ? data.data : data;
     const uid = context.auth.uid;
-    const code = (payload?.code || "").trim().toUpperCase();
-    const userName = payload?.userName || "Étudiant";
+    const code = (input?.code || "").trim().toUpperCase();
+    const userName = input?.userName || "Étudiant";
 
     if (!code) throw new functions.https.HttpsError("invalid-argument", "Code manquant");
 
@@ -127,8 +132,8 @@ export const generateModule = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const payload = data?.data || data;
-      const { text, fileData, language, learningStyle } = payload;
+      const input = (data && data.data) ? data.data : data;
+      const { text, fileData, language, learningStyle } = input;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const prompt = `Génère un module d'apprentissage Memoraid. Contenu : ${text || 'Analyse le fichier joint.'}`;
       
@@ -156,8 +161,8 @@ export const chatWithGemini = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const payload = data?.data || data;
-      const { history, message, capsuleTitle } = payload;
+      const input = (data && data.data) ? data.data : data;
+      const { history, message, capsuleTitle } = input;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       
       const response = await ai.models.generateContent({
