@@ -6,36 +6,40 @@ if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 /**
- * CRÉER UNE CLASSE (Enseignant)
+ * CRÉER UNE CLASSE
  */
 export const createClass = functions
   .region("europe-west1")
   .https.onCall(async (data, context) => {
-    // 1. Vérification d'auth
+    // Log pour debug dans la console Firebase
+    console.log("Payload reçu:", JSON.stringify(data));
+    console.log("Auth context:", context.auth ? context.auth.uid : "Non authentifié");
+
     if (!context.auth) {
       throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     }
     
+    // On supporte data directement ou data.data selon la version du SDK
+    const payload = data?.data || data;
+    const className = payload?.name || "Sans nom";
+    const teacherName = payload?.teacherName || "Enseignant";
     const uid = context.auth.uid;
-    const name = data?.name || "Nouvelle Classe";
-    const teacherName = data?.teacherName || "Enseignant";
 
     try {
       const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const classId = `class_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const classId = `class_${Date.now()}`;
 
       const batch = db.batch();
-
-      // 1. Document de la classe
       const classRef = db.collection("classes").doc(classId);
+      
       batch.set(classRef, {
         id: classId,
-        name,
+        name: className,
         teacherId: uid,
-        teacherName,
-        inviteCode,
+        teacherName: teacherName,
+        inviteCode: inviteCode,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        memberIds: [uid], // Indispensable pour la règle Firestore 'in resource.data.memberIds'
+        memberIds: [uid],
         members: [{
           uid,
           name: teacherName,
@@ -44,70 +48,69 @@ export const createClass = functions
         }]
       });
 
-      // 2. Document d'invitation
       const inviteRef = db.collection("invitations").doc(inviteCode);
       batch.set(inviteRef, {
         classId,
-        className: name,
+        className,
         teacherId: uid,
-        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + (30 * 24 * 60 * 60 * 1000)) // 30 jours
+        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + (30 * 24 * 60 * 60 * 1000))
       });
 
       await batch.commit();
+      console.log("Classe créée avec succès:", classId);
+      
       return { success: true, classId, inviteCode };
 
     } catch (error: any) {
-      console.error("Erreur createClass:", error);
-      throw new functions.https.HttpsError("internal", error.message || "Erreur interne");
+      console.error("Erreur createClass détaillée:", error);
+      throw new functions.https.HttpsError("internal", error.message);
     }
   });
 
 /**
- * REJOINDRE UNE CLASSE (Étudiant)
+ * REJOINDRE UNE CLASSE
  */
 export const joinClass = functions
   .region("europe-west1")
   .https.onCall(async (data, context) => {
-    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Utilisateur non connecté");
+    if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Non connecté");
 
+    const payload = data?.data || data;
     const uid = context.auth.uid;
-    const code = (data?.code || "").trim().toUpperCase();
-    const userName = data?.userName || "Étudiant";
+    const code = (payload?.code || "").trim().toUpperCase();
+    const userName = payload?.userName || "Étudiant";
 
     if (!code) throw new functions.https.HttpsError("invalid-argument", "Code manquant");
 
     try {
       const invitationRef = db.collection("invitations").doc(code);
+      const inviteSnap = await invitationRef.get();
 
-      return db.runTransaction(async (tx) => {
-        const inviteSnap = await tx.get(invitationRef);
-        if (!inviteSnap.exists) {
-          throw new functions.https.HttpsError("not-found", "Code invalide");
-        }
+      if (!inviteSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "Code d'invitation invalide.");
+      }
 
-        const invite = inviteSnap.data()!;
-        const classRef = db.collection("classes").doc(invite.classId);
-        
-        // Mise à jour de la classe
+      const invite = inviteSnap.data()!;
+      const classRef = db.collection("classes").doc(invite.classId);
+
+      await db.runTransaction(async (tx) => {
         tx.update(classRef, {
           memberIds: admin.firestore.FieldValue.arrayUnion(uid),
           members: admin.firestore.FieldValue.arrayUnion({
             uid,
             name: userName,
             role: 'student',
-            joinedAt: Date.now(),
-            status: "active",
+            joinedAt: Date.now()
           }),
         });
 
-        // Mise à jour de l'utilisateur
         const userRef = db.collection("users").doc(uid);
         tx.update(userRef, {
           classes: admin.firestore.FieldValue.arrayUnion(invite.classId),
         });
-
-        return { success: true, classId: invite.classId };
       });
+
+      return { success: true, classId: invite.classId };
     } catch (error: any) {
       console.error("Erreur joinClass:", error);
       throw new functions.https.HttpsError("internal", error.message);
@@ -115,7 +118,7 @@ export const joinClass = functions
   });
 
 /**
- * GÉNÉRATION DE MODULE MEMORAID
+ * GÉNÉRATION DE MODULE
  */
 export const generateModule = functions
   .region("europe-west1")
@@ -124,7 +127,8 @@ export const generateModule = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const { text, fileData, language, learningStyle } = data;
+      const payload = data?.data || data;
+      const { text, fileData, language, learningStyle } = payload;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const prompt = `Génère un module d'apprentissage Memoraid. Contenu : ${text || 'Analyse le fichier joint.'}`;
       
@@ -132,7 +136,7 @@ export const generateModule = functions
         model: "gemini-3-flash-preview",
         contents: fileData ? { parts: [{ inlineData: fileData }, { text: prompt }] } : prompt,
         config: {
-          systemInstruction: `Tu es l'Architecte Cognitif Memoraid. Ton but est de structurer le savoir de façon mémorable. Langue: ${language}. Style: ${learningStyle}. Réponds en JSON uniquement.`,
+          systemInstruction: `Tu es l'Architecte Cognitif Memoraid. Langue: ${language}. Style: ${learningStyle}. Réponds en JSON uniquement.`,
           responseMimeType: "application/json"
         }
       });
@@ -144,7 +148,7 @@ export const generateModule = functions
   });
 
 /**
- * COACH IA MEMORAID
+ * COACH IA
  */
 export const chatWithGemini = functions
   .region("europe-west1")
@@ -152,13 +156,14 @@ export const chatWithGemini = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const { history, message, capsuleTitle } = data;
+      const payload = data?.data || data;
+      const { history, message, capsuleTitle } = payload;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [
-          { role: "user", parts: [{ text: `Tu es le coach Memoraid. Aide l'utilisateur à maîtriser : ${capsuleTitle}.` }] },
+          { role: "user", parts: [{ text: `Coach Memoraid. Sujet: ${capsuleTitle}.` }] },
           ...history.map((m: any) => ({ role: m.role, parts: [{ text: m.content }] })),
           { role: "user", parts: [{ text: message }] }
         ]

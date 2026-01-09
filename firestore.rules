@@ -4,14 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /* ==============================
-       USERS (Profil & Préférences)
+       USERS
     ============================== */
     match /users/{userId} {
       allow read, create: if request.auth != null && request.auth.uid == userId;
-
-      allow update: if request.auth != null && request.auth.uid == userId
-                    && !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['plan', 'isPremium']);
+      allow update: if request.auth != null && request.auth.uid == userId;
       
       match /capsules/{capId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -19,33 +16,31 @@ service cloud.firestore {
     }
 
     /* ==============================
-       CLASSES (Groupes d'étude)
+       CLASSES
     ============================== */
     match /classes/{classId} {
-      // Pour une requête de liste (query), la règle doit être simple
-      // On autorise la lecture si l'utilisateur est présent dans memberIds
-      allow read: if request.auth != null && request.auth.uid in resource.data.memberIds;
+      // Version ultra-défensive pour supporter les requêtes de filtrage
+      allow read: if request.auth != null && (
+        request.auth.uid in resource.data.get('memberIds', []) || 
+        resource.data.get('teacherId', '') == request.auth.uid
+      );
 
-      // Seul l'enseignant (owner/teacherId) peut modifier ou supprimer
-      allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
+      allow update, delete: if request.auth != null && 
+        resource.data.get('teacherId', '') == request.auth.uid;
       
-      // La création est exclusivement réservée au serveur (Admin SDK)
-      allow create: if false;
+      allow create: if false; // Via Cloud Functions uniquement
 
-      // MODULES PARTAGÉS DANS LA CLASSE
       match /capsules/{capId} {
         allow read: if request.auth != null && 
-          exists(/databases/$(database)/documents/classes/$(classId)) &&
-          request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.memberIds;
+          get(/databases/$(database)/documents/classes/$(classId)).data.get('memberIds', []).hasAny([request.auth.uid]);
           
         allow write: if request.auth != null && 
-          exists(/databases/$(database)/documents/classes/$(classId)) &&
-          get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
+          get(/databases/$(database)/documents/classes/$(classId)).data.get('teacherId', '') == request.auth.uid;
       }
     }
 
     /* ==============================
-       INVITATIONS (Codes d'accès)
+       INVITATIONS
     ============================== */
     match /invitations/{code} {
       allow read: if request.auth != null;
