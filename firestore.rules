@@ -22,27 +22,25 @@ service cloud.firestore {
        CLASSES (Groupes d'étude)
     ============================== */
     match /classes/{classId} {
-      // Autorise la lecture si l'UID est dans memberIds OU si l'utilisateur est le professeur
-      // Utilisation de .get() pour éviter les erreurs si le champ n'existe pas sur un vieux doc
-      allow read: if request.auth != null && (
-        request.auth.uid in resource.data.get('memberIds', []) || 
-        resource.data.get('teacherId', '') == request.auth.uid
-      );
+      // Pour une requête de liste (query), la règle doit être simple
+      // On autorise la lecture si l'utilisateur est présent dans memberIds
+      allow read: if request.auth != null && request.auth.uid in resource.data.memberIds;
 
-      // La création est gérée par Cloud Functions (Admin SDK)
+      // Seul l'enseignant (owner/teacherId) peut modifier ou supprimer
+      allow update, delete: if request.auth != null && resource.data.teacherId == request.auth.uid;
+      
+      // La création est exclusivement réservée au serveur (Admin SDK)
       allow create: if false;
-
-      // Seul l'enseignant peut modifier/supprimer la classe
-      allow update, delete: if request.auth != null && 
-        resource.data.get('teacherId', '') == request.auth.uid;
 
       // MODULES PARTAGÉS DANS LA CLASSE
       match /capsules/{capId} {
         allow read: if request.auth != null && 
-          request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.get('memberIds', []);
+          exists(/databases/$(database)/documents/classes/$(classId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/classes/$(classId)).data.memberIds;
           
         allow write: if request.auth != null && 
-          get(/databases/$(database)/documents/classes/$(classId)).data.get('teacherId', '') == request.auth.uid;
+          exists(/databases/$(database)/documents/classes/$(classId)) &&
+          get(/databases/$(database)/documents/classes/$(classId)).data.teacherId == request.auth.uid;
       }
     }
 

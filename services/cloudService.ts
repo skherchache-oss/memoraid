@@ -38,14 +38,15 @@ export const subscribeToCapsules = (userId: string, onUpdate: (capsules: Cogniti
 
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
     if (!db || !userId) return () => {};
-    // La requête doit filtrer les documents de la collection 'classes' où memberIds contient l'UID
+    console.log("Firestore: Souscription aux groupes pour", userId);
     const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
     return onSnapshot(q, (snap) => {
         const groups: Group[] = [];
         snap.forEach(d => groups.push(d.data() as Group));
+        console.log("Firestore: Groupes reçus", groups.length);
         onUpdate(groups);
     }, (err) => {
-        console.error("Firestore Subscribe Error:", err);
+        console.error("Firestore Subscribe Error (classes):", err);
     });
 };
 
@@ -64,19 +65,28 @@ export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: C
  */
 export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
     if (!functions) throw new Error("Backend non initialisé");
-    const createFn = httpsCallable(functions, 'createClass');
-    const result = await createFn({ name, teacherName: userName });
-    const data = result.data as any;
     
-    return {
-        id: data.classId,
-        name,
-        teacherId,
-        inviteCode: data.inviteCode,
-        members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
-        memberIds: [teacherId],
-        createdAt: Date.now()
-    };
+    console.log("Cloud Functions: Appel createClass pour", name);
+    const createFn = httpsCallable(functions, 'createClass');
+    
+    try {
+        const result = await createFn({ name, teacherName: userName });
+        const data = result.data as any;
+        console.log("Cloud Functions: Succès createClass", data);
+        
+        return {
+            id: data.classId,
+            name,
+            teacherId,
+            inviteCode: data.inviteCode,
+            members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
+            memberIds: [teacherId],
+            createdAt: Date.now()
+        };
+    } catch (err: any) {
+        console.error("Cloud Functions: Erreur lors de l'appel createClass", err);
+        throw err;
+    }
 };
 
 /**
@@ -84,8 +94,15 @@ export const createGroup = async (teacherId: string, userName: string, name: str
  */
 export const joinGroup = async (userId: string, userName: string, code: string) => {
     if (!functions) throw new Error("Backend non initialisé");
+    console.log("Cloud Functions: Appel joinClass avec code", code);
     const joinFn = httpsCallable(functions, 'joinClass');
-    await joinFn({ code, userName });
+    try {
+        await joinFn({ code, userName });
+        console.log("Cloud Functions: Succès joinClass");
+    } catch (err: any) {
+        console.error("Cloud Functions: Erreur joinClass", err);
+        throw err;
+    }
 };
 
 export const deleteGroup = async (groupId: string) => {
