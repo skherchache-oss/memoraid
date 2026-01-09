@@ -40,12 +40,18 @@ export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]
     if (!db || !userId) return () => {};
     console.log("Firestore: Souscription aux groupes pour", userId);
     
-    // Requête alignée avec les nouvelles règles simplifiées
+    // Requête simplifiée : on demande les classes où l'utilisateur est dans memberIds
     const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
     
     return onSnapshot(q, (snap) => {
         const groups: Group[] = [];
-        snap.forEach(d => groups.push(d.data() as Group));
+        snap.forEach(d => {
+            const data = d.data();
+            groups.push({
+                ...data,
+                id: d.id
+            } as Group);
+        });
         onUpdate(groups);
     }, (err) => {
         console.error("Firestore Subscribe Error (classes):", err);
@@ -68,11 +74,10 @@ export const subscribeToGroupCapsules = (groupId: string, onUpdate: (capsules: C
 export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
     if (!functions) throw new Error("Backend non initialisé");
     
-    console.log("Cloud Functions: Appel createClass pour", name);
     const createFn = httpsCallable(functions, 'createClass');
     
     try {
-        // On envoie un objet plat pour maximiser la compatibilité
+        // IMPORTANT : On envoie les données directement dans l'objet
         const result = await createFn({ 
             name: name.trim(), 
             teacherName: userName.trim() 
@@ -90,7 +95,7 @@ export const createGroup = async (teacherId: string, userName: string, name: str
             createdAt: Date.now()
         };
     } catch (err: any) {
-        console.error("Cloud Functions: Erreur createClass", err);
+        console.error("Détails de l'erreur Cloud Function:", err);
         throw err;
     }
 };
@@ -104,7 +109,6 @@ export const joinGroup = async (userId: string, userName: string, code: string) 
     try {
         await joinFn({ code: code.trim(), userName: userName.trim() });
     } catch (err: any) {
-        console.error("Cloud Functions: Erreur joinClass", err);
         throw err;
     }
 };

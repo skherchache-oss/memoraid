@@ -11,23 +11,20 @@ const db = admin.firestore();
 export const createClass = functions
   .region("europe-west1")
   .https.onCall(async (data, context) => {
-    // LOGS CRUCIAUX : Allez dans Console Firebase > Functions > Logs pour voir ça
-    console.log("--- APPEL createClass ---");
-    console.log("Data brute reçue:", JSON.stringify(data));
-    console.log("UID Utilisateur:", context.auth ? context.auth.uid : "NON AUTHENTIFIÉ");
-
+    // LOG DE DEBUG : Pour voir exactement ce que le SDK envoie
+    console.log("DEBUG: createClass reçu", JSON.stringify(data));
+    
     if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "Vous devez être connecté.");
+      throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     }
 
-    // On essaie d'extraire le nom peu importe comment il est enveloppé
-    const payload = (data && data.data) ? data.data : data;
-    const className = (payload?.name || "").trim();
-    const teacherName = (payload?.teacherName || "Enseignant").trim();
+    // On teste toutes les possibilités d'encapsulation de data
+    const name = data?.name || data?.data?.name;
+    const tName = data?.teacherName || data?.data?.teacherName || "Enseignant";
 
-    if (!className) {
-      console.error("Erreur: className est vide. Payload:", JSON.stringify(payload));
-      throw new functions.https.HttpsError("invalid-argument", "Le nom de la classe est obligatoire.");
+    if (!name) {
+      console.error("ERREUR: 'name' est introuvable dans", data);
+      throw new functions.https.HttpsError("invalid-argument", "Nom de classe manquant.");
     }
 
     try {
@@ -40,15 +37,15 @@ export const createClass = functions
       
       batch.set(classRef, {
         id: classId,
-        name: className,
+        name: name.trim(),
         teacherId: uid,
-        teacherName: teacherName,
+        teacherName: tName,
         inviteCode: inviteCode,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         memberIds: [uid],
         members: [{
-          uid,
-          name: teacherName,
+          uid: uid,
+          name: tName,
           role: 'owner',
           joinedAt: Date.now()
         }]
@@ -57,18 +54,16 @@ export const createClass = functions
       const inviteRef = db.collection("invitations").doc(inviteCode);
       batch.set(inviteRef, {
         classId,
-        className,
+        className: name.trim(),
         teacherId: uid,
         expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + (30 * 24 * 60 * 60 * 1000))
       });
 
       await batch.commit();
-      console.log(`Classe créée avec succès: ${classId} (${className})`);
-      
       return { success: true, classId, inviteCode };
 
     } catch (error: any) {
-      console.error("Erreur lors de la création en base:", error);
+      console.error("Fiche technique de l'erreur:", error);
       throw new functions.https.HttpsError("internal", error.message);
     }
   });
@@ -81,10 +76,9 @@ export const joinClass = functions
   .https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Non connecté");
 
-    const payload = (data && data.data) ? data.data : data;
+    const code = (data?.code || data?.data?.code || "").trim().toUpperCase();
+    const userName = data?.userName || data?.data?.userName || "Étudiant";
     const uid = context.auth.uid;
-    const code = (payload?.code || "").trim().toUpperCase();
-    const userName = payload?.userName || "Étudiant";
 
     if (!code) throw new functions.https.HttpsError("invalid-argument", "Code manquant");
 
@@ -93,7 +87,7 @@ export const joinClass = functions
       const inviteSnap = await invitationRef.get();
 
       if (!inviteSnap.exists) {
-        throw new functions.https.HttpsError("not-found", "Code d'invitation invalide.");
+          throw new functions.https.HttpsError("not-found", "Code d'invitation invalide.");
       }
 
       const invite = inviteSnap.data()!;
@@ -109,16 +103,10 @@ export const joinClass = functions
             joinedAt: Date.now()
           }),
         });
-
-        const userRef = db.collection("users").doc(uid);
-        tx.update(userRef, {
-          classes: admin.firestore.FieldValue.arrayUnion(invite.classId),
-        });
       });
 
       return { success: true, classId: invite.classId };
     } catch (error: any) {
-      console.error("Erreur joinClass:", error);
       throw new functions.https.HttpsError("internal", error.message);
     }
   });
@@ -133,7 +121,7 @@ export const generateModule = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const payload = (data && data.data) ? data.data : data;
+      const payload = data?.data || data;
       const { text, fileData, language, learningStyle } = payload;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       const prompt = `Génère un module d'apprentissage Memoraid. Contenu : ${text || 'Analyse le fichier joint.'}`;
@@ -162,7 +150,7 @@ export const chatWithGemini = functions
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
     
     try {
-      const payload = (data && data.data) ? data.data : data;
+      const payload = data?.data || data;
       const { history, message, capsuleTitle } = payload;
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       
