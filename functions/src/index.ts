@@ -11,20 +11,28 @@ const db = admin.firestore();
 export const createClass = functions
   .region("europe-west1")
   .https.onCall(async (data, context) => {
-    // LOG DE DEBUG : Pour voir exactement ce que le SDK envoie
-    console.log("DEBUG: createClass reçu", JSON.stringify(data));
+    // 1. Log de sécurité et structure
+    console.log("REÇU createClass:", JSON.stringify(data));
     
     if (!context.auth) {
-      throw new functions.https.HttpsError("unauthenticated", "Connexion requise.");
+      throw new functions.https.HttpsError("unauthenticated", "Non authentifié.");
     }
 
-    // On teste toutes les possibilités d'encapsulation de data
-    const name = data?.name || data?.data?.name;
-    const tName = data?.teacherName || data?.data?.teacherName || "Enseignant";
+    // 2. Extraction ultra-flexible
+    // On cherche 'name' partout : à la racine, dans .data, ou même si c'est une chaîne
+    const rawPayload = (data && typeof data === 'object') ? data : {};
+    const innerData = rawPayload.data || {};
+    
+    const className = (rawPayload.name || innerData.name || "").toString().trim();
+    const teacherName = (rawPayload.teacherName || innerData.teacherName || "Enseignant").toString().trim();
 
-    if (!name) {
-      console.error("ERREUR: 'name' est introuvable dans", data);
-      throw new functions.https.HttpsError("invalid-argument", "Nom de classe manquant.");
+    // 3. Diagnostic renvoyé au client si échec
+    if (!className) {
+      const keysFound = Object.keys(rawPayload).join(', ') || "aucune";
+      throw new functions.https.HttpsError(
+        "invalid-argument", 
+        `Nom manquant. Clés reçues: [${keysFound}]. Data: ${JSON.stringify(data)}`
+      );
     }
 
     try {
@@ -37,15 +45,15 @@ export const createClass = functions
       
       batch.set(classRef, {
         id: classId,
-        name: name.trim(),
+        name: className,
         teacherId: uid,
-        teacherName: tName,
+        teacherName: teacherName,
         inviteCode: inviteCode,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         memberIds: [uid],
         members: [{
           uid: uid,
-          name: tName,
+          name: teacherName,
           role: 'owner',
           joinedAt: Date.now()
         }]
@@ -54,7 +62,7 @@ export const createClass = functions
       const inviteRef = db.collection("invitations").doc(inviteCode);
       batch.set(inviteRef, {
         classId,
-        className: name.trim(),
+        className: className,
         teacherId: uid,
         expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + (30 * 24 * 60 * 60 * 1000))
       });
@@ -63,7 +71,7 @@ export const createClass = functions
       return { success: true, classId, inviteCode };
 
     } catch (error: any) {
-      console.error("Fiche technique de l'erreur:", error);
+      console.error("Erreur Firestore:", error);
       throw new functions.https.HttpsError("internal", error.message);
     }
   });
@@ -76,8 +84,9 @@ export const joinClass = functions
   .https.onCall(async (data, context) => {
     if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Non connecté");
 
-    const code = (data?.code || data?.data?.code || "").trim().toUpperCase();
-    const userName = data?.userName || data?.data?.userName || "Étudiant";
+    const raw = (data && data.data) ? data.data : data;
+    const code = (raw?.code || "").toString().trim().toUpperCase();
+    const userName = (raw?.userName || "Étudiant").toString().trim();
     const uid = context.auth.uid;
 
     if (!code) throw new functions.https.HttpsError("invalid-argument", "Code manquant");

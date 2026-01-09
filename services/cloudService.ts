@@ -40,7 +40,7 @@ export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]
     if (!db || !userId) return () => {};
     console.log("Firestore: Souscription aux groupes pour", userId);
     
-    // Requête simplifiée : on demande les classes où l'utilisateur est dans memberIds
+    // Requête filtrée
     const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
     
     return onSnapshot(q, (snap) => {
@@ -54,7 +54,7 @@ export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]
         });
         onUpdate(groups);
     }, (err) => {
-        console.error("Firestore Subscribe Error (classes):", err);
+        console.error("Firestore Subscribe Error (classes):", err.message, err.code);
     });
 };
 
@@ -76,13 +76,15 @@ export const createGroup = async (teacherId: string, userName: string, name: str
     
     const createFn = httpsCallable(functions, 'createClass');
     
+    const payload = { 
+        name: name.trim(), 
+        teacherName: userName.trim() 
+    };
+
+    console.log("Cloud Functions: Envoi payload", JSON.stringify(payload));
+    
     try {
-        // IMPORTANT : On envoie les données directement dans l'objet
-        const result = await createFn({ 
-            name: name.trim(), 
-            teacherName: userName.trim() 
-        });
-        
+        const result = await createFn(payload);
         const data = result.data as any;
         
         return {
@@ -95,13 +97,17 @@ export const createGroup = async (teacherId: string, userName: string, name: str
             createdAt: Date.now()
         };
     } catch (err: any) {
-        console.error("Détails de l'erreur Cloud Function:", err);
+        // Log ultra-détaillé de l'erreur renvoyée par le serveur
+        console.error("ERREUR CRÉATION CLASSE :");
+        console.error("Message:", err.message);
+        console.error("Code:", err.code);
+        console.error("Détails:", err.details);
         throw err;
     }
 };
 
 /**
- * REJOINDRE UN GROUPE / CLASSE
+ * REJOINDRE UNE CLASSE
  */
 export const joinGroup = async (userId: string, userName: string, code: string) => {
     if (!functions) throw new Error("Backend non initialisé");
