@@ -282,7 +282,16 @@ const AppContent: React.FC = () => {
             
             {isAuthModalOpen && <AuthModal onClose={() => setIsAuthModalOpen(false)} addToast={addToast} />}
             {isCoaching && activeCapsule && <CoachingModal capsule={activeCapsule} userProfile={profile.user} onClose={() => setIsCoaching(false)} />}
-            {isGroupModalOpen && currentUser && <GroupModal onClose={() => setIsGroupModalOpen(false)} userId={currentUser.uid} userName={profile.user.name} userGroups={userGroups} addToast={addToast} />}
+            {isGroupModalOpen && currentUser && (
+                <GroupModal 
+                    onClose={() => setIsGroupModalOpen(false)} 
+                    userId={currentUser.uid} 
+                    userName={profile.user.name} 
+                    userGroups={userGroups} 
+                    userRole={profile.user.role}
+                    addToast={addToast} 
+                />
+            )}
         </div>
     );
 };

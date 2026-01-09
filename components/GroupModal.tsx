@@ -1,9 +1,7 @@
-
 import React, { useState } from 'react';
-/* Import RefreshCwIcon from constants */
 import { XIcon, UserIcon, SparklesIcon, ZapIcon, SchoolIcon, ChevronRightIcon, PlusIcon, GraduationCapIcon, RefreshCwIcon } from '../constants';
-import type { Group } from '../types';
-import { joinGroupByCode } from '../services/cloudService';
+import type { Group, UserRole } from '../types';
+import { createGroup, joinGroup } from '../services/cloudService';
 import { useToast } from '../hooks/useToast';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -12,12 +10,13 @@ interface GroupModalProps {
     userId: string;
     userName: string;
     userGroups: Group[];
+    userRole?: UserRole;
     addToast: (message: string, type: ToastType) => void;
 }
 
 type ToastType = 'success' | 'error' | 'info';
 
-const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, userGroups, addToast }) => {
+const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, userGroups, userRole = 'student', addToast }) => {
     const { t } = useLanguage();
     const [mode, setMode] = useState<'list' | 'join'>('list');
     const [inviteCode, setInviteCode] = useState('');
@@ -34,7 +33,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
             addToast("Félicitations ! Vous avez rejoint la classe.", "success");
             setMode('list');
             setInviteCode('');
-            onClose(); // On ferme après succès pour montrer les nouveaux modules
+            onClose();
         } catch (error: any) {
             console.error(error);
             addToast(error.message || "Code invalide ou erreur de connexion.", "error");
@@ -53,7 +52,9 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
                             <SchoolIcon className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Mes Classes</h2>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                                {userRole === 'teacher' ? 'Mes Classes' : 'Mes Groupes'}
+                            </h2>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Collaboration</p>
                         </div>
                     </div>
@@ -67,7 +68,9 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
                         <div className="space-y-6 animate-fade-in-fast">
                             {userGroups.length > 0 ? (
                                 <div className="space-y-3">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Classes rejointes</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                                        {userRole === 'teacher' ? 'Classes gérées' : 'Classes rejointes'}
+                                    </p>
                                     {userGroups.map(group => (
                                         <div key={group.id} className="p-5 bg-slate-50 dark:bg-zinc-800/50 rounded-3xl border border-slate-100 dark:border-zinc-800 group hover:border-indigo-300 transition-all">
                                             <div className="flex justify-between items-start mb-2">
@@ -78,7 +81,7 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
                                             </div>
                                             <div className="flex items-center gap-2 mt-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
                                                 <GraduationCapIcon className="w-3.5 h-3.5" />
-                                                <span>{group.members.length} membres</span>
+                                                <span>{group.members?.length || 0} membres</span>
                                             </div>
                                         </div>
                                     ))}
@@ -89,18 +92,22 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
                                         <SchoolIcon className="w-10 h-10 text-slate-400" />
                                     </div>
                                     <p className="text-sm font-bold text-slate-500 dark:text-zinc-400 max-w-[200px] mx-auto leading-relaxed">
-                                        Vous n'avez pas encore rejoint de classe ou de groupe de travail.
+                                        {userRole === 'teacher' 
+                                            ? "Vous n'avez pas encore créé de classe pédagogique." 
+                                            : "Vous n'avez pas encore rejoint de classe ou de groupe de travail."}
                                     </p>
                                 </div>
                             )}
                             
-                            <button 
-                                onClick={() => setMode('join')}
-                                className="w-full flex items-center justify-center gap-3 p-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 transition-all active:scale-95"
-                            >
-                                <PlusIcon className="w-5 h-5" />
-                                Rejoindre une classe
-                            </button>
+                            {userRole === 'student' && (
+                                <button 
+                                    onClick={() => setMode('join')}
+                                    className="w-full flex items-center justify-center gap-3 p-5 bg-indigo-600 text-white rounded-3xl font-black uppercase text-xs tracking-widest shadow-xl shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 transition-all active:scale-95"
+                                >
+                                    <PlusIcon className="w-5 h-5" />
+                                    Rejoindre une classe
+                                </button>
+                            )}
                         </div>
                     )}
 
@@ -151,7 +158,9 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
                 <div className="p-6 bg-slate-50 dark:bg-zinc-950 border-t border-slate-100 dark:border-zinc-800 flex items-start gap-3">
                     <ZapIcon className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                     <p className="text-[10px] leading-relaxed text-slate-400 font-bold uppercase tracking-tight">
-                        Une fois le code validé, les modules partagés par votre professeur apparaîtront instantanément dans votre bibliothèque.
+                        {userRole === 'teacher' 
+                            ? "Pour créer une nouvelle classe ou gérer vos élèves, rendez-vous dans l'onglet dédié 'Classes' de votre barre de navigation."
+                            : "Une fois le code validé, les modules partagés par votre professeur apparaîtront instantanément dans votre bibliothèque."}
                     </p>
                 </div>
             </div>
