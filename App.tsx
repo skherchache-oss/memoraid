@@ -30,7 +30,7 @@ import { getInitialGamificationStats } from './services/gamificationService';
 const DEFAULT_PROFILE = (t: any): AppData => ({
     user: { 
         uid: '', 
-        name: t('default_username') || 'Apprenant', 
+        name: t('default_username') || 'Invité', 
         email: '', 
         role: 'student', 
         plan: 'free', 
@@ -71,9 +71,54 @@ const AppContent: React.FC = () => {
             setIsAppReady(true);
             
             if (user) {
+                // Déterminer le nom à utiliser (Google Display Name ou début de l'email)
+                const realName = user.displayName || user.email?.split('@')[0] || t('default_username');
+
+                // 1. Mise à jour immédiate de l'état local pour éviter le flash "Apprenant"
+                setProfile(prev => ({
+                    ...prev,
+                    user: {
+                        ...prev.user,
+                        uid: user.uid,
+                        // Correction : on détecte explicitement "Apprenant" même s'il vient d'un ancien état
+                        name: (prev.user.name === 'Apprenant' || prev.user.name === 'Invité' || prev.user.name === t('default_username'))
+                            ? realName
+                            : prev.user.name,
+                        email: user.email || prev.user.email
+                    }
+                }));
+
                 try {
                     const unsubProfile = subscribeToUserProfile(user.uid, (u) => {
-                        if (u) setProfile(prev => ({ ...prev, user: { ...prev.user, ...u } }));
+                        if (u) {
+                            setProfile(prev => {
+                                // Si le nom dans la base est encore "Apprenant", on le corrige aussi dans le cloud
+                                const needsNameFix = u.name === 'Apprenant' || !u.name || u.name === 'Invité';
+                                
+                                if (needsNameFix) {
+                                    console.log("App: Correction du nom détectée pour", realName);
+                                    updateUserProfileInCloud(user.uid, { name: realName });
+                                }
+                                
+                                return { 
+                                    ...prev, 
+                                    user: { 
+                                        ...prev.user, 
+                                        ...u,
+                                        name: needsNameFix ? realName : u.name,
+                                        uid: user.uid 
+                                    } 
+                                };
+                            });
+                        } else {
+                            // Premier login ou profil manquant : On crée le profil avec le vrai nom
+                            updateUserProfileInCloud(user.uid, { 
+                                name: realName,
+                                email: user.email || '',
+                                role: 'student',
+                                plan: 'free'
+                            });
+                        }
                     });
                     const unsubCapsules = subscribeToCapsules(user.uid, (c) => {
                         if (c) setProfile(prev => ({ ...prev, capsules: c }));
@@ -90,6 +135,7 @@ const AppContent: React.FC = () => {
                     console.error("Sync Error:", err);
                 }
             } else {
+                // Déconnexion : retour au profil invité
                 setProfile(DEFAULT_PROFILE(t));
                 setUserGroups([]);
                 setView(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda' || prev === 'store') ? 'create' : prev);
@@ -131,11 +177,9 @@ const AppContent: React.FC = () => {
         }
 
         try {
-            // Mise à jour de l'utilisateur avec le nouveau pack
             const updatedPackIds = [...(profile.user.unlockedPackIds || []), pack.id];
             await updateUserProfileInCloud(currentUser.uid, { unlockedPackIds: updatedPackIds });
 
-            // Sauvegarde des capsules du pack dans le cloud de l'utilisateur
             for (const capsule of pack.capsules) {
                 await saveCapsuleToCloud(currentUser.uid, {
                     ...capsule,

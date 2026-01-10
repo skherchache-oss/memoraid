@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import type { CognitiveCapsule } from '../types';
 import { 
@@ -11,7 +10,8 @@ import {
     CheckCircleIcon,
     ClockIcon,
     SchoolIcon,
-    XIcon
+    XIcon,
+    BrainIcon
 } from '../constants';
 import { isCapsuleDue } from '../services/srsService';
 import CapsuleListItem from './CapsuleListItem';
@@ -123,19 +123,26 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             )}
 
             {/* SECTION PERSONNELLE */}
-            <section>
+            <section className="mb-20">
                 <div className="flex items-center gap-3 mb-6">
                     <TagIcon className="w-5 h-5 text-emerald-500" />
                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-500">Mes modules personnels</h3>
                 </div>
                 {personalCapsules.length > 0 ? renderCapsuleGrid(personalCapsules) : (
                     <div className="text-center py-16 bg-slate-50/50 dark:bg-zinc-900/30 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
-                        <LearningIllustration className="w-32 h-32 mx-auto mb-4 opacity-40" />
+                        <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <BrainIcon className="w-8 h-8 text-slate-300 dark:text-zinc-600" />
+                        </div>
                         <p className="text-slate-400 font-bold mb-6">Votre bibliothèque personnelle est vide.</p>
                         <button onClick={onNewCapsule} className="px-8 py-3 bg-emerald-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-emerald-700 transition-all">Créer mon premier module</button>
                     </div>
                 )}
             </section>
+
+            {/* Illustration de signature déplacée en bas de page pour ne pas encombrer l'espace de travail */}
+            <div className="mt-24 mb-12 flex justify-center opacity-60">
+                <LearningIllustration />
+            </div>
         </div>
     );
 };

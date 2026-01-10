@@ -24,19 +24,50 @@
               'fade-in': 'fadeIn 0.3s ease-out forwards',
               'toast-enter': 'toastEnter 0.3s ease-out forwards',
               'toast-exit': 'toastExit 0.3s ease-in forwards',
+              'pulse-slow': 'pulseSlow 4s infinite ease-in-out',
+              'twinkle': 'twinkle 2s infinite ease-in-out',
+              'zap-random': 'zapRandom 6s infinite linear',
+              'electric-flicker-soft': 'electricFlickerSoft 3s infinite',
+              'hum': 'humming 0.2s infinite linear',
+              'energy-orbit-slow': 'orbit 4s infinite linear',
+              'snow-fall': 'snowFall 7s infinite linear',
             },
             keyframes: {
               fadeIn: {
                 '0%': { opacity: '0', transform: 'translateY(10px)' },
                 '100%': { opacity: '1', transform: 'translateY(0)' },
               },
-              toastEnter: {
-                '0%': { opacity: '0', transform: 'translateY(20px) scale(0.9)' },
-                '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+              zapRandom: {
+                '0%, 15%, 19%, 100%': { opacity: 0, transform: 'scale(0.9)' },
+                '16%': { opacity: 0.8, transform: 'scale(1.1) translate(1px, -1px)' },
+                '18%': { opacity: 0.4, transform: 'scale(1) translate(-1px, 1px)' },
               },
-              toastExit: {
-                '0%': { opacity: '1', transform: 'scale(1)' },
-                '100%': { opacity: '0', transform: 'scale(0.9)' },
+              electricFlickerSoft: {
+                '0%, 100%, 40%, 44%': { opacity: 1, filter: 'brightness(1)' },
+                '42%': { opacity: 0.95, filter: 'brightness(1.1)' },
+              },
+              humming: {
+                '0%, 100%': { transform: 'translate(0,0)' },
+                '50%': { transform: 'translate(0.1px, -0.1px)' },
+              },
+              snowFall: {
+                '0%': { transform: 'translateY(-20px) translateX(0)', opacity: 0 },
+                '10%': { opacity: 0.8 },
+                '50%': { transform: 'translateY(40px) translateX(8px)' },
+                '90%': { opacity: 0.8 },
+                '100%': { transform: 'translateY(110px) translateX(-4px)', opacity: 0 },
+              },
+              pulseSlow: {
+                '0%, 100%': { opacity: 0.15, transform: 'scale(1)' },
+                '50%': { opacity: 0.05, transform: 'scale(1.05)' },
+              },
+              twinkle: {
+                '0%, 100%': { opacity: 0.3, transform: 'scale(0.9)' },
+                '50%': { opacity: 0.8, transform: 'scale(1)' },
+              },
+              orbit: {
+                'from': { transform: 'rotate(0deg) translateX(32px) rotate(0deg)' },
+                'to': { transform: 'rotate(360deg) translateX(32px) rotate(-360deg)' }
               }
             }
           } 
@@ -48,49 +79,36 @@
     <link rel="stylesheet" href="./index.css">
 
     <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.460.0",
-    "@google/genai": "https://esm.sh/@google/genai@1.2.0",
-    "firebase/app": "https://esm.sh/firebase@10.13.2/app",
-    "firebase/auth": "https://esm.sh/firebase@10.13.2/auth",
-    "firebase/firestore": "https://esm.sh/firebase@10.13.2/firestore",
-    "firebase/functions": "https://esm.sh/firebase@10.13.2/functions",
-    "firebase/analytics": "https://esm.sh/firebase@10.13.2/analytics",
-    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
-    "pptxgenjs": "https://esm.sh/pptxgenjs@3.12.0",
-    "jszip": "https://esm.sh/jszip@3.10.1",
-    "html2canvas": "https://esm.sh/html2canvas@1.4.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "firebase-functions": "https://esm.sh/firebase-functions@^7.0.2",
-    "firebase-admin": "https://esm.sh/firebase-admin@^13.6.0"
-  }
-}
-</script>
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.0.0",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.460.0",
+        "@google/genai": "https://esm.sh/@google/genai@1.2.0",
+        "firebase/app": "https://esm.sh/firebase@10.13.2/app",
+        "firebase/auth": "https://esm.sh/firebase@10.13.2/auth",
+        "firebase/firestore": "https://esm.sh/firebase@10.13.2/firestore",
+        "firebase/functions": "https://esm.sh/firebase@10.13.2/functions",
+        "firebase/analytics": "https://esm.sh/firebase@10.13.2/analytics",
+        "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
+        "pptxgenjs": "https://esm.sh/pptxgenjs@3.12.0",
+        "jszip": "https://esm.sh/jszip@3.10.1",
+        "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
+        "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+        "firebase/": "https://esm.sh/firebase@^12.7.0/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "vite": "https://esm.sh/vite@^7.3.0",
+        "firebase-functions": "https://esm.sh/firebase-functions@^7.0.2",
+        "firebase-admin": "https://esm.sh/firebase-admin@^13.6.0"
+      }
+    }
+    </script>
   <link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-50 dark:bg-zinc-950 text-slate-800 dark:text-zinc-200 selection:bg-emerald-200">
-    <div id="splash-screen" style="position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.5s">
-      <div style="width:48px;height:48px;border:4px solid #f3f3f3;border-top:4px solid #10b981;border-radius:50%;animation:spin 1s linear infinite"></div>
-      <h1 style="margin-top:20px;font-family:Inter,sans-serif;font-weight:900;color:#065f46;letter-spacing:-0.05em">MEMORAID</h1>
-      <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
-      <script>
-        window.addEventListener('load', () => {
-          setTimeout(()=>{
-            const s=document.getElementById('splash-screen');
-            if(s){s.style.opacity='0';setTimeout(()=>s.remove(),500)}
-          },1000);
-        });
-      </script>
-    </div>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   <script type="module" src="/index.tsx"></script>

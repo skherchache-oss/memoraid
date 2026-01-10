@@ -10,7 +10,7 @@ export const translations = {
         nav_profile: "Profil",
 
         // Common Labels
-        learner: "Apprenant",
+        learner: "Membre",
         no_modules: "Aucun module.",
         module: "Module",
         modules: "Modules",
@@ -271,7 +271,7 @@ export const translations = {
         see_results: "Voir les résultats",
 
         // Profile
-        my_space: "Mon Espace Apprenant",
+        my_space: "Mon Profil",
         trophy_room: "Salle des Trophées",
         level: "Niveau",
         level_short: "Lvl.",
@@ -372,7 +372,7 @@ export const translations = {
         completion_rate: "Taux de complétion",
         
         // Common
-        default_username: "Apprenant",
+        default_username: "Invité",
     },
     en: {
         // Navigation
@@ -383,7 +383,7 @@ export const translations = {
         nav_profile: "Profile",
 
         // Common Labels
-        learner: "Learner",
+        learner: "Member",
         no_modules: "No modules.",
         module: "Module",
         modules: "Modules",
@@ -644,7 +644,7 @@ export const translations = {
         see_results: "See results",
         
         // Profile
-        my_space: "My Learning Space",
+        my_space: "My Profile",
         trophy_room: "Trophy Room",
         level: "Level",
         level_short: "Lvl.",
@@ -680,7 +680,7 @@ export const translations = {
         level_intermediate: "Intermediate (Standard)",
         level_advanced: "Advanced (Technical and precise)",
         learning_style: "Learning Style",
-        style_textual: "📚 Textual (Reader)",
+        style_textual: "📚 Textuel (Reader)",
         style_visual: "🎨 Visual (Images)",
         style_auditory: "🎧 Auditory (Listening)",
         style_kinesthetic: "🛠️ Kinesthetic (Action)",
@@ -745,6 +745,6 @@ export const translations = {
         completion_rate: "Completion rate",
         
         // Common
-        default_username: "Learner",
+        default_username: "Guest",
     }
 };

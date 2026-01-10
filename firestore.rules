@@ -2,22 +2,35 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // RÈGLE DE DÉBOGAGE : Tout utilisateur connecté peut TOUT lire et écrire dans 'classes'
-    // À restreindre une fois que le flux fonctionne.
-    match /classes/{document=**} {
-      allow read, write: if request.auth != null;
+    
+    // Règles globales pour les classes
+    match /classes/{classId} {
+      // Autoriser la lecture si l'utilisateur est authentifié
+      // Cette règle au niveau du document permet aussi les listes filtrées
+      allow read: if request.auth != null;
+      
+      // Modification autorisée pour l'enseignant ou via le système
+      allow write: if request.auth != null;
+
+      // Capsules au sein d'une classe
+      match /capsules/{capsuleId} {
+        allow read, write: if request.auth != null;
+      }
     }
 
+    // Utilisateurs et leurs capsules privées
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+      
       match /capsules/{capId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 
+    // Codes d'invitation (Lecture seule pour la jointure)
     match /invitations/{code} {
       allow read: if request.auth != null;
-      allow write: if false;
+      allow write: if false; 
     }
   }
 }

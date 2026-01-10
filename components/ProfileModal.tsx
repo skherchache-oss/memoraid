@@ -105,14 +105,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                         </div>
                         <div className="text-center md:text-left flex-grow">
                             <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">
-                                {currentUser ? name : "Invité"}
+                                {currentUser ? name : t('default_username')}
                             </h3>
                             <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
                                 <span>{t('level_short')} {profile.user.gamification?.level || 1}</span>
                                 <span className="text-slate-200 dark:text-zinc-800">•</span>
                                 <span className="text-emerald-600 font-black">{role === 'teacher' ? t('role_teacher') : t('role_student')}</span>
-                                <span className="text-slate-200 dark:text-zinc-800">•</span>
-                                <span className="text-emerald-500">{t('learner')}</span>
                             </div>
                             <div className="mt-6 flex items-center justify-center md:justify-start gap-4">
                                 <div className="flex items-center gap-2.5 text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-4 py-2.5 rounded-2xl border border-orange-100 dark:border-orange-900/30">
@@ -144,7 +142,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('username')}</label>
                             <input 
                                 type="text" 
-                                value={currentUser ? name : "Invité"} 
+                                value={currentUser ? name : t('default_username')} 
                                 disabled={!currentUser}
                                 onChange={e => setName(e.target.value)} 
                                 onBlur={handleSaveProfile}
