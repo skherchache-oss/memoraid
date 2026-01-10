@@ -1,10 +1,8 @@
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SparklesIcon, XIcon, UploadIcon, AlertTriangleIcon, RefreshCwIcon, ImageIcon, BookOpenIcon, MicrophoneIcon, LearningIllustration, StopIcon } from '../constants';
 import ImportModal from './ImportModal';
 import type { SourceType } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
-import { translations } from '../i18n/translations';
 import { useToast } from '../hooks/useToast';
 import HowItWorks from './HowItWorks';
 import { cleanDictationResult } from '../services/voiceUtils';
@@ -230,8 +228,18 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, o
                 )}
                 {(parseError || error) && <p className="text-red-500 mt-4 text-center text-sm font-bold bg-red-50 p-2 rounded">{parseError || error}</p>}
             </div>
-            <div className="mt-6 bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 w-full relative z-10"><HowItWorks onOpenProfile={onOpenProfile} /></div>
-            <div className="flex flex-col items-center justify-center mt-12 opacity-70 pointer-events-none"><LearningIllustration className="w-full max-w-[200px] h-auto" /><h1 className="mt-4 text-3xl font-extrabold text-emerald-800 dark:text-emerald-500">Memoraid</h1></div>
+            
+            <div className="mt-6 bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 w-full relative z-10">
+                <HowItWorks onOpenProfile={onOpenProfile} />
+            </div>
+
+            {/* Illustration de marque mise en bas pour servir de signature visuelle */}
+            {!isLoading && (
+                <div className="mt-16 mb-8 flex justify-center w-full">
+                    <LearningIllustration />
+                </div>
+            )}
+            
             {isImportModalOpen && <ImportModal onClose={() => setIsImportModalOpen(false)} onImport={(c, t) => { setInputText(`TITRE: ${t}\n\n${c}`); handleSubmit(); }} />}
         </div>
     );

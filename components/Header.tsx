@@ -1,5 +1,5 @@
 import React from 'react';
-import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon, SchoolIcon } from '../constants';
+import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon, SchoolIcon, BRAND_FONT } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
 import type { GamificationStats, UserRole } from '../types';
@@ -61,10 +61,11 @@ const Header: React.FC<HeaderProps> = ({
                             className="flex items-center gap-3 flex-shrink-0 focus:outline-none group transition-transform active:scale-95"
                             aria-label="Retour à l'accueil"
                         >
-                            <div className="p-1.5 md:p-2 bg-emerald-500 rounded-xl shadow-md group-hover:rotate-6 transition-transform">
-                                <MemoraidLogoIcon className="h-6 w-6 md:h-7 md:w-7 text-white" />
+                            {/* Logo Cerveau Seul (S'illumine au survol) */}
+                            <div className="p-1.5 bg-white dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm group-hover:rotate-3 group-hover:border-emerald-500 transition-all relative">
+                                <MemoraidLogoIcon className="h-6 w-6 md:h-7 md:w-7 text-emerald-600" />
                             </div>
-                            <h1 className="hidden lg:block text-xl font-black text-slate-900 dark:text-white tracking-tighter">
+                            <h1 className={`hidden lg:block text-lg text-emerald-900 dark:text-white ${BRAND_FONT}`}>
                                 Memoraid
                             </h1>
                         </button>

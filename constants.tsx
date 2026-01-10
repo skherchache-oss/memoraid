@@ -55,34 +55,27 @@ import {
     PlayCircle,
     Monitor,
     Coffee,
+    // Added missing icon imports
     Share2,
     Users,
     ClipboardList
 } from 'lucide-react';
 
-// Custom SVG: Brain-Lightbulb Design
+// Custom SVGs
 export const MemoraidLogoIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-        {/* Base de l'ampoule */}
-        <path d="M9 19h6M9.5 21h5M11 23h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-        {/* Corps de l'ampoule (Cerveau) */}
-        <path d="M12 18c-3.5 0-7-2.5-7-7s2.5-7.5 7-7.5s7 3 7 7.5s-3.5 7-7 7Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
-        {/* Sillon central du cerveau */}
-        <path d="M12 5v11" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" opacity="0.5"/>
-        {/* Éclats lumineux */}
-        <path d="M12 1v1.5M19 4l-1 1M5 4l1 1M22 11h-1.5M3.5 11H2" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round"/>
+        <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
     </svg>
 );
 
 export const MemoraidStickerIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
         <circle cx="12" cy="12" r="11" className="fill-emerald-50 dark:fill-emerald-900/20 stroke-emerald-100 dark:stroke-emerald-800" strokeWidth="1" />
-        <g className="text-emerald-600 dark:text-emerald-400">
-            <path d="M9 18h6M10 20h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-            <path d="M12 17c-3 0-6-2-6-6s2-6.5 6-6.5s6 2.5 6 6.5s-3 6-6 6Z" stroke="currentColor" strokeWidth="1.2" fill="white" />
-            <path d="M12 6v9" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1" />
-            <path d="M8 9h1M15 9h1M8 12h1M15 12h1" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-        </g>
+        <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" className="stroke-amber-500 dark:stroke-amber-400" strokeWidth="1.2" fill="none" strokeLinecap="round" />
     </svg>
 );
 
@@ -100,10 +93,13 @@ export const LearningIllustration = (props: React.SVGProps<SVGSVGElement>) => (
             <line x1="70" y1="90" x2="60" y2="90" />
             <line x1="230" y1="90" x2="240" y2="90" />
         </g>
-        <g transform="translate(138, 75) scale(1.1)">
-            <path d="M9 19h6M9.5 21h5M11 23h2" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M12 18c-3.5 0-7-2.5-7-7s2.5-7.5 7-7.5s7 3 7 7.5s-3.5 7-7 7Z" stroke="#10b981" strokeWidth="1.5" fill="white"/>
+        <g transform="translate(90, 35) scale(5)">
+            <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="0.5" fill="white" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" className="stroke-emerald-600 dark:stroke-emerald-400" strokeWidth="0.5" fill="white" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M 5.6 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 5.6 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 8 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 12 q 0.5 0.5 1 0 q 0.5 -0.5 1 0 M 16.4 16 q 0.5 0.5 1 0 q 0.5 -0.5 1 0" className="stroke-amber-500 dark:stroke-amber-400 animate-pulse" strokeWidth="0.5" fill="none" strokeLinecap="round" />
         </g>
+        <circle cx="120" cy="50" r="2" className="fill-emerald-300 animate-bounce" style={{animationDuration: '3s'}} />
+        <circle cx="180" cy="120" r="2" className="fill-blue-300 animate-bounce" style={{animationDuration: '2.5s', animationDelay: '0.5s'}} />
     </svg>
 );
 
@@ -163,6 +159,7 @@ export const PauseCircleIcon = PauseCircle;
 export const PlayCircleIcon = PlayCircle;
 export const MonitorIcon = Monitor;
 export const CoffeeIcon = Coffee;
+// Added missing icon exports
 export const Share2Icon = Share2;
 export const UsersIcon = Users;
 export const ClipboardListIcon = ClipboardList;
