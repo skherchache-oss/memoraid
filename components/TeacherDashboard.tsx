@@ -82,10 +82,11 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         
         setCreateLoading(true);
         try {
-            const newGroup = await createGroup(userId, userName, trimmedName);
+            // Simplified call as requested
+            const classId = await createGroup(trimmedName);
             setNewClassName('');
             setIsCreatingClass(false);
-            setSelectedGroupId(newGroup.id); 
+            setSelectedGroupId(classId); 
             addToast(`Classe "${trimmedName}" créée !`, "success");
         } catch (error: any) {
             addToast("Erreur lors de la création.", "error");

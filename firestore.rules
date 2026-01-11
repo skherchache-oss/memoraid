@@ -3,28 +3,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /* ================= USERS ================= */
-    match /users/{userId} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == userId;
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     /* ================= CLASSES ================= */
     match /classes/{classId} {
 
-      // 🔓 Lecture autorisée pour tout utilisateur connecté
-      // La sécurité est assurée par la requête (memberIds)
+      // 🔓 Lecture autorisée si connecté (Requis pour les filtres de requête frontend)
       allow read: if request.auth != null;
 
-      // ✍️ Écriture uniquement via Cloud Functions
+      // ✍️ Écriture frontend interdite (uniquement via Cloud Functions)
       allow write: if false;
 
-      /* ---------- MEMBERS SUBCOLLECTION ---------- */
+      // MEMBRES
       match /members/{memberId} {
         allow read: if request.auth != null;
         allow write: if false;
       }
 
-      /* ---------- MODULES (ex capsules) ---------- */
+      // CAPSULES / MODULES PARTAGÉS
       match /modules/{moduleId} {
         allow read: if request.auth != null;
         allow write: if false;
@@ -33,7 +31,7 @@ service cloud.firestore {
 
     /* ================= INVITATIONS ================= */
     match /invitations/{code} {
-      allow read: if request.auth != null;
+      allow read: if false;
       allow write: if false;
     }
   }

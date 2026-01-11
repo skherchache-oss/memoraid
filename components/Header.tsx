@@ -2,7 +2,7 @@ import React from 'react';
 import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon, SchoolIcon, BRAND_FONT } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
-import type { GamificationStats, UserRole } from '../types';
+import type { GamificationStats, UserRole, UserProfile } from '../types';
 import type { ToastType } from '../hooks/useToast';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -10,6 +10,7 @@ interface HeaderProps {
     onOpenProfile: () => void;
     onLogin: () => void;
     currentUser: User | null;
+    userProfile?: UserProfile;
     userRole?: UserRole;
     isOnline?: boolean;
     gamification?: GamificationStats;
@@ -26,6 +27,7 @@ const Header: React.FC<HeaderProps> = ({
     onOpenProfile, 
     onLogin, 
     currentUser, 
+    userProfile,
     userRole = 'student',
     isOnline = true, 
     gamification, 
@@ -51,6 +53,9 @@ const Header: React.FC<HeaderProps> = ({
             : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100'}
     `;
 
+    // On priorise la photo du profil applicatif (qui est synchronisée)
+    const displayPhotoURL = userProfile?.photoURL || currentUser?.photoURL;
+
     return (
         <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -61,7 +66,6 @@ const Header: React.FC<HeaderProps> = ({
                             className="flex items-center gap-3 flex-shrink-0 focus:outline-none group transition-transform active:scale-95"
                             aria-label="Retour à l'accueil"
                         >
-                            {/* Logo Cerveau Seul (S'illumine au survol) */}
                             <div className="p-1.5 bg-white dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-sm group-hover:rotate-3 group-hover:border-emerald-500 transition-all relative">
                                 <MemoraidLogoIcon className="h-6 w-6 md:h-7 md:w-7 text-emerald-600" />
                             </div>
@@ -155,8 +159,8 @@ const Header: React.FC<HeaderProps> = ({
                                         : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-500'
                                 } active:scale-90`}
                             >
-                                {currentUser.photoURL ? (
-                                    <img src={currentUser.photoURL} alt="Profil" className="w-full h-full object-cover" />
+                                {displayPhotoURL ? (
+                                    <img src={displayPhotoURL} alt="Profil" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-400 text-white' : 'bg-emerald-100 text-emerald-600'}`}>
                                         <UserIcon className="w-5 h-5 md:w-6 md:h-6" />

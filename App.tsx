@@ -61,7 +61,6 @@ const AppContent: React.FC = () => {
 
     useEffect(() => {
         if (!auth) {
-            console.error("Firebase non disponible");
             setIsAppReady(true);
             return;
         }
@@ -71,33 +70,36 @@ const AppContent: React.FC = () => {
             setIsAppReady(true);
             
             if (user) {
-                // Déterminer le nom à utiliser (Google Display Name ou début de l'email)
                 const realName = user.displayName || user.email?.split('@')[0] || t('default_username');
 
-                // 1. Mise à jour immédiate de l'état local pour éviter le flash "Apprenant"
+                // Mise à jour immédiate de l'état local avec les infos d'Auth
                 setProfile(prev => ({
                     ...prev,
                     user: {
                         ...prev.user,
                         uid: user.uid,
-                        // Correction : on détecte explicitement "Apprenant" même s'il vient d'un ancien état
                         name: (prev.user.name === 'Apprenant' || prev.user.name === 'Invité' || prev.user.name === t('default_username'))
                             ? realName
                             : prev.user.name,
-                        email: user.email || prev.user.email
+                        email: user.email || prev.user.email,
+                        photoURL: user.photoURL || undefined
                     }
                 }));
 
                 try {
+                    // Écoute du profil dans Firestore
                     const unsubProfile = subscribeToUserProfile(user.uid, (u) => {
                         if (u) {
                             setProfile(prev => {
-                                // Si le nom dans la base est encore "Apprenant", on le corrige aussi dans le cloud
-                                const needsNameFix = u.name === 'Apprenant' || !u.name || u.name === 'Invité';
-                                
-                                if (needsNameFix) {
-                                    console.log("App: Correction du nom détectée pour", realName);
-                                    updateUserProfileInCloud(user.uid, { name: realName });
+                                // Vérification si Firestore doit être mis à jour (nom par défaut ou photo absente)
+                                const nameNeedsUpdate = u.name === 'Apprenant' || !u.name || u.name === 'Invité';
+                                const photoNeedsSync = user.photoURL && u.photoURL !== user.photoURL;
+
+                                if (nameNeedsUpdate || photoNeedsSync) {
+                                    updateUserProfileInCloud(user.uid, { 
+                                        name: nameNeedsUpdate ? realName : u.name, 
+                                        photoURL: user.photoURL || u.photoURL || undefined 
+                                    });
                                 }
                                 
                                 return { 
@@ -105,27 +107,32 @@ const AppContent: React.FC = () => {
                                     user: { 
                                         ...prev.user, 
                                         ...u,
-                                        name: needsNameFix ? realName : u.name,
+                                        name: (u.name === 'Apprenant' || !u.name || u.name === 'Invité') ? realName : u.name,
+                                        photoURL: u.photoURL || user.photoURL || undefined,
                                         uid: user.uid 
                                     } 
                                 };
                             });
                         } else {
-                            // Premier login ou profil manquant : On crée le profil avec le vrai nom
+                            // Création du document Firestore pour un nouvel utilisateur
                             updateUserProfileInCloud(user.uid, { 
                                 name: realName,
                                 email: user.email || '',
+                                photoURL: user.photoURL || undefined,
                                 role: 'student',
                                 plan: 'free'
                             });
                         }
                     });
+                    
                     const unsubCapsules = subscribeToCapsules(user.uid, (c) => {
                         if (c) setProfile(prev => ({ ...prev, capsules: c }));
                     });
+                    
                     const unsubGroups = subscribeToUserGroups(user.uid, (g) => {
                         if (g) setUserGroups(g);
                     });
+
                     return () => {
                         unsubProfile();
                         unsubCapsules();
@@ -135,11 +142,13 @@ const AppContent: React.FC = () => {
                     console.error("Sync Error:", err);
                 }
             } else {
-                // Déconnexion : retour au profil invité
                 setProfile(DEFAULT_PROFILE(t));
                 setUserGroups([]);
-                setView(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda' || prev === 'store') ? 'create' : prev);
-                setMobileTab(prev => (prev === 'profile' || prev === 'classes' || prev === 'agenda' || prev === 'store') ? 'create' : prev);
+                // Reset de la vue si on se déconnecte depuis une vue privée
+                if (['profile', 'classes', 'agenda', 'store'].includes(view)) {
+                    setView('create');
+                    setMobileTab('create');
+                }
             }
         }, (error) => {
             console.error("Auth State Error:", error);
@@ -147,7 +156,7 @@ const AppContent: React.FC = () => {
         });
         
         return () => unsubscribe();
-    }, [t]);
+    }, [t, view]);
 
     const handleNavigate = (viewToNavigate: View) => {
         setView(viewToNavigate);
@@ -169,8 +178,7 @@ const AppContent: React.FC = () => {
             return;
         }
 
-        const isAlreadyUnlocked = profile.user.unlockedPackIds?.includes(pack.id);
-        if (isAlreadyUnlocked) {
+        if (profile.user.unlockedPackIds?.includes(pack.id)) {
             handleNavigate('base');
             addToast("Ce pack est déjà dans votre bibliothèque.", "info");
             return;
@@ -203,6 +211,7 @@ const AppContent: React.FC = () => {
             <Header 
                 currentView={view} 
                 userRole={profile.user.role} 
+                userProfile={profile.user}
                 onNavigate={handleNavigate} 
                 onOpenProfile={() => handleNavigate('profile')} 
                 onLogin={() => setIsAuthModalOpen(true)} 

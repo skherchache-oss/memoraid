@@ -38,7 +38,6 @@ export interface ReviewLog {
 export interface ChatMessage {
   role: 'user' | 'model';
   content: string;
-  // Fix: Added image property
   image?: string;
 }
 
@@ -51,7 +50,6 @@ export interface AiUsage {
 export type UserPlan = 'free' | 'premium';
 export type UserRole = 'student' | 'teacher';
 
-// Fix: Added Badge interface and BadgeId type
 export type BadgeId = 'first_capsule' | 'creator_10' | 'quiz_master' | 'streak_3' | 'streak_7' | 'social_butterfly';
 
 export interface Badge {
@@ -62,7 +60,6 @@ export interface Badge {
   unlockedAt?: number;
 }
 
-// Fix: Added GamificationStats interface
 export interface GamificationStats {
   xp: number;
   level: number;
@@ -71,7 +68,6 @@ export interface GamificationStats {
   badges: Badge[];
 }
 
-// Fix: Added MemberProgress interface
 export interface MemberProgress {
   userId: string;
   name: string;
@@ -83,14 +79,14 @@ export interface UserProfile {
   uid: string;
   name: string;
   email?: string;
+  photoURL?: string; // Ajouté pour la photo de profil
   role: UserRole;
   plan: UserPlan;
   learningStyle?: LearningStyle;
   aiUsage?: AiUsage;
   chatUsage?: { count: number; lastReset: string };
-  classes: string[]; // IDs des classes rejointes
+  classes: string[]; 
   gamification?: GamificationStats;
-  // Fix: Added missing properties
   plans?: StudyPlan[];
   activePlanId?: string;
   unlockedPackIds?: string[];
@@ -116,7 +112,6 @@ export interface ClassRoom {
   createdAt: number;
 }
 
-// Fix: Added GroupMember and Group interfaces
 export interface GroupMember {
   userId: string;
   name: string;
@@ -131,7 +126,7 @@ export interface Group {
   inviteCode: string;
   members: GroupMember[];
   createdAt: number;
-  memberIds?: string[]; // Used for Firestore queries
+  memberIds?: string[]; 
 }
 
 export interface LearningModule {
@@ -149,10 +144,9 @@ export interface LearningModule {
   masteryLevel?: number;
   sourceType: SourceType;
   ownerId: string;
-  classId?: string; // Si lié à une classe
+  classId?: string; 
   mnemonic?: string;
   memoryAidImage?: string;
-  // Fix: Added missing properties
   memoryAidDescription?: string;
   history: ReviewLog[];
   isPremiumContent?: boolean;
@@ -161,7 +155,7 @@ export interface LearningModule {
   groupProgress?: MemberProgress[];
 }
 
-// Fix: Export CognitiveCapsule alias to resolve import errors in multiple files
+// Alias pour compatibilité
 export type CognitiveCapsule = LearningModule;
 
 export type View = 'create' | 'base' | 'profile' | 'store' | 'agenda' | 'classes';
@@ -172,7 +166,6 @@ export interface AppData {
   capsules: LearningModule[];
 }
 
-// Fix: Added PremiumPack interface
 export interface PremiumPack {
   id: string;
   title: string;
@@ -184,7 +177,6 @@ export interface PremiumPack {
   capsules: LearningModule[];
 }
 
-// Fix: Added Planning related types
 export interface StudyTask {
     capsuleId: string;
     title: string;
@@ -210,7 +202,6 @@ export interface StudyPlan {
     capsuleIds: string[];
 }
 
-// Fix: Added Visualization related types
 export interface MindMapNode {
     id: string;
     label: string;
@@ -222,7 +213,6 @@ export interface VisualizationData {
     data: MindMapNode | any;
 }
 
-// Fix: Added School Import related types
 export type ExternalPlatform = 'classroom' | 'pronote' | 'moodle';
 
 export interface SchoolMaterial {

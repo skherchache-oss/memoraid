@@ -71,6 +71,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
         return groups;
     }, [profile.capsules, t]);
 
+    // On priorise la photo du profil applicatif synchronisé
+    const displayPhotoURL = profile.user.photoURL || currentUser?.photoURL;
+
     const content = (
         <div className={`bg-gray-50 dark:bg-zinc-950 flex flex-col ${isOpenAsPage ? 'min-h-[calc(100vh-140px)] pb-10' : 'rounded-[40px] shadow-2xl w-full max-w-2xl h-[90vh] overflow-hidden'}`} onClick={e => e.stopPropagation()}>
             <header className={`flex items-center justify-between p-6 md:p-8 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800 flex-shrink-0 ${isOpenAsPage ? '' : 'sticky top-0 z-10'}`}>
@@ -90,9 +93,9 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl transition-all duration-700"></div>
                     <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                         <div className="relative">
-                            <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl ${role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
-                                {currentUser?.photoURL ? (
-                                    <img src={currentUser.photoURL} className="w-full h-full rounded-[32px] object-cover" alt="Profile" />
+                            <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl overflow-hidden ${role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                                {displayPhotoURL ? (
+                                    <img src={displayPhotoURL} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
                                     role === 'teacher' ? <SchoolIcon className="w-14 h-14" /> : <GraduationCapIcon className="w-14 h-14" />
                                 )}

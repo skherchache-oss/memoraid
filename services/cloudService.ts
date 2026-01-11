@@ -37,10 +37,14 @@ export const updateUserProfileInCloud = async (userId: string, profile: Partial<
  */
 export const subscribeToUserGroups = (userId: string, onUpdate: (groups: Group[]) => void) => {
   if (!db || !userId) return () => {};
+  // La version stable des règles autorise cette requête filtrée
   const q = query(collection(db, 'classes'), where('memberIds', 'array-contains', userId));
   return onSnapshot(q, (snap) => {
     const groups: Group[] = [];
-    snap.forEach(d => groups.push(d.data() as Group));
+    snap.forEach(d => {
+        const data = d.data();
+        groups.push({ ...data, id: d.id } as Group);
+    });
     onUpdate(groups);
   }, (err) => {
     console.error("Firestore Groups Subscription Error:", err.message);
@@ -57,39 +61,27 @@ export const subscribeToUserModules = (userId: string, onUpdate: (modules: Learn
   });
 };
 
-export const subscribeToGroupModules = (groupId: string, onUpdate: (modules: LearningModule[]) => void) => {
-  if (!db || !groupId) return () => {};
-  const q = query(collection(db, 'classes', groupId, 'modules'), orderBy('createdAt', 'desc'));
-  return onSnapshot(q, (snap) => {
-    const mods: LearningModule[] = [];
-    snap.forEach(d => mods.push(d.data() as LearningModule));
-    onUpdate(mods);
-  });
-};
-
 /**
- * CRÉER UNE CLASSE / GROUPE
+ * CRÉER UNE CLASSE
  */
-export const createGroup = async (teacherId: string, userName: string, name: string): Promise<Group> => {
+export const createGroup = async (name: string): Promise<string> => {
   if (!functions) throw new Error("Backend non initialisé");
+
+  const trimmed = name?.trim();
+  if (!trimmed || trimmed.length < 2) {
+    throw new Error("Nom de classe invalide (min 2 car.)");
+  }
   
+  // Utilisation de la signature v2 httpsCallable
   const createFn = httpsCallable(functions, 'createClass');
 
   try {
-    const result = await createFn({ name: name.trim() });
+    const result = await createFn({ name: trimmed });
     const data = result.data as any;
     
     if (!data || !data.success) throw new Error("Le serveur n'a pas pu créer la classe.");
 
-    return {
-      id: data.classId,
-      name: name.trim(),
-      teacherId,
-      inviteCode: data.inviteCode,
-      members: [{ userId: teacherId, name: userName, role: 'owner', joinedAt: Date.now() }],
-      memberIds: [teacherId],
-      createdAt: Date.now()
-    };
+    return data.classId;
   } catch (err: any) {
     console.error("Erreur lors de l'appel createClass:", err);
     throw err;

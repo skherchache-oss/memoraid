@@ -19,12 +19,18 @@ const globalOptions = {
  * CRÉER UNE CLASSE
  */
 export const createClass = onCall(globalOptions, async (request) => {
+  // 1. Log pour débogage
+  console.log("🔥 RAW request.data =", JSON.stringify(request.data));
+
   if (!request.auth) throw new HttpsError("unauthenticated", "Non authentifié");
 
-  const { name } = request.data;
+  // 2. Extraction robuste (Gère l'encapsulation directe ou via .data)
+  const payload = request.data || {};
+  const name = (payload.name || payload.data?.name || "").toString().trim();
 
-  if (!name || typeof name !== "string" || name.trim().length < 2) {
-    throw new HttpsError("invalid-argument", "Nom de classe manquant ou invalide");
+  if (!name || name.length < 2) {
+      console.error("❌ Validation échouée pour le nom:", name);
+      throw new HttpsError("invalid-argument", "Nom de classe manquant ou invalide (min 2 car.)");
   }
 
   const uid = request.auth.uid;
@@ -32,27 +38,29 @@ export const createClass = onCall(globalOptions, async (request) => {
 
   try {
     const classRef = await db.collection("classes").add({
-      name: name.trim(),
+      name,
       inviteCode,
       teacherId: uid,
       memberIds: [uid],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Ajout du professeur dans la sous-collection members
+    // Ajout du créateur comme propriétaire
     await classRef.collection("members").doc(uid).set({
       uid,
-      name: request.auth.token.name || "Enseignant",
+      name: request.auth.token.name || request.auth.token.email?.split('@')[0] || "Enseignant",
       role: "owner",
       joinedAt: Date.now()
     });
 
-    // Enregistrement de l'invitation pour recherche par code
+    // Stockage de l'invitation pour recherche par code
     await db.collection("invitations").doc(inviteCode).set({
       classId: classRef.id,
-      className: name.trim(),
+      className: name,
       teacherId: uid,
     });
+
+    console.log(`✅ Classe créée: ${name} (${classRef.id})`);
 
     return {
       success: true,
@@ -60,7 +68,7 @@ export const createClass = onCall(globalOptions, async (request) => {
       inviteCode,
     };
   } catch (error: any) {
-    console.error("Erreur createClass:", error);
+    console.error("Erreur Firestore createClass:", error);
     throw new HttpsError("internal", error.message);
   }
 });
@@ -71,13 +79,14 @@ export const createClass = onCall(globalOptions, async (request) => {
 export const joinClassByCode = onCall(globalOptions, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Non authentifié");
 
-  const { code } = request.data;
+  const payload = request.data || {};
+  const code = (payload.code || payload.data?.code || "").toString().trim().toUpperCase();
   const uid = request.auth.uid;
 
   if (!code) throw new HttpsError("invalid-argument", "Code manquant");
 
   try {
-    const inviteSnap = await db.collection("invitations").doc(code.toUpperCase()).get();
+    const inviteSnap = await db.collection("invitations").doc(code).get();
     if (!inviteSnap.exists) throw new HttpsError("not-found", "Code d'invitation invalide");
 
     const { classId } = inviteSnap.data()!;
@@ -87,14 +96,16 @@ export const joinClassByCode = onCall(globalOptions, async (request) => {
       const snap = await tx.get(classRef);
       if (!snap.exists) throw new Error("La classe n'existe plus");
 
-      const { memberIds = [] } = snap.data()!;
+      const data = snap.data()!;
+      const memberIds = data.memberIds || [];
+      
       if (memberIds.includes(uid)) return;
 
       tx.update(classRef, { memberIds: admin.firestore.FieldValue.arrayUnion(uid) });
 
       tx.set(classRef.collection("members").doc(uid), {
         uid,
-        name: request.auth.token.name || "Étudiant",
+        name: request.auth.token.name || request.auth.token.email?.split('@')[0] || "Étudiant",
         role: "student",
         joinedAt: Date.now()
       });
