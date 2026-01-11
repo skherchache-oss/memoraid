@@ -22,7 +22,16 @@
             fontFamily: { sans: ['Inter', 'sans-serif'] },
             animation: {
               'fade-in': 'fadeIn 0.3s ease-out forwards',
+              'fade-in-fast': 'fadeIn 0.15s ease-out forwards',
               'pulse-slow': 'pulseSlow 4s infinite ease-in-out',
+              'twinkle': 'twinkle 3s infinite ease-in-out',
+              'snow-fall': 'snowFall 10s infinite linear',
+              'hum': 'hum 2s infinite ease-in-out',
+              'electric-flicker-soft': 'electricFlicker 5s infinite',
+              'energy-orbit-slow': 'energyOrbit 12s infinite linear',
+              'toast-enter': 'toastEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+              'toast-exit': 'toastExit 0.3s ease-in forwards',
+              'add-capsule': 'addCapsule 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
             },
             keyframes: {
               fadeIn: {
@@ -33,6 +42,42 @@
                 '0%, 100%': { opacity: 1, transform: 'scale(1)' },
                 '50%': { opacity: 0.95, transform: 'scale(1.02)' },
               },
+              twinkle: {
+                '0%, 100%': { opacity: 0.3, transform: 'scale(0.95)' },
+                '50%': { opacity: 1, transform: 'scale(1.05)' },
+              },
+              snowFall: {
+                '0%': { transform: 'translateY(-20px) translateX(0)', opacity: 0 },
+                '10%': { opacity: 0.8 },
+                '90%': { opacity: 0.8 },
+                '100%': { transform: 'translateY(80px) translateX(15px)', opacity: 0 },
+              },
+              hum: {
+                '0%, 100%': { transform: 'translate(0, 0) rotate(0deg)' },
+                '25%': { transform: 'translate(0.5px, 0.5px) rotate(0.1deg)' },
+                '50%': { transform: 'translate(-0.5px, 0.5px) rotate(-0.1deg)' },
+                '75%': { transform: 'translate(0.5px, -0.5px) rotate(0.1deg)' },
+              },
+              electricFlicker: {
+                '0%, 18%, 22%, 25%, 53%, 57%, 100%': { opacity: 1 },
+                '20%, 24%, 55%': { opacity: 0.7 },
+              },
+              energyOrbit: {
+                '0%': { transform: 'rotate(0deg) translateX(8px) rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg) translateX(8px) rotate(-360deg)' },
+              },
+              toastEnter: {
+                '0%': { transform: 'translateY(100%) scale(0.9)', opacity: 0 },
+                '100%': { transform: 'translateY(0) scale(1)', opacity: 1 },
+              },
+              toastExit: {
+                '0%': { transform: 'translateX(0) opacity(1)' },
+                '100%': { transform: 'translateX(100%) opacity(0)' },
+              },
+              addCapsule: {
+                '0%': { transform: 'scale(0.8) translateY(20px)', opacity: 0 },
+                '100%': { transform: 'scale(1) translateY(0)', opacity: 1 },
+              }
             }
           } 
         }
@@ -60,12 +105,12 @@
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/",
-    "react/": "https://esm.sh/react@^19.2.3/",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
     "firebase-admin": "https://esm.sh/firebase-admin@^13.6.0",
     "firebase-functions/": "https://esm.sh/firebase-functions@^7.0.3/",
-    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0"
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/"
   }
 }
 </script>
@@ -87,14 +132,15 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 16px;
-        animation: pulseSlow 2s infinite ease-in-out;
+        gap: 20px;
+        opacity: 0;
+        animation: fadeIn 0.5s ease-out forwards;
       }
 
       .loader-logo {
-        width: 80px;
-        height: 80px;
-        filter: drop-shadow(0 10px 20px rgba(16, 185, 129, 0.15));
+        width: 100px;
+        height: 100px;
+        object-fit: contain;
       }
 
       @media (min-width: 768px) {
@@ -102,18 +148,15 @@
           width: 120px;
           height: 120px;
         }
-        .loader-content {
-          gap: 24px;
-        }
       }
 
       .loader-text {
         font-family: 'Inter', sans-serif;
         font-weight: 900;
-        font-size: 24px;
+        font-size: 28px;
         letter-spacing: -0.05em;
         text-transform: uppercase;
-        color: #064e3b;
+        color: #059669;
         margin: 0;
       }
       @media (min-width: 768px) {
@@ -141,7 +184,7 @@
           setTimeout(() => {
             loader.style.opacity = '0';
             setTimeout(() => loader.remove(), 400);
-          }, 800);
+          }, 600);
         }
       });
     </script>

@@ -41,9 +41,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     }, [profile.user]);
 
     const handleSaveName = () => {
-        if (!currentUser || name.trim() === profile.user.name) return;
-        onUpdateProfile({ name: name.trim() });
+        const cleanName = String(name || "").trim();
+        if (!currentUser || cleanName === profile.user.name || cleanName === "") return;
+        onUpdateProfile({ name: cleanName });
         addToast("Nom mis à jour", "success");
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleSaveName();
+            (e.target as HTMLInputElement).blur();
+        }
     };
 
     const handleRoleChange = (newRole: UserRole) => {
@@ -161,6 +169,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 disabled={!currentUser}
                                 onChange={e => setName(e.target.value)} 
                                 onBlur={handleSaveName}
+                                onKeyDown={handleKeyDown}
                                 className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 border-b border-transparent focus:border-indigo-200 disabled:opacity-50" 
                             />
                         </div>

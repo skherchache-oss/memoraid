@@ -87,7 +87,7 @@ export const LearningIllustration = ({ className = "" }: { className?: string })
             <div className="animate-hum">
                 <svg width="150" height="200" viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 overflow-visible">
                     
-                    {/* --- FAISCEAUX LUMINEUX EXTÉRIEURS (NOUVEAU) --- */}
+                    {/* --- FAISCEAUX LUMINEUX EXTÉRIEURS --- */}
                     <g className="animate-twinkle opacity-40">
                         <line x1="60" y1="5" x2="60" y2="0" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
                         <line x1="95" y1="20" x2="100" y2="15" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
@@ -99,18 +99,12 @@ export const LearningIllustration = ({ className = "" }: { className?: string })
                         <line x1="12" y1="90" x2="6" y2="96" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
                     </g>
 
-                    {/* --- ÉCLAIRS TRÈS RARES --- */}
-                    <g className="animate-zap-random opacity-0">
-                        <path d="M 60 -15 L 63 -8 L 59 -2" stroke="#fff" strokeWidth="1" strokeLinecap="round" />
-                    </g>
-
                     {/* --- CONTOUR DE L'AMPOULE --- */}
                     <path d="M60 15C35 15 15 35 15 60C15 80 25 95 35 105V115H85V105C95 95 105 80 105 60C105 35 85 15 60 15Z" 
                           className="fill-emerald-500/[0.01] stroke-slate-300 dark:stroke-zinc-600 transition-colors" strokeWidth="2.5" />
                     
-                    {/* --- NEIGE DE PHOTONS (POINTS AMBRE VISIBLES) --- */}
+                    {/* --- NEIGE DE PHOTONS --- */}
                     <g className="pointer-events-none">
-                        {/* Particules réparties dans le volume de l'ampoule */}
                         <circle cx="40" cy="25" r="1" fill="#facc15" className="animate-snow-fall" />
                         <circle cx="70" cy="35" r="0.8" fill="#fbbf24" className="animate-snow-fall" style={{animationDelay: '1s', animationDuration: '8s'}} />
                         <circle cx="55" cy="15" r="0.9" fill="#fde047" className="animate-snow-fall" style={{animationDelay: '2.5s', animationDuration: '6s'}} />
@@ -130,7 +124,7 @@ export const LearningIllustration = ({ className = "" }: { className?: string })
                             <circle r="1" fill="#10b981" className="animate-energy-orbit-slow" />
                         </g>
 
-                        {/* Le Logo Memoraid Filament (Derrière la neige visuellement dans le SVG car placé après) */}
+                        {/* Le Logo Memoraid Filament */}
                         <g transform="translate(36, 38) scale(2.0)">
                             <path d="M 11.4 4 C 11.1 3.8, 11.0 3.5, 10.7 3.5 C 5 3.5, 2 7, 2 12 C 2 17, 5 20.5, 10.7 20.5 C 11.0 20.5, 11.1 20.2, 11.4 20 L 11.4 4 Z" stroke="#10b981" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                             <path d="M 12.6 4 C 12.9 3.8, 13.0 3.5, 13.3 3.5 C 19 3.5, 22 7, 22 12 C 22 17, 19 20.5, 13.3 20.5 C 13.0 20.5, 12.9 20.2, 12.6 20 L 12.6 4 Z" stroke="#10b981" strokeWidth="1.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />

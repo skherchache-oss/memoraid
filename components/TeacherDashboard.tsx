@@ -1,9 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Group, LearningModule as CognitiveCapsule } from '../types';
-import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, PlusIcon, Trash2Icon, ChevronDownIcon, SendIcon, SparklesIcon } from '../constants';
-import { downloadBlob, generateFilename } from '../services/pdfService';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { createGroup, joinGroup, deleteGroup, shareModuleToGroup, unshareModuleFromGroup } from '../services/cloudService';
+import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, Trash2Icon, ChevronDownIcon, PlusIcon, RefreshCwIcon } from '../constants';
+import { createGroup, deleteGroup, shareModuleToGroup, unshareModuleFromGroup } from '../services/cloudService';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import ConfirmationModal from './ConfirmationModal';
@@ -32,17 +30,16 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const { addToast } = useToast();
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-    const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     
+    // --- ÉTAT DU FORMULAIRE DE CRÉATION ---
     const [isCreatingClass, setIsCreatingClass] = useState(false);
-    const [newClassName, setNewClassName] = useState('');
-    const [isAssigningModule, setIsAssigningModule] = useState(false);
+    const [newClassName, setNewClassName] = useState(''); // State contrôlé
     const [createLoading, setCreateLoading] = useState(false);
     
+    const [isAssigningModule, setIsAssigningModule] = useState(false);
     const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
     const [capsuleToUnshare, setCapsuleToUnshare] = useState<CognitiveCapsule | null>(null);
 
-    // Synchronisation de la sélection au démarrage ou si la liste change
     useEffect(() => {
         if (!selectedGroupId && teacherGroups.length > 0) {
             setSelectedGroupId(teacherGroups[0].id);
@@ -75,21 +72,42 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         return { totalStudents, totalCapsules, averageMastery: recordedScores > 0 ? Math.round(totalMasterySum / recordedScores) : 0 };
     }, [selectedGroup, classCapsules]);
 
+    /**
+     * HANDLER DE CRÉATION - SÉCURISÉ ET VALIDÉ
+     */
     const handleCreateClass = async (e: React.FormEvent) => {
         e.preventDefault();
-        const trimmedName = newClassName.trim();
-        if (!trimmedName || createLoading) return;
+        
+        // 1. Capture et nettoyage immédiat
+        const nameToSubmit = String(newClassName || "").trim();
+        
+        // 2. Validation Bloquante
+        if (nameToSubmit.length < 2) {
+            addToast("Le nom de la classe doit faire au moins 2 caractères.", "error");
+            return;
+        }
+
+        if (createLoading) return;
+
+        // 3. LOG DE CONTRÔLE (PREUVE DE VALEUR)
+        console.log("📤 [Dashboard] APPEL createGroup AVEC :", `"${nameToSubmit}"`);
         
         setCreateLoading(true);
         try {
-            const data = await createGroup(trimmedName);
-            setNewClassName('');
-            setIsCreatingClass(false);
-            if (data?.classId) setSelectedGroupId(data.classId); 
-            addToast(`Classe "${trimmedName}" créée !`, "success");
+            const response = await createGroup(nameToSubmit);
+            
+            // 4. Vérification de la réponse
+            if (response && response.success) {
+                setNewClassName('');
+                setIsCreatingClass(false);
+                if (response.classId) setSelectedGroupId(response.classId); 
+                addToast(`Classe "${nameToSubmit}" créée avec succès !`, "success");
+            } else {
+                throw new Error("Réponse serveur invalide");
+            }
         } catch (error: any) {
-            console.error(error);
-            addToast("Erreur lors de la création.", "error");
+            console.error("❌ [Dashboard] Échec création:", error.message);
+            addToast(error.message || "Erreur lors de la création de la classe.", "error");
         } finally {
             setCreateLoading(false);
         }
@@ -171,12 +189,23 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         onChange={(e) => setNewClassName(e.target.value)} 
                                         className="w-full p-4 border-2 border-emerald-300 rounded-xl bg-white text-slate-950 outline-none font-bold" 
                                         required
+                                        minLength={2}
                                     />
                                     <div className="flex gap-2">
-                                        <button type="submit" disabled={createLoading} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-black uppercase text-[10px] tracking-widest flex items-center justify-center">
+                                        <button 
+                                            type="submit" 
+                                            disabled={createLoading || newClassName.trim().length < 2} 
+                                            className="flex-1 bg-emerald-600 disabled:bg-slate-300 text-white py-2 rounded-lg font-black uppercase text-[10px] tracking-widest flex items-center justify-center"
+                                        >
                                             {createLoading ? <RefreshCwIcon className="w-3 h-3 animate-spin" /> : 'Créer'}
                                         </button>
-                                        <button type="button" onClick={() => setIsCreatingClass(false)} className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest">Annuler</button>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setIsCreatingClass(false); setNewClassName(''); }} 
+                                            className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest"
+                                        >
+                                            Annuler
+                                        </button>
                                     </div>
                                 </form>
                             )}
