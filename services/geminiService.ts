@@ -1,15 +1,12 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "./firebase";
-import type { ChatMessage, SourceType, LearningStyle, CognitiveCapsule, CoachingMode, UserProfile } from '../types';
+import type { ChatMessage, SourceType, LearningStyle, LearningModule as CognitiveCapsule, CoachingMode, UserProfile } from '../types';
 import type { Language } from '../i18n/translations';
 
 /**
- * PAS DE CLÉ API ICI POUR LES MODULES (BACKEND FIREBASE).
- * CERTAINES FONCTIONS UTILISENT LE SDK CLIENT AVEC process.env.API_KEY.
+ * GÉNÉRER UN MODULE COGNITIF
  */
-
 export const generateCognitiveCapsule = async (
     inputText: string, 
     sourceType: SourceType = 'text', 
@@ -19,9 +16,12 @@ export const generateCognitiveCapsule = async (
     if (!functions) throw new Error("Backend indisponible");
     const fn = httpsCallable(functions, 'generateModule');
     const result = await fn({ text: inputText, sourceType, language, learningStyle: style });
-    return (result.data as any).capsule;
+    return (result.data as any).module;
 };
 
+/**
+ * GÉNÉRER UN MODULE À PARTIR D'UN FICHIER
+ */
 export const generateCognitiveCapsuleFromFile = async (
     fileData: { mimeType: string, data: string },
     sourceType: SourceType = 'pdf',
@@ -31,21 +31,26 @@ export const generateCognitiveCapsuleFromFile = async (
     if (!functions) throw new Error("Backend indisponible");
     const fn = httpsCallable(functions, 'generateModule');
     const result = await fn({ fileData, sourceType, language, learningStyle: style });
-    return (result.data as any).capsule;
+    return (result.data as any).module;
 };
 
+/**
+ * ENVOYER UN MESSAGE AU COACH IA
+ */
 export const sendMessageToCoach = async (
     history: ChatMessage[], 
     message: string, 
-    capsuleTitle: string
+    moduleTitle: string
 ): Promise<string> => {
     if (!functions) throw new Error("Backend indisponible");
     const fn = httpsCallable(functions, 'chatWithGemini');
-    const result = await fn({ history, message, capsuleTitle });
+    const result = await fn({ history, message, moduleTitle });
     return (result.data as any).reply;
 };
 
-// Fix: Added generateMemoryAidDrawing using gemini-2.5-flash-image
+/**
+ * GÉNÉRER UN CROQUIS AIDE-MÉMOIRE (Gemini 2.5 Flash Image)
+ */
 export const generateMemoryAidDrawing = async (capsule: CognitiveCapsule, language: Language) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const prompt = `Génère un croquis aide-mémoire (Sketchnote) pour le module : "${capsule.title}". 
@@ -60,7 +65,6 @@ export const generateMemoryAidDrawing = async (capsule: CognitiveCapsule, langua
     let imageData = '';
     let description = '';
 
-    // Fix: Iterating through parts to find the image part
     if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
             if (part.inlineData) {
@@ -74,7 +78,9 @@ export const generateMemoryAidDrawing = async (capsule: CognitiveCapsule, langua
     return { imageData, description };
 };
 
-// Fix: Added generateMnemonic using gemini-3-flash-preview
+/**
+ * GÉNÉRER UNE PHRASE MNÉMOTECHNIQUE
+ */
 export const generateMnemonic = async (capsule: CognitiveCapsule, language: Language) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const prompt = `Génère un secret de mémorisation (phrase mnémotechnique, acronyme ou rime) pour retenir l'essentiel de : "${capsule.title}". 
@@ -89,7 +95,9 @@ export const generateMnemonic = async (capsule: CognitiveCapsule, language: Lang
     return response.text || '';
 };
 
-// Fix: Added createCoachingSession initializing a Gemini chat
+/**
+ * CRÉER UNE SESSION DE COACHING (Gemini 3 Flash Chat)
+ */
 export const createCoachingSession = (capsule: CognitiveCapsule, mode: CoachingMode, userProfile: UserProfile, language: Language) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     const systemInstruction = `Tu es le Coach IA de Memoraid. Ton but est d'aider l'utilisateur à maîtriser le module : "${capsule.title}".

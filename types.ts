@@ -134,7 +134,7 @@ export interface Group {
   memberIds?: string[]; // Used for Firestore queries
 }
 
-export interface CognitiveCapsule {
+export interface LearningModule {
   id: string;
   title: string;
   summary: string;
@@ -161,12 +161,15 @@ export interface CognitiveCapsule {
   groupProgress?: MemberProgress[];
 }
 
+// Fix: Export CognitiveCapsule alias to resolve import errors in multiple files
+export type CognitiveCapsule = LearningModule;
+
 export type View = 'create' | 'base' | 'profile' | 'store' | 'agenda' | 'classes';
 export type MobileTab = 'create' | 'library' | 'agenda' | 'classes' | 'store' | 'profile';
 
 export interface AppData {
   user: UserProfile;
-  capsules: CognitiveCapsule[];
+  capsules: LearningModule[];
 }
 
 // Fix: Added PremiumPack interface
@@ -178,7 +181,7 @@ export interface PremiumPack {
   price: number;
   capsuleCount: number;
   coverColor: string;
-  capsules: CognitiveCapsule[];
+  capsules: LearningModule[];
 }
 
 // Fix: Added Planning related types

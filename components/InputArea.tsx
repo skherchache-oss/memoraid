@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { SparklesIcon, XIcon, UploadIcon, AlertTriangleIcon, RefreshCwIcon, ImageIcon, BookOpenIcon, MicrophoneIcon, LearningIllustration, StopIcon } from '../constants';
 import ImportModal from './ImportModal';
-import type { SourceType } from '../types';
+import type { SourceType, View } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import HowItWorks from './HowItWorks';
@@ -14,7 +14,7 @@ interface InputAreaProps {
     isLoading: boolean;
     error: string | null;
     onClearError: () => void;
-    onOpenProfile?: () => void;
+    onNavigate?: (view: View) => void;
 }
 
 interface SpeechRecognition extends EventTarget {
@@ -43,7 +43,7 @@ const LOADING_STEP_KEYS = [
     'loading_step_7'
 ] as const;
 
-const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, onCancel, isLoading, error, onClearError, onOpenProfile }) => {
+const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, onCancel, isLoading, error, onClearError, onNavigate }) => {
     const { t, language } = useLanguage();
     const { addToast } = useToast();
     const [inputText, setInputText] = useState('');
@@ -230,7 +230,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onGenerate, onGenerateFromFile, o
             </div>
             
             <div className="mt-6 bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-lg border border-slate-100 dark:border-zinc-800 w-full relative z-10">
-                <HowItWorks onOpenProfile={onOpenProfile} />
+                <HowItWorks onNavigate={onNavigate} />
             </div>
 
             {/* Illustration de marque mise en bas pour servir de signature visuelle */}

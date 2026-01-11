@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { CognitiveCapsule, AppData, UserProfile, Group, View, MobileTab, PremiumPack } from './types';
+import type { LearningModule as CognitiveCapsule, AppData, UserProfile, Group, View, MobileTab, PremiumPack } from './types';
 import Header from './components/Header';
 import InputArea from './components/InputArea';
 import CapsuleView from './components/CapsuleView';
@@ -17,11 +17,11 @@ import { ToastProvider, useToast } from './hooks/useToast';
 import { auth } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-    subscribeToCapsules, 
+    subscribeToUserModules as subscribeToCapsules, 
     subscribeToUserGroups, 
     updateUserProfileInCloud,
     subscribeToUserProfile,
-    saveCapsuleToCloud
+    saveModuleToCloud as saveCapsuleToCloud
 } from './services/cloudService';
 import { useLanguage } from './contexts/LanguageContext';
 import { getInitialUsage } from './services/quotaManager';
@@ -149,8 +149,8 @@ const AppContent: React.FC = () => {
         return () => unsubscribe();
     }, [t]);
 
-    const handleNavigate = (newView: View) => {
-        setView(newView);
+    const handleNavigate = (viewToNavigate: View) => {
+        setView(viewToNavigate);
         const tabMap: Record<string, MobileTab> = {
             'create': 'create',
             'base': 'library',
@@ -159,7 +159,7 @@ const AppContent: React.FC = () => {
             'store': 'store',
             'profile': 'profile'
         };
-        if (tabMap[newView]) setMobileTab(tabMap[newView]);
+        if (tabMap[viewToNavigate]) setMobileTab(tabMap[viewToNavigate]);
     };
 
     const handleUnlockPack = async (pack: PremiumPack) => {
@@ -224,7 +224,7 @@ const AppContent: React.FC = () => {
                         isLoading={false} 
                         error={null} 
                         onClearError={() => {}} 
-                        onOpenProfile={() => handleNavigate('profile')}
+                        onNavigate={handleNavigate}
                     />
                 )}
                 
@@ -316,9 +316,9 @@ const AppContent: React.FC = () => {
 
             <MobileNavBar 
                 activeTab={mobileTab} 
-                onTabChange={t => { 
-                    setMobileTab(t); 
-                    handleNavigate(t === 'library' ? 'base' : t as View); 
+                onTabChange={tab => { 
+                    setMobileTab(tab); 
+                    handleNavigate(tab === 'library' ? 'base' : tab as View); 
                 }} 
                 hasActivePlan={profile.user.plans && profile.user.plans.length > 0} 
                 userRole={profile.user.role} 

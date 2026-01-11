@@ -1,5 +1,6 @@
 
-import { saveCapsuleToCloud } from './cloudService';
+// Fix: Corrected import name from saveCapsuleToCloud to saveModuleToCloud
+import { saveModuleToCloud } from './cloudService';
 import type { CognitiveCapsule, AppData } from '../types';
 
 const MODULES_STORAGE_KEY = 'memoraid_modules';
@@ -40,7 +41,8 @@ export const migrateLocalModules = async (
     if (existingRemoteIds.has(module.id)) continue;
 
     try {
-      await saveCapsuleToCloud(userId, {
+      // Fix: Use correct function name saveModuleToCloud
+      await saveModuleToCloud(userId, {
         ...module,
         migratedAt: Date.now()
       });

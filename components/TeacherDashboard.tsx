@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Group, CognitiveCapsule } from '../types';
+import type { Group, LearningModule as CognitiveCapsule } from '../types';
 import { SchoolIcon, UsersIcon, ClipboardListIcon, XIcon, BookOpenIcon, DownloadIcon, RefreshCwIcon, PlusIcon, Trash2Icon, ChevronDownIcon, SendIcon, SparklesIcon } from '../constants';
 import { downloadBlob, generateFilename } from '../services/pdfService';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-import { createGroup, shareCapsuleToGroup, deleteGroup, unshareCapsuleFromGroup } from '../services/cloudService';
+import { createGroup, joinGroup, deleteGroup, shareModuleToGroup, unshareModuleFromGroup } from '../services/cloudService';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useToast } from '../hooks/useToast';
 import ConfirmationModal from './ConfirmationModal';
@@ -107,7 +107,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const handleAssignModule = async (capsule: CognitiveCapsule) => {
         if (!selectedGroup) return;
         try {
-            await shareCapsuleToGroup(userId, selectedGroup, capsule);
+            await shareModuleToGroup(userId, selectedGroup, capsule);
             addToast(`Module partagé avec la classe !`, "success");
             setIsAssigningModule(false);
         } catch (error) { addToast("Erreur de partage.", "error"); }
@@ -291,13 +291,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         )}
 
                                         <div className="space-y-4">
-                                            {classCapsules.length > 0 ? classCapsules.map(capsule => (
-                                                <div key={capsule.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm group">
+                                            {classCapsules.length > 0 ? classCapsules.map(module => (
+                                                <div key={module.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm group">
                                                     <div className="flex items-center gap-4 min-w-0">
                                                         <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600"><BookOpenIcon className="w-5 h-5" /></div>
-                                                        <h4 className="font-black text-slate-900 dark:text-white truncate">{capsule.title}</h4>
+                                                        <h4 className="font-black text-slate-900 dark:text-white truncate">{module.title}</h4>
                                                     </div>
-                                                    <button onClick={() => setCapsuleToUnshare(capsule)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                                                    <button onClick={() => setCapsuleToUnshare(module)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                                                         <Trash2Icon className="w-4 h-4" />
                                                     </button>
                                                 </div>
@@ -330,7 +330,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 onClose={() => setCapsuleToUnshare(null)} 
                 onConfirm={async () => {
                     if (selectedGroupId && capsuleToUnshare) {
-                        await unshareCapsuleFromGroup(selectedGroupId, capsuleToUnshare.id);
+                        await unshareModuleFromGroup(selectedGroupId, capsuleToUnshare.id);
                         addToast("Module retiré.", "success");
                         setCapsuleToUnshare(null);
                     }

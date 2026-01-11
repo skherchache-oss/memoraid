@@ -132,7 +132,8 @@ export const translations = {
         uncategorized: "Non classé",
         how_it_works: "Comment ça marche ?",
         how_it_works_desc1: "Memoraid utilise la science de la **répétition espacée** pour transformer l'information éphémère en connaissances solides.",
-        how_it_works_desc2: "**1. Créez** : Écrivez, dictez ou importez un cours (PDF < 5Mo).\n**2. Apprenez** : Concepts clés, flashcards, quiz et croquis.\n**3. Planifiez** : Générez votre planning de révision et activez les notifications.\n\n**Important** : Remplissez vos [[Informations Personnelles]] pour que Memoraid adapte sa pédagogie !",
+        how_it_works_desc2: "**1. Créez** : Écrivez, dictez ou importez un cours (PDF < 5Mo).\n**2. Apprenez** : Concepts clés, flashcards, quiz et croquis.\n**3. Planifiez** : Générez votre planning de révision et activez les notifications.",
+        how_it_works_teacher: "**Vous êtes enseignant.e ?** Activez le mode [[Enseignant]] dans votre profil pour gérer vos élèves via l'onglet [[Mes Classes]]. Partagez vos modules en un clic et suivez les progrès.",
         
         // Auth Modal
         login: "Connexion",
@@ -505,7 +506,8 @@ export const translations = {
         uncategorized: "Uncategorized",
         how_it_works: "How it works?",
         how_it_works_desc1: "Memoraid uses the science of **spaced repetition** to turn fleeting information into solid knowledge.",
-        how_it_works_desc2: "**1. Create**: Write, dictate or import a course (PDF < 5MB).\n**2. Learn**: Key concepts, flashcards, quizzes and sketches.\n**3. Plan**: Generate your revision schedule and enable notifications.\n\n**Important**: Fill in your [[Personal Info]] so AI adapts to your style!",
+        how_it_works_desc2: "**1. Create**: Write, dictate or import a course (PDF < 5MB).\n**2. Learn**: Key concepts, flashcards, quizzes and sketches.\n**3. Plan**: Generate your revision schedule and enable notifications.",
+        how_it_works_teacher: "**Are you a teacher?** Switch to mode [[Teacher]] in your profile to manage your students via the [[My Classes]] tab. Share your modules in one click and track progress.",
         
         // Auth Modal
         login: "Login",

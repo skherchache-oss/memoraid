@@ -1,46 +1,31 @@
-import { initializeApp } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { initializeFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
-import { firebaseConfig as prodConfig } from "./firebase.config.prod";
-import { firebaseConfig as sandboxConfig } from "./firebase.config.sandbox";
+const firebaseConfig = {
+  apiKey: process.env.VITE_FIREBASE_API_KEY || process.env.API_KEY || "",
+  authDomain: "memoraid-sandbox.firebaseapp.com",
+  projectId: "memoraid-sandbox",
+  storageBucket: "memoraid-sandbox.firebasestorage.app",
+  messagingSenderId: "424814765916",
+  appId: "1:424814765916:web:aaba185d4dbab2af52c399",
+  measurementId: "G-XV1V591X9M"
+};
 
-// 🔁 Détection environnement
-const isSandbox = import.meta.env.VITE_ENV === "sandbox";
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-console.log("🔥 Firebase ENV :", isSandbox ? "SANDBOX" : "PROD");
+export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence);
 
-const firebaseConfig = isSandbox ? sandboxConfig : prodConfig;
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true
+});
 
-let auth: any = null;
-let db: any = null;
-let functions: any = null;
-let analytics: any = null;
+// CRUCIAL: Préciser la région europe-west1 ici
+export const functions = getFunctions(app, "europe-west1"); 
+export const googleProvider = new GoogleAuthProvider();
 
-const googleProvider = new GoogleAuthProvider();
-
-try {
-  const app = initializeApp(firebaseConfig);
-
- if (import.meta.env.VITE_ENV === "prod" && typeof window !== "undefined") {
-    isSupported()
-        .then((yes) => {
-            if (yes) analytics = getAnalytics(app);
-        })
-        .catch(() => {
-            console.warn("Analytics désactivé (env non prod)");
-        });
-}
-
-  auth = getAuth(app);
-  db = getFirestore(app);
-  functions = getFunctions(app, "europe-west1");
-
-  console.log("✅ Firebase initialisé");
-} catch (error) {
-  console.error("❌ Erreur d'initialisation Firebase:", error);
-}
-
-export { auth, db, functions, googleProvider, analytics };
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
