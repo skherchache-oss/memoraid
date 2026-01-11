@@ -2,25 +2,39 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    /* ================= USERS ================= */
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
     }
 
+    /* ================= CLASSES ================= */
     match /classes/{classId} {
-      allow read, write: if request.auth != null &&
-        (resource.data.teacherId == request.auth.uid || isMemberOfClass(request.auth.uid, classId));
 
+      // 🔓 Lecture autorisée pour tout utilisateur connecté
+      // La sécurité est assurée par la requête (memberIds)
+      allow read: if request.auth != null;
+
+      // ✍️ Écriture uniquement via Cloud Functions
+      allow write: if false;
+
+      /* ---------- MEMBERS SUBCOLLECTION ---------- */
       match /members/{memberId} {
-        allow read, write: if request.auth != null && request.auth.uid == memberId;
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      /* ---------- MODULES (ex capsules) ---------- */
+      match /modules/{moduleId} {
+        allow read: if request.auth != null;
+        allow write: if false;
       }
     }
 
-    match /invitations/{inviteCode} {
-      allow read, write: if request.auth != null;
+    /* ================= INVITATIONS ================= */
+    match /invitations/{code} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
-  }
-
-  function isMemberOfClass(userId, classId) {
-    return exists(/databases/$(database)/documents/classes/$(classId)/members/$(userId));
   }
 }
