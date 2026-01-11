@@ -10,7 +10,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 interface ProfileModalProps {
     profile: AppData;
     onClose: () => void;
-    onUpdateProfile: (newProfile: UserProfile) => void;
+    onUpdateProfile: (newProfile: Partial<UserProfile>) => void;
     addToast: (message: string, type: ToastType) => void;
     selectedCapsuleIds: string[];
     setSelectedCapsuleIds: React.Dispatch<React.SetStateAction<string[]>>;
@@ -30,6 +30,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
     const [learningStyle, setLearningStyle] = useState<LearningStyle>(profile.user.learningStyle || 'textual');
     const [isPremium, setIsPremium] = useState(profile.user.isPremium || false);
     
+    // Synchronisation avec les données parent (Firestore)
     useEffect(() => {
         setName(profile.user.name);
         setEmail(profile.user.email || '');
@@ -39,18 +40,29 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
         setIsPremium(profile.user.isPremium || false);
     }, [profile.user]);
 
-    const handleSaveProfile = () => {
+    const handleSaveName = () => {
+        if (!currentUser || name.trim() === profile.user.name) return;
+        onUpdateProfile({ name: name.trim() });
+        addToast("Nom mis à jour", "success");
+    };
+
+    const handleRoleChange = (newRole: UserRole) => {
         if (!currentUser) return;
-        onUpdateProfile({ 
-            ...profile.user, 
-            name: name.trim(), 
-            email: email.trim(), 
-            role, 
-            level, 
-            learningStyle, 
-            isPremium 
-        });
-        addToast("Profil mis à jour !", "success");
+        setRole(newRole);
+        onUpdateProfile({ role: newRole });
+        addToast(newRole === 'teacher' ? "Mode Enseignant activé" : "Mode Étudiant activé", "success");
+    };
+
+    const handleLevelChange = (newLevel: UserLevel) => {
+        if (!currentUser) return;
+        setLevel(newLevel);
+        onUpdateProfile({ level: newLevel });
+    };
+
+    const handleStyleChange = (newStyle: LearningStyle) => {
+        if (!currentUser) return;
+        setLearningStyle(newStyle);
+        onUpdateProfile({ learningStyle: newStyle });
     };
 
     const handleSendEmail = () => {
@@ -71,8 +83,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
         return groups;
     }, [profile.capsules, t]);
 
-    // On priorise la photo du profil applicatif synchronisé
-    const displayPhotoURL = profile.user.photoURL || currentUser?.photoURL;
+    const photoSource = profile.user.photoURL || currentUser?.photoURL;
+    const isValidPhoto = typeof photoSource === 'string' && photoSource.startsWith('http');
 
     const content = (
         <div className={`bg-gray-50 dark:bg-zinc-950 flex flex-col ${isOpenAsPage ? 'min-h-[calc(100vh-140px)] pb-10' : 'rounded-[40px] shadow-2xl w-full max-w-2xl h-[90vh] overflow-hidden'}`} onClick={e => e.stopPropagation()}>
@@ -94,8 +106,8 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                         <div className="relative">
                             <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl overflow-hidden ${role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
-                                {displayPhotoURL ? (
-                                    <img src={displayPhotoURL} className="w-full h-full object-cover" alt="Profile" />
+                                {isValidPhoto ? (
+                                    <img src={photoSource as string} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
                                     role === 'teacher' ? <SchoolIcon className="w-14 h-14" /> : <GraduationCapIcon className="w-14 h-14" />
                                 )}
@@ -145,10 +157,10 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('username')}</label>
                             <input 
                                 type="text" 
-                                value={currentUser ? name : t('default_username')} 
+                                value={name} 
                                 disabled={!currentUser}
                                 onChange={e => setName(e.target.value)} 
-                                onBlur={handleSaveProfile}
+                                onBlur={handleSaveName}
                                 className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 border-b border-transparent focus:border-indigo-200 disabled:opacity-50" 
                             />
                         </div>
@@ -159,10 +171,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 <select 
                                     value={role} 
                                     disabled={!currentUser}
-                                    onChange={e => {
-                                        setRole(e.target.value as UserRole);
-                                        if (currentUser) onUpdateProfile({ ...profile.user, role: e.target.value as UserRole });
-                                    }} 
+                                    onChange={e => handleRoleChange(e.target.value as UserRole)} 
                                     className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/40 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-black text-sm py-3 px-6 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[180px] text-center disabled:opacity-50"
                                 >
                                     <option value="student">{t('role_student')}</option>
@@ -179,10 +188,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <select 
                                 value={learningStyle} 
                                 disabled={!currentUser}
-                                onChange={e => {
-                                    setLearningStyle(e.target.value as LearningStyle);
-                                    if (currentUser) onUpdateProfile({ ...profile.user, learningStyle: e.target.value as LearningStyle });
-                                }} 
+                                onChange={e => handleStyleChange(e.target.value as LearningStyle)} 
                                 className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right disabled:opacity-50"
                             >
                                 <option value="textual">{t('style_textual')}</option>
@@ -255,7 +261,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 checked={isPremium} 
                                 onChange={e => {
                                     setIsPremium(e.target.checked);
-                                    if (currentUser) onUpdateProfile({ ...profile.user, isPremium: e.target.checked });
+                                    if (currentUser) onUpdateProfile({ isPremium: e.target.checked });
                                 }} 
                             />
                             <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>

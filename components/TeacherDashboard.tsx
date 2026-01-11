@@ -82,13 +82,13 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         
         setCreateLoading(true);
         try {
-            // Simplified call as requested
-            const classId = await createGroup(trimmedName);
+            const data = await createGroup(trimmedName);
             setNewClassName('');
             setIsCreatingClass(false);
-            setSelectedGroupId(classId); 
+            if (data?.classId) setSelectedGroupId(data.classId); 
             addToast(`Classe "${trimmedName}" créée !`, "success");
         } catch (error: any) {
+            console.error(error);
             addToast("Erreur lors de la création.", "error");
         } finally {
             setCreateLoading(false);
@@ -254,7 +254,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                                             <td className="p-6 text-right text-slate-400">-</td>
                                                         </tr>
                                                     ))}
-                                                    {(selectedGroup.members?.filter(m => m.role === 'student').length === 0) && (
+                                                    {(selectedGroup.members?.filter(m => m.role === 'student' || m.role === undefined).length === 0) && (
                                                         <tr>
                                                             <td colSpan={2} className="p-10 text-center text-slate-400 italic text-sm">Aucun élève n'a encore rejoint cette classe.</td>
                                                         </tr>

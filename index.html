@@ -23,12 +23,6 @@
             animation: {
               'fade-in': 'fadeIn 0.3s ease-out forwards',
               'pulse-slow': 'pulseSlow 4s infinite ease-in-out',
-              'hum': 'hum 2s infinite ease-in-out',
-              'twinkle': 'twinkle 3s infinite ease-in-out',
-              'zap-random': 'zap 10s infinite',
-              'snow-fall': 'snowFall 8s infinite linear',
-              'electric-flicker-soft': 'flicker 4s infinite ease-in-out',
-              'energy-orbit-slow': 'orbit 6s infinite linear',
             },
             keyframes: {
               fadeIn: {
@@ -36,36 +30,9 @@
                 '100%': { opacity: '1', transform: 'translateY(0)' },
               },
               pulseSlow: {
-                '0%, 100%': { opacity: 0.15, transform: 'scale(1)' },
-                '50%': { opacity: 0.05, transform: 'scale(1.05)' },
+                '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                '50%': { opacity: 0.95, transform: 'scale(1.02)' },
               },
-              hum: {
-                '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
-                '50%': { transform: 'translateY(-2px) rotate(0.5deg)' },
-              },
-              twinkle: {
-                '0%, 100%': { opacity: 0.3, transform: 'scale(1)' },
-                '50%': { opacity: 0.7, transform: 'scale(1.1)' },
-              },
-              zap: {
-                '0%, 94%, 100%': { opacity: 0 },
-                '95%, 97%': { opacity: 1 },
-              },
-              snowFall: {
-                '0%': { transform: 'translateY(-20px) translateX(0)', opacity: 0 },
-                '20%': { opacity: 0.8 },
-                '80%': { opacity: 0.8 },
-                '100%': { transform: 'translateY(80px) translateX(10px)', opacity: 0 },
-              },
-              flicker: {
-                '0%, 100%': { opacity: 1 },
-                '40%, 42%, 44%': { opacity: 0.8 },
-                '41%, 43%': { opacity: 0.95 },
-              },
-              orbit: {
-                'from': { transform: 'rotate(0deg) translateX(15px) rotate(0deg)' },
-                'to': { transform: 'rotate(360deg) translateX(15px) rotate(-360deg)' },
-              }
             }
           } 
         }
@@ -92,14 +59,13 @@
     "jszip": "https://esm.sh/jszip@3.10.1",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/",
     "vite": "https://esm.sh/vite@^7.3.1",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/",
+    "react/": "https://esm.sh/react@^19.2.3/",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
-    "firebase-functions": "https://esm.sh/firebase-functions@^7.0.3",
     "firebase-admin": "https://esm.sh/firebase-admin@^13.6.0",
-    "firebase-functions/": "https://esm.sh/firebase-functions@^7.0.3/"
+    "firebase-functions/": "https://esm.sh/firebase-functions@^7.0.3/",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0"
   }
 }
 </script>
@@ -113,7 +79,7 @@
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.5s ease-out;
+        transition: opacity 0.4s ease-out;
       }
       .dark #preloader { background: #09090b; }
       
@@ -121,58 +87,41 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 24px;
+        gap: 16px;
+        animation: pulseSlow 2s infinite ease-in-out;
       }
 
       .loader-logo {
-        width: 100px; /* Taille réduite pour le mobile par défaut */
-        height: 100px;
-        image-rendering: -webkit-optimize-contrast;
-        image-rendering: crisp-edges;
-        filter: drop-shadow(0 10px 20px rgba(16, 185, 129, 0.2));
-        animation: logoPulse 2.5s infinite ease-in-out;
+        width: 80px;
+        height: 80px;
+        filter: drop-shadow(0 10px 20px rgba(16, 185, 129, 0.15));
       }
 
-      /* Desktop size */
       @media (min-width: 768px) {
         .loader-logo {
-          width: 160px;
-          height: 160px;
-          filter: drop-shadow(0 15px 30px rgba(16, 185, 129, 0.3));
+          width: 120px;
+          height: 120px;
         }
         .loader-content {
-          gap: 32px;
+          gap: 24px;
         }
       }
 
       .loader-text {
         font-family: 'Inter', sans-serif;
         font-weight: 900;
-        font-size: 28px; /* Taille réduite pour mobile */
+        font-size: 24px;
         letter-spacing: -0.05em;
         text-transform: uppercase;
         color: #064e3b;
         margin: 0;
-        opacity: 0;
-        animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        animation-delay: 0.3s;
       }
       @media (min-width: 768px) {
         .loader-text {
-          font-size: 42px;
+          font-size: 36px;
         }
       }
       .dark .loader-text { color: #ffffff; }
-
-      @keyframes logoPulse {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.03); opacity: 0.95; }
-      }
-
-      @keyframes slideUp {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-      }
     </style>
   <link rel="stylesheet" href="/index.css">
 </head>
@@ -187,13 +136,13 @@
     <script type="module" src="/index.tsx"></script>
     <script>
       window.addEventListener('load', () => {
-        setTimeout(() => {
-          const loader = document.getElementById('preloader');
-          if (loader) {
+        const loader = document.getElementById('preloader');
+        if (loader) {
+          setTimeout(() => {
             loader.style.opacity = '0';
-            setTimeout(() => loader.remove(), 500);
-          }
-        }, 1200);
+            setTimeout(() => loader.remove(), 400);
+          }, 800);
+        }
       });
     </script>
   </body>

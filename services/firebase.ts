@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from "firebase/auth";
-import { initializeFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
@@ -13,19 +13,18 @@ const firebaseConfig = {
   measurementId: "G-XV1V591X9M"
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// INITIALISATION UNIQUE
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence);
 
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true
-});
+export const db = getFirestore(app);
 
-// CRUCIAL: Préciser la région europe-west1 ici
+/** ⚠️ LIGNE CRITIQUE : Région Europe-West1 ⚠️ */
 export const functions = getFunctions(app, "europe-west1"); 
-export const googleProvider = new GoogleAuthProvider();
 
+export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });

@@ -59,99 +59,99 @@ const AppContent: React.FC = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [isAppReady, setIsAppReady] = useState(false);
 
+    // Fonction de mise à jour optimiste et sécurisée
+    const handleUpdateProfile = useCallback(async (newFields: Partial<UserProfile>) => {
+        if (!currentUser?.uid) return;
+
+        // 1. Mise à jour locale immédiate
+        setProfile(prev => ({
+            ...prev,
+            user: { ...prev.user, ...newFields }
+        }));
+
+        // 2. Sauvegarde Cloud
+        try {
+            await updateUserProfileInCloud(currentUser.uid, newFields);
+        } catch (err: any) {
+            console.error("❌ Erreur mise à jour profil:", err.message);
+            addToast("Erreur de synchronisation du profil.", "error");
+        }
+    }, [currentUser, addToast]);
+
     useEffect(() => {
         if (!auth) {
             setIsAppReady(true);
             return;
         }
         
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setCurrentUser(user);
-            setIsAppReady(true);
             
             if (user) {
                 const realName = user.displayName || user.email?.split('@')[0] || t('default_username');
+                const authPhoto = user.photoURL || undefined;
 
-                // Mise à jour immédiate de l'état local avec les infos d'Auth
+                // On s'assure que le document existe avant de s'abonner
+                try {
+                    await updateUserProfileInCloud(user.uid, {
+                        uid: user.uid,
+                        name: realName,
+                        email: user.email || '',
+                        photoURL: authPhoto
+                    });
+                } catch (e) {
+                    console.error("Erreur init profil:", e);
+                }
+
                 setProfile(prev => ({
                     ...prev,
                     user: {
                         ...prev.user,
                         uid: user.uid,
-                        name: (prev.user.name === 'Apprenant' || prev.user.name === 'Invité' || prev.user.name === t('default_username'))
-                            ? realName
-                            : prev.user.name,
+                        name: (prev.user.name === 'Invité' || prev.user.name === t('default_username')) ? realName : prev.user.name,
                         email: user.email || prev.user.email,
-                        photoURL: user.photoURL || undefined
+                        photoURL: authPhoto || prev.user.photoURL
                     }
                 }));
 
-                try {
-                    // Écoute du profil dans Firestore
-                    const unsubProfile = subscribeToUserProfile(user.uid, (u) => {
-                        if (u) {
-                            setProfile(prev => {
-                                // Vérification si Firestore doit être mis à jour (nom par défaut ou photo absente)
-                                const nameNeedsUpdate = u.name === 'Apprenant' || !u.name || u.name === 'Invité';
-                                const photoNeedsSync = user.photoURL && u.photoURL !== user.photoURL;
+                let unsubProfile: () => void = () => {};
+                let unsubCapsules: () => void = () => {};
+                let unsubGroups: () => void = () => {};
 
-                                if (nameNeedsUpdate || photoNeedsSync) {
-                                    updateUserProfileInCloud(user.uid, { 
-                                        name: nameNeedsUpdate ? realName : u.name, 
-                                        photoURL: user.photoURL || u.photoURL || undefined 
-                                    });
-                                }
-                                
-                                return { 
-                                    ...prev, 
-                                    user: { 
-                                        ...prev.user, 
-                                        ...u,
-                                        name: (u.name === 'Apprenant' || !u.name || u.name === 'Invité') ? realName : u.name,
-                                        photoURL: u.photoURL || user.photoURL || undefined,
-                                        uid: user.uid 
-                                    } 
-                                };
-                            });
-                        } else {
-                            // Création du document Firestore pour un nouvel utilisateur
-                            updateUserProfileInCloud(user.uid, { 
-                                name: realName,
-                                email: user.email || '',
-                                photoURL: user.photoURL || undefined,
-                                role: 'student',
-                                plan: 'free'
-                            });
-                        }
+                try {
+                    unsubProfile = subscribeToUserProfile(user.uid, (u) => {
+                        if (u) setProfile(prev => ({ ...prev, user: { ...prev.user, ...u } }));
                     });
                     
-                    const unsubCapsules = subscribeToCapsules(user.uid, (c) => {
+                    unsubCapsules = subscribeToCapsules(user.uid, (c) => {
                         if (c) setProfile(prev => ({ ...prev, capsules: c }));
                     });
                     
-                    const unsubGroups = subscribeToUserGroups(user.uid, (g) => {
+                    unsubGroups = subscribeToUserGroups(user.uid, (g) => {
                         if (g) setUserGroups(g);
                     });
-
-                    return () => {
-                        unsubProfile();
-                        unsubCapsules();
-                        unsubGroups();
-                    };
                 } catch (err) {
                     console.error("Sync Error:", err);
                 }
+
+                setIsAppReady(true);
+
+                return () => {
+                    unsubProfile();
+                    unsubCapsules();
+                    unsubGroups();
+                };
             } else {
                 setProfile(DEFAULT_PROFILE(t));
                 setUserGroups([]);
-                // Reset de la vue si on se déconnecte depuis une vue privée
+                setIsAppReady(true);
                 if (['profile', 'classes', 'agenda', 'store'].includes(view)) {
                     setView('create');
                     setMobileTab('create');
                 }
             }
         }, (error) => {
-            console.error("Auth State Error:", error);
+            console.error("Auth Observer Error:", error);
             setIsAppReady(true);
         });
         
@@ -174,19 +174,17 @@ const AppContent: React.FC = () => {
     const handleUnlockPack = async (pack: PremiumPack) => {
         if (!currentUser) {
             setIsAuthModalOpen(true);
-            addToast("Connectez-vous pour débloquer des packs.", "info");
             return;
         }
 
         if (profile.user.unlockedPackIds?.includes(pack.id)) {
             handleNavigate('base');
-            addToast("Ce pack est déjà dans votre bibliothèque.", "info");
             return;
         }
 
         try {
             const updatedPackIds = [...(profile.user.unlockedPackIds || []), pack.id];
-            await updateUserProfileInCloud(currentUser.uid, { unlockedPackIds: updatedPackIds });
+            await handleUpdateProfile({ unlockedPackIds: updatedPackIds });
 
             for (const capsule of pack.capsules) {
                 await saveCapsuleToCloud(currentUser.uid, {
@@ -199,7 +197,6 @@ const AppContent: React.FC = () => {
             addToast(t('pack_added'), "success");
             handleNavigate('base');
         } catch (err) {
-            console.error(err);
             addToast(t('pack_error'), "error");
         }
     };
@@ -299,7 +296,7 @@ const AppContent: React.FC = () => {
                     <ProfileModal 
                         profile={profile} 
                         onClose={() => handleNavigate('create')} 
-                        onUpdateProfile={(u) => updateUserProfileInCloud(currentUser?.uid || '', u)} 
+                        onUpdateProfile={handleUpdateProfile} 
                         addToast={addToast} 
                         selectedCapsuleIds={[]} 
                         setSelectedCapsuleIds={() => {}} 

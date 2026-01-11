@@ -53,8 +53,9 @@ const Header: React.FC<HeaderProps> = ({
             : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100'}
     `;
 
-    // On priorise la photo du profil applicatif (qui est synchronisée)
-    const displayPhotoURL = userProfile?.photoURL || currentUser?.photoURL;
+    // Normalisation de l'URL de la photo (Firestore d'abord, sinon Auth)
+    const photoSource = userProfile?.photoURL || currentUser?.photoURL;
+    const isValidPhoto = typeof photoSource === 'string' && photoSource.startsWith('http');
 
     return (
         <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
@@ -159,8 +160,8 @@ const Header: React.FC<HeaderProps> = ({
                                         : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-500'
                                 } active:scale-90`}
                             >
-                                {displayPhotoURL ? (
-                                    <img src={displayPhotoURL} alt="Profil" className="w-full h-full object-cover" />
+                                {isValidPhoto ? (
+                                    <img src={photoSource as string} alt="Profil" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-400 text-white' : 'bg-emerald-100 text-emerald-600'}`}>
                                         <UserIcon className="w-5 h-5 md:w-6 md:h-6" />
