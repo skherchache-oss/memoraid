@@ -1,17 +1,25 @@
 {
   "compilerOptions": {
-    "module": "NodeNext",
-    "esModuleInterop": true,
-    "moduleResolution": "nodenext",
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
+    "module": "commonjs",
+    "noImplicitAny": true,
     "outDir": "lib",
+    "rootDir": ".",
+    "preserveConstEnums": true,
+    "removeComments": true,
     "sourceMap": true,
     "strict": true,
-    "target": "es2017"
+    "target": "es2020",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "lib": ["es2020"]
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib",
+    "**/*.spec.ts"
   ]
 }

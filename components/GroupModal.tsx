@@ -26,12 +26,19 @@ const GroupModal: React.FC<GroupModalProps> = ({ onClose, userId, userName, user
         
         setIsLoading(true);
         try {
-            await joinGroup(userId, userName, code);
-            addToast("Félicitations ! Vous avez rejoint la classe.", "success");
+            const result = await joinGroup(code);
+            
+            if (result.alreadyMember) {
+                addToast("Vous faites déjà partie de cette classe.", "info");
+            } else {
+                addToast("Félicitations ! Vous avez rejoint la classe.", "success");
+            }
+            
             setInviteCode('');
             onClose();
         } catch (error: any) {
-            console.error(error);
+            console.error("Join Error UI:", error);
+            // On affiche le message d'erreur précis renvoyé par la Cloud Function
             addToast(error.message || "Code invalide ou erreur de connexion.", "error");
         } finally {
             setIsLoading(false);

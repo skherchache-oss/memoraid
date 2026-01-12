@@ -21,55 +21,46 @@ interface ProfileModalProps {
 }
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, onNavigateToReviews }) => {
-    const { t, language } = useLanguage();
+    const { t } = useLanguage();
     
-    const [name, setName] = useState(profile.user.name);
-    const [email, setEmail] = useState(profile.user.email || '');
-    const [level, setLevel] = useState<UserLevel>(profile.user.level || 'intermediate');
-    const [role, setRole] = useState<UserRole>(profile.user.role || 'student');
-    const [learningStyle, setLearningStyle] = useState<LearningStyle>(profile.user.learningStyle || 'textual');
-    const [isPremium, setIsPremium] = useState(profile.user.isPremium || false);
-    
-    // Synchronisation avec les données parent (Firestore)
+    // États locaux pour la saisie
+    const [localName, setLocalName] = useState(profile.user.name);
+    const isEditingRef = useRef(false);
+
+    // Sync uniquement si on n'est pas en train d'éditer
     useEffect(() => {
-        setName(profile.user.name);
-        setEmail(profile.user.email || '');
-        setLevel(profile.user.level || 'intermediate');
-        setRole(profile.user.role || 'student');
-        setLearningStyle(profile.user.learningStyle || 'textual');
-        setIsPremium(profile.user.isPremium || false);
-    }, [profile.user]);
+        if (!isEditingRef.current) {
+            setLocalName(profile.user.name);
+        }
+    }, [profile.user.name]);
 
     const handleSaveName = () => {
-        const cleanName = String(name || "").trim();
-        if (!currentUser || cleanName === profile.user.name || cleanName === "") return;
+        isEditingRef.current = false;
+        const cleanName = localName.trim();
+        if (!currentUser || cleanName === profile.user.name) return;
+        
+        if (cleanName === "") {
+            setLocalName(profile.user.name);
+            return;
+        }
+
         onUpdateProfile({ name: cleanName });
         addToast("Nom mis à jour", "success");
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            handleSaveName();
-            (e.target as HTMLInputElement).blur();
-        }
-    };
-
     const handleRoleChange = (newRole: UserRole) => {
-        if (!currentUser) return;
-        setRole(newRole);
+        if (!currentUser || newRole === profile.user.role) return;
         onUpdateProfile({ role: newRole });
         addToast(newRole === 'teacher' ? "Mode Enseignant activé" : "Mode Étudiant activé", "success");
     };
 
     const handleLevelChange = (newLevel: UserLevel) => {
-        if (!currentUser) return;
-        setLevel(newLevel);
+        if (!currentUser || newLevel === profile.user.level) return;
         onUpdateProfile({ level: newLevel });
     };
 
     const handleStyleChange = (newStyle: LearningStyle) => {
-        if (!currentUser) return;
-        setLearningStyle(newStyle);
+        if (!currentUser || newStyle === profile.user.learningStyle) return;
         onUpdateProfile({ learningStyle: newStyle });
     };
 
@@ -113,14 +104,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl transition-all duration-700"></div>
                     <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                         <div className="relative">
-                            <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl overflow-hidden ${role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                            <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl overflow-hidden ${profile.user.role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
                                 {isValidPhoto ? (
                                     <img src={photoSource as string} className="w-full h-full object-cover" alt="Profile" />
                                 ) : (
-                                    role === 'teacher' ? <SchoolIcon className="w-14 h-14" /> : <GraduationCapIcon className="w-14 h-14" />
+                                    profile.user.role === 'teacher' ? <SchoolIcon className="w-14 h-14" /> : <GraduationCapIcon className="w-14 h-14" />
                                 )}
                             </div>
-                            {isPremium && (
+                            {profile.user.isPremium && (
                                 <div className="absolute -top-3 -right-3 p-2 bg-amber-400 rounded-full border-4 border-white dark:border-zinc-900 shadow-lg">
                                     <CrownIcon className="w-5 h-5 text-white" />
                                 </div>
@@ -128,12 +119,12 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                         </div>
                         <div className="text-center md:text-left flex-grow">
                             <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-2">
-                                {currentUser ? name : t('default_username')}
+                                {currentUser ? profile.user.name : t('default_username')}
                             </h3>
                             <div className="flex items-center justify-center md:justify-start gap-2 text-xs font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
                                 <span>{t('level_short')} {profile.user.gamification?.level || 1}</span>
                                 <span className="text-slate-200 dark:text-zinc-800">•</span>
-                                <span className="text-emerald-600 font-black">{role === 'teacher' ? t('role_teacher') : t('role_student')}</span>
+                                <span className="text-emerald-600 font-black">{profile.user.role === 'teacher' ? t('role_teacher') : t('role_student')}</span>
                             </div>
                             <div className="mt-6 flex items-center justify-center md:justify-start gap-4">
                                 <div className="flex items-center gap-2.5 text-xs font-black text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-4 py-2.5 rounded-2xl border border-orange-100 dark:border-orange-900/30">
@@ -165,11 +156,14 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{t('username')}</label>
                             <input 
                                 type="text" 
-                                value={name} 
+                                value={localName} 
                                 disabled={!currentUser}
-                                onChange={e => setName(e.target.value)} 
+                                onChange={e => {
+                                    isEditingRef.current = true;
+                                    setLocalName(e.target.value);
+                                }} 
                                 onBlur={handleSaveName}
-                                onKeyDown={handleKeyDown}
+                                onKeyDown={e => e.key === 'Enter' && handleSaveName()}
                                 className="bg-transparent text-slate-900 dark:text-white font-black text-left md:text-right outline-none focus:text-indigo-500 transition-colors py-1 border-b border-transparent focus:border-indigo-200 disabled:opacity-50" 
                             />
                         </div>
@@ -178,7 +172,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <label className="text-[10px] font-black uppercase tracking-widest text-indigo-400 dark:text-emerald-400">{t('account_type')}</label>
                             <div className="relative group">
                                 <select 
-                                    value={role} 
+                                    value={profile.user.role} 
                                     disabled={!currentUser}
                                     onChange={e => handleRoleChange(e.target.value as UserRole)} 
                                     className="bg-white dark:bg-zinc-800 border-2 border-emerald-500/40 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-black text-sm py-3 px-6 rounded-2xl outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all cursor-pointer shadow-lg appearance-none min-w-[180px] text-center disabled:opacity-50"
@@ -195,7 +189,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 <BrainIcon className="w-4 h-4" /> {t('learning_style')}
                             </label>
                             <select 
-                                value={learningStyle} 
+                                value={profile.user.learningStyle} 
                                 disabled={!currentUser}
                                 onChange={e => handleStyleChange(e.target.value as LearningStyle)} 
                                 className="bg-white dark:bg-zinc-800 border border-indigo-100 dark:border-zinc-700 text-slate-800 dark:text-white font-bold py-2 px-5 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 text-sm shadow-sm transition-all appearance-none text-right disabled:opacity-50"
@@ -216,7 +210,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                                 <SchoolIcon className="w-7 h-7" />
                             </div>
                             <div className="text-left">
-                                <span className="block font-black text-slate-800 dark:text-zinc-100 text-lg">{role === 'teacher' ? t('my_classes') : t('my_groups')}</span>
+                                <span className="block font-black text-slate-800 dark:text-zinc-100 text-lg">{profile.user.role === 'teacher' ? t('my_classes') : t('my_groups')}</span>
                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Collaboration active</span>
                             </div>
                         </div>
@@ -233,7 +227,7 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                             <div key={cat}>
                                 <div className="px-5 py-2.5 bg-slate-50 dark:bg-zinc-800 text-[10px] font-black text-slate-400 uppercase tracking-widest sticky top-0 border-b border-slate-100 dark:border-zinc-800 z-10">{cat}</div>
                                 {groupedCapsules[cat].map(c => (
-                                    <div key={c.id} className="flex items-center px-5 py-4 border-b border-slate-50 dark:border-zinc-900 last:border-0 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 cursor-pointer transition-colors" onClick={() => setSelectedCapsuleIds(prev => prev.includes(c.id) ? prev.filter(i => i !== c.id) : [...prev, c.id])}>
+                                    <div key={c.id} className="flex items-center px-5 py-4 border-b border-slate-50 dark:border-zinc-900 last:border-0 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 cursor-pointer transition-colors" onClick={() => setSelectedCapsuleIds(prev => prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id])}>
                                         <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center mr-5 transition-all ${selectedCapsuleIds.includes(c.id) ? 'bg-emerald-500 border-emerald-500 rotate-6' : 'border-slate-300 dark:border-zinc-700'}`}>
                                             {selectedCapsuleIds.includes(c.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
                                         </div>
@@ -253,23 +247,22 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                 </section>
 
                 <div id="premium-section-anchor" className="grid grid-cols-1 gap-4 scroll-mt-24">
-                    <div className={`rounded-[36px] p-8 flex items-center justify-between border-2 transition-all shadow-lg ${isPremium ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 hover:border-amber-200'}`}>
+                    <div className={`rounded-[36px] p-8 flex items-center justify-between border-2 transition-all shadow-lg ${profile.user.isPremium ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/30' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 hover:border-amber-200'}`}>
                         <div className="flex items-center gap-6">
-                            <div className={`p-5 rounded-[24px] shadow-2xl ${isPremium ? 'bg-amber-400 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                            <div className={`p-5 rounded-[24px] shadow-2xl ${profile.user.isPremium ? 'bg-amber-400 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
                                 <CrownIcon className="w-8 h-8" />
                             </div>
                             <div>
                                 <h3 className="font-black text-slate-900 dark:text-white text-xl tracking-tight leading-tight">Memoraid Premium</h3>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{isPremium ? 'Premium Actif' : t('premium_status_sub')}</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{profile.user.isPremium ? 'Premium Actif' : t('premium_status_sub')}</p>
                             </div>
                         </div>
                         <label className="relative inline-flex items-center cursor-pointer scale-110">
                             <input 
                                 type="checkbox" 
                                 className="sr-only peer" 
-                                checked={isPremium} 
+                                checked={profile.user.isPremium || false} 
                                 onChange={e => {
-                                    setIsPremium(e.target.checked);
                                     if (currentUser) onUpdateProfile({ isPremium: e.target.checked });
                                 }} 
                             />

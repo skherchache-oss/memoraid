@@ -1,63 +1,98 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { setGlobalOptions } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 
-if (!admin.apps.length) admin.initializeApp();
+admin.initializeApp();
 const db = admin.firestore();
 
-const globalOptions = { region: "europe-west1", cors: true, maxInstances: 10 };
+// Définir la région par défaut pour toutes les fonctions v2
+setGlobalOptions({ region: "europe-west1" });
 
-export const createClass = onCall(globalOptions, async (request) => {
-  // 1️⃣ EXTRACTION UNIVERSELLE DES DONNÉES
-  let payload: any;
-  if (typeof request.data === "string") {
-    // parfois envoyé comme JSON brut
-    try { payload = JSON.parse(request.data); } 
-    catch { payload = {}; }
-  } else {
-    payload = (request.data as any)?.data ?? request.data ?? {};
+/**
+ * CRÉATION D'UNE CLASSE (PROFESSEUR)
+ */
+export const createClass = onCall(async (request) => {
+  const { auth, data } = request;
+
+  if (!auth) {
+    throw new HttpsError("unauthenticated", "Utilisateur non authentifié");
   }
 
-  const name = typeof payload?.name === "string" ? payload.name.trim() : "";
-
-  console.log("🔥 [DEBUG] RAW request.data reçu =", JSON.stringify(request.data));
-  console.log("🔥 [DEBUG] Nom de classe extrait =", name);
-
-  if (!request.auth) throw new HttpsError("unauthenticated", "Utilisateur non identifié");
-  if (!name || name.length < 2) {
-    throw new HttpsError("invalid-argument", "Nom de classe manquant ou invalide");
+  let rawName = "";
+  if (typeof data === 'string') {
+    rawName = data;
+  } else if (data && typeof data.name === 'string') {
+    rawName = data.name;
   }
 
-  const uid = request.auth.uid;
-  const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const name = rawName.trim();
+  if (name.length < 2) {
+    throw new HttpsError("invalid-argument", "Nom de classe trop court");
+  }
 
   try {
-    const classRef = await db.collection("classes").add({
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const ref = await db.collection("classes").add({
       name,
-      inviteCode,
-      teacherId: uid,
-      memberIds: [uid],
+      ownerId: auth.uid,
+      memberIds: [auth.uid],
+      inviteCode: inviteCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Ajouter le créateur comme membre propriétaire
-    await classRef.collection("members").doc(uid).set({
-      uid,
-      name: request.auth.token.name || request.auth.token.email?.split("@")[0] || "Enseignant",
-      role: "owner",
-      joinedAt: Date.now(),
+    return {
+      success: true,
+      classId: ref.id,
+      inviteCode,
+    };
+  } catch (error: any) {
+    console.error("Create Class Error:", error);
+    throw new HttpsError("internal", error.message || "Erreur base de données");
+  }
+});
+
+/**
+ * REJOINDRE UNE CLASSE (ÉTUDIANT)
+ */
+export const joinClassByCode = onCall(async (request) => {
+  const { auth, data } = request;
+
+  if (!auth) {
+    throw new HttpsError("unauthenticated", "Authentification requise");
+  }
+
+  const code = String(data?.code ?? "").trim().toUpperCase();
+  if (!code) {
+    throw new HttpsError("invalid-argument", "Code d'invitation manquant");
+  }
+
+  try {
+    const snapshot = await db.collection("classes")
+      .where("inviteCode", "==", code)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      throw new HttpsError("not-found", "Ce code de classe n'existe pas");
+    }
+
+    const classDoc = snapshot.docs[0];
+    const classData = classDoc.data();
+    const memberIds = Array.isArray(classData.memberIds) ? classData.memberIds : [];
+
+    if (memberIds.includes(auth.uid)) {
+      return { success: true, alreadyMember: true };
+    }
+
+    await classDoc.ref.update({
+      memberIds: admin.firestore.FieldValue.arrayUnion(auth.uid)
     });
 
-    // Créer un index d'invitation
-    await db.collection("invitations").doc(inviteCode).set({
-      classId: classRef.id,
-      className: name,
-      teacherId: uid,
-    });
-
-    console.log(`✅ Classe "${name}" créée, ID: ${classRef.id}`);
-    return { success: true, classId: classRef.id, inviteCode };
-  } catch (err: any) {
-    console.error("💥 Erreur createClass:", err);
-    throw new HttpsError("internal", err.message);
+    return { success: true, alreadyMember: false };
+  } catch (error: any) {
+    // Log crucial pour voir l'erreur réelle dans la console Firebase
+    console.error(`Join Error for user ${auth.uid} with code ${code}:`, error);
+    throw new HttpsError("internal", "Erreur lors de l'inscription à la classe");
   }
 });

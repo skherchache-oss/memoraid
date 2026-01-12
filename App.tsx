@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { LearningModule as CognitiveCapsule, AppData, UserProfile, Group, View, MobileTab, PremiumPack } from './types';
 import Header from './components/Header';
 import InputArea from './components/InputArea';
@@ -14,8 +14,9 @@ import PremiumStore from './components/PremiumStore';
 import MobileNavBar from './components/MobileNavBar';
 import { useTheme } from './hooks/useTheme';
 import { ToastProvider, useToast } from './hooks/useToast';
-import { auth } from './services/firebase';
+import { auth, db } from './services/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import { 
     subscribeToUserModules as subscribeToCapsules, 
     subscribeToUserGroups, 
@@ -59,22 +60,28 @@ const AppContent: React.FC = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [isAppReady, setIsAppReady] = useState(false);
 
-    // Fonction de mise à jour optimiste et sécurisée
+    // Refs pour nettoyer les abonnements lors du changement d'utilisateur
+    const unsubscribes = useRef<(() => void)[]>([]);
+
+    const clearSubscriptions = () => {
+        unsubscribes.current.forEach(u => u());
+        unsubscribes.current = [];
+    };
+
     const handleUpdateProfile = useCallback(async (newFields: Partial<UserProfile>) => {
         if (!currentUser?.uid) return;
 
-        // 1. Mise à jour locale immédiate
+        // Mise à jour locale immédiate (optimiste)
         setProfile(prev => ({
             ...prev,
             user: { ...prev.user, ...newFields }
         }));
 
-        // 2. Sauvegarde Cloud
         try {
             await updateUserProfileInCloud(currentUser.uid, newFields);
         } catch (err: any) {
             console.error("❌ Erreur mise à jour profil:", err.message);
-            addToast("Erreur de synchronisation du profil.", "error");
+            addToast("Erreur de synchronisation.", "error");
         }
     }, [currentUser, addToast]);
 
@@ -84,63 +91,55 @@ const AppContent: React.FC = () => {
             return;
         }
         
-        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+            clearSubscriptions();
             setCurrentUser(user);
             
             if (user) {
-                const realName = user.displayName || user.email?.split('@')[0] || t('default_username');
-                const authPhoto = user.photoURL || undefined;
+                // 1. Vérifier si le profil existe déjà dans Firestore
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDocSnap = await getDoc(userDocRef);
 
-                // On s'assure que le document existe avant de s'abonner
-                try {
-                    await updateUserProfileInCloud(user.uid, {
-                        uid: user.uid,
-                        name: realName,
-                        email: user.email || '',
-                        photoURL: authPhoto
-                    });
-                } catch (e) {
-                    console.error("Erreur init profil:", e);
+                if (!userDocSnap.exists()) {
+                    // C'est une première connexion, on initialise avec les infos Google
+                    const realName = user.displayName || user.email?.split('@')[0] || t('default_username');
+                    try {
+                        await updateUserProfileInCloud(user.uid, {
+                            uid: user.uid,
+                            name: realName,
+                            email: user.email || '',
+                            photoURL: user.photoURL || undefined,
+                            role: 'student',
+                            plan: 'free',
+                            aiUsage: getInitialUsage(),
+                            gamification: getInitialGamificationStats(),
+                            createdAt: Date.now()
+                        } as any);
+                    } catch (e) {
+                        console.error("Erreur init profil:", e);
+                    }
                 }
 
-                setProfile(prev => ({
-                    ...prev,
-                    user: {
-                        ...prev.user,
-                        uid: user.uid,
-                        name: (prev.user.name === 'Invité' || prev.user.name === t('default_username')) ? realName : prev.user.name,
-                        email: user.email || prev.user.email,
-                        photoURL: authPhoto || prev.user.photoURL
-                    }
-                }));
-
-                let unsubProfile: () => void = () => {};
-                let unsubCapsules: () => void = () => {};
-                let unsubGroups: () => void = () => {};
-
+                // 2. Mettre en place les abonnements temps réel
                 try {
-                    unsubProfile = subscribeToUserProfile(user.uid, (u) => {
+                    const unsubProfile = subscribeToUserProfile(user.uid, (u) => {
                         if (u) setProfile(prev => ({ ...prev, user: { ...prev.user, ...u } }));
                     });
                     
-                    unsubCapsules = subscribeToCapsules(user.uid, (c) => {
+                    const unsubCapsules = subscribeToCapsules(user.uid, (c) => {
                         if (c) setProfile(prev => ({ ...prev, capsules: c }));
                     });
                     
-                    unsubGroups = subscribeToUserGroups(user.uid, (g) => {
+                    const unsubGroups = subscribeToUserGroups(user.uid, (g) => {
                         if (g) setUserGroups(g);
                     });
+
+                    unsubscribes.current = [unsubProfile, unsubCapsules, unsubGroups];
                 } catch (err) {
                     console.error("Sync Error:", err);
                 }
 
                 setIsAppReady(true);
-
-                return () => {
-                    unsubProfile();
-                    unsubCapsules();
-                    unsubGroups();
-                };
             } else {
                 setProfile(DEFAULT_PROFILE(t));
                 setUserGroups([]);
@@ -155,7 +154,10 @@ const AppContent: React.FC = () => {
             setIsAppReady(true);
         });
         
-        return () => unsubscribe();
+        return () => {
+            unsubscribeAuth();
+            clearSubscriptions();
+        };
     }, [t, view]);
 
     const handleNavigate = (viewToNavigate: View) => {

@@ -33,7 +33,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     
     // --- ÉTAT DU FORMULAIRE DE CRÉATION ---
     const [isCreatingClass, setIsCreatingClass] = useState(false);
-    const [newClassName, setNewClassName] = useState(''); // State contrôlé
+    const [newClassName, setNewClassName] = useState(''); 
     const [createLoading, setCreateLoading] = useState(false);
     
     const [isAssigningModule, setIsAssigningModule] = useState(false);
@@ -73,41 +73,35 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     }, [selectedGroup, classCapsules]);
 
     /**
-     * HANDLER DE CRÉATION - SÉCURISÉ ET VALIDÉ
+     * HANDLER DE CRÉATION SÉCURISÉ
      */
     const handleCreateClass = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // 1. Capture et nettoyage immédiat
-        const nameToSubmit = String(newClassName || "").trim();
+        const finalName = newClassName.trim();
         
-        // 2. Validation Bloquante
-        if (nameToSubmit.length < 2) {
-            addToast("Le nom de la classe doit faire au moins 2 caractères.", "error");
+        if (finalName.length < 2) {
+            addToast("Le nom doit faire au moins 2 caractères.", "error");
             return;
         }
 
         if (createLoading) return;
 
-        // 3. LOG DE CONTRÔLE (PREUVE DE VALEUR)
-        console.log("📤 [Dashboard] APPEL createGroup AVEC :", `"${nameToSubmit}"`);
-        
         setCreateLoading(true);
         try {
-            const response = await createGroup(nameToSubmit);
+            const response = await createGroup(finalName);
             
-            // 4. Vérification de la réponse
             if (response && response.success) {
+                addToast(`Classe "${finalName}" créée !`, "success");
                 setNewClassName('');
                 setIsCreatingClass(false);
                 if (response.classId) setSelectedGroupId(response.classId); 
-                addToast(`Classe "${nameToSubmit}" créée avec succès !`, "success");
-            } else {
-                throw new Error("Réponse serveur invalide");
             }
         } catch (error: any) {
-            console.error("❌ [Dashboard] Échec création:", error.message);
-            addToast(error.message || "Erreur lors de la création de la classe.", "error");
+            // L'erreur de validation backend arrive ici
+            const errorMsg = error.message || "Erreur de création";
+            console.error("❌ [Dashboard] Erreur:", errorMsg);
+            addToast(errorMsg, "error");
         } finally {
             setCreateLoading(false);
         }
@@ -190,6 +184,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         className="w-full p-4 border-2 border-emerald-300 rounded-xl bg-white text-slate-950 outline-none font-bold" 
                                         required
                                         minLength={2}
+                                        disabled={createLoading}
                                     />
                                     <div className="flex gap-2">
                                         <button 
@@ -201,6 +196,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                         </button>
                                         <button 
                                             type="button" 
+                                            disabled={createLoading}
                                             onClick={() => { setIsCreatingClass(false); setNewClassName(''); }} 
                                             className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest"
                                         >
