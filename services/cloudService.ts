@@ -32,7 +32,9 @@ export const subscribeToUserProfile = (userId: string, onUpdate: (profile: Parti
 export const updateUserProfileInCloud = async (userId: string, profile: Partial<UserProfile>) => {
   if (!db || !userId || !profile) return;
   console.log("☁️ Mise à jour profil cloud:", userId, profile);
-  await setDoc(doc(db, 'users', userId), profile, { merge: true });
+  // Nettoyage des données pour éviter d'envoyer des undefined au Firestore
+  const cleanData = JSON.parse(JSON.stringify(profile));
+  await setDoc(doc(db, 'users', userId), cleanData, { merge: true });
 };
 
 /* -------------------------------------------------------------------------- */

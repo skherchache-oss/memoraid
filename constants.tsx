@@ -57,7 +57,8 @@ import {
     Coffee,
     Share2,
     Users,
-    ClipboardList
+    ClipboardList,
+    Camera
 } from 'lucide-react';
 
 // Style typographique commun pour la marque
@@ -213,3 +214,4 @@ export const CoffeeIcon = Coffee;
 export const Share2Icon = Share2;
 export const UsersIcon = Users;
 export const ClipboardListIcon = ClipboardList;
+export const CameraIcon = Camera;

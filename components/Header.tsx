@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MemoraidLogoIcon, UserIcon, FlameIcon, GlobeIcon, SunIcon, MoonIcon, CalendarIcon, ShoppingBagIcon, PlusIcon, LayoutGridIcon, SchoolIcon, BRAND_FONT } from '../constants';
 import type { User } from 'firebase/auth';
 import { getLevelProgress } from '../services/gamificationService';
@@ -53,9 +53,18 @@ const Header: React.FC<HeaderProps> = ({
             : 'text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100'}
     `;
 
-    // Normalisation de l'URL de la photo (Firestore d'abord, sinon Auth)
-    const photoSource = userProfile?.photoURL || currentUser?.photoURL;
-    const isValidPhoto = typeof photoSource === 'string' && photoSource.startsWith('http');
+    // Sélection de photo robuste avec fallback
+    const photoSource = useMemo(() => {
+        if (userProfile?.photoURL && userProfile.photoURL.length > 10) {
+            return userProfile.photoURL;
+        }
+        if (currentUser?.photoURL) {
+            return currentUser.photoURL;
+        }
+        return null;
+    }, [userProfile?.photoURL, currentUser?.photoURL]);
+        
+    const isValidPhoto = typeof photoSource === 'string' && (photoSource.startsWith('http') || photoSource.startsWith('data:image'));
 
     return (
         <header className="bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl sticky top-0 z-40 border-b border-slate-100 dark:border-zinc-800">
@@ -101,6 +110,7 @@ const Header: React.FC<HeaderProps> = ({
                                 <ShoppingBagIcon className="w-3.5 h-3.5" />
                                 {t('nav_store')}
                             </button>
+                            
                             <button onClick={() => onNavigate('profile')} className={navItemClass('profile')}>
                                 <UserIcon className="w-3.5 h-3.5" />
                                 {t('nav_profile')}
@@ -161,7 +171,12 @@ const Header: React.FC<HeaderProps> = ({
                                 } active:scale-90`}
                             >
                                 {isValidPhoto ? (
-                                    <img src={photoSource as string} alt="Profil" className="w-full h-full object-cover" />
+                                    <img 
+                                        src={photoSource as string} 
+                                        alt="Profil" 
+                                        className="w-full h-full object-cover" 
+                                        referrerPolicy="no-referrer"
+                                    />
                                 ) : (
                                     <div className={`w-full h-full flex items-center justify-center ${isPremium ? 'bg-amber-400 text-white' : 'bg-emerald-100 text-emerald-600'}`}>
                                         <UserIcon className="w-5 h-5 md:w-6 md:h-6" />

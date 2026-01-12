@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { AppData, UserProfile, UserLevel, LearningStyle, UserRole, CognitiveCapsule } from '../types';
-import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, SendIcon, GraduationCapIcon, ChevronDownIcon } from '../constants';
+import { XIcon, UserIcon, MailIcon, TrophyIcon, FlameIcon, BrainIcon, SchoolIcon, CrownIcon, ChevronRightIcon, LogOutIcon, CheckCircleIcon, SendIcon, GraduationCapIcon, ChevronDownIcon, CameraIcon, RefreshCwIcon, ImageIcon } from '../constants';
 import { ToastType } from '../hooks/useToast';
 import ProgressionDashboard from './ProgressionDashboard';
 import { auth } from '../services/firebase';
@@ -22,12 +22,12 @@ interface ProfileModalProps {
 
 const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateProfile, addToast, selectedCapsuleIds, setSelectedCapsuleIds, currentUser, onOpenGroupManager, isOpenAsPage = false, onNavigateToReviews }) => {
     const { t } = useLanguage();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
     
-    // États locaux pour la saisie
     const [localName, setLocalName] = useState(profile.user.name);
     const isEditingRef = useRef(false);
 
-    // Sync uniquement si on n'est pas en train d'éditer
     useEffect(() => {
         if (!isEditingRef.current) {
             setLocalName(profile.user.name);
@@ -54,14 +54,49 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
         addToast(newRole === 'teacher' ? "Mode Enseignant activé" : "Mode Étudiant activé", "success");
     };
 
-    const handleLevelChange = (newLevel: UserLevel) => {
-        if (!currentUser || newLevel === profile.user.level) return;
-        onUpdateProfile({ level: newLevel });
-    };
-
     const handleStyleChange = (newStyle: LearningStyle) => {
         if (!currentUser || newStyle === profile.user.learningStyle) return;
         onUpdateProfile({ learningStyle: newStyle });
+    };
+
+    const handlePhotoClick = () => {
+        if (!isUploading) fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !currentUser) return;
+
+        if (file.size > 1024 * 1024) { 
+            addToast("L'image est trop lourde (max 1Mo).", "error");
+            return;
+        }
+
+        setIsUploading(true);
+        try {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result as string;
+                onUpdateProfile({ photoURL: base64String });
+                setIsUploading(false);
+                addToast("Photo de profil mise à jour !", "success");
+            };
+            reader.readAsDataURL(file);
+        } catch (err) {
+            console.error(err);
+            setIsUploading(false);
+            addToast("Erreur lors de l'import.", "error");
+        }
+    };
+
+    const handleResetPhoto = () => {
+        if (!currentUser) return;
+        if (currentUser.photoURL) {
+            onUpdateProfile({ photoURL: currentUser.photoURL });
+            addToast("Photo Google restaurée", "info");
+        } else {
+            onUpdateProfile({ photoURL: "" });
+        }
     };
 
     const handleSendEmail = () => {
@@ -82,8 +117,17 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
         return groups;
     }, [profile.capsules, t]);
 
-    const photoSource = profile.user.photoURL || currentUser?.photoURL;
-    const isValidPhoto = typeof photoSource === 'string' && photoSource.startsWith('http');
+    const photoSource = useMemo(() => {
+        if (profile.user.photoURL && profile.user.photoURL.length > 10) {
+            return profile.user.photoURL;
+        }
+        if (currentUser?.photoURL) {
+            return currentUser.photoURL;
+        }
+        return null;
+    }, [profile.user.photoURL, currentUser?.photoURL]);
+
+    const isValidPhoto = typeof photoSource === 'string' && (photoSource.startsWith('http') || photoSource.startsWith('data:image'));
 
     const content = (
         <div className={`bg-gray-50 dark:bg-zinc-950 flex flex-col ${isOpenAsPage ? 'min-h-[calc(100vh-140px)] pb-10' : 'rounded-[40px] shadow-2xl w-full max-w-2xl h-[90vh] overflow-hidden'}`} onClick={e => e.stopPropagation()}>
@@ -103,18 +147,55 @@ const ProfileModal: React.FC<ProfileModalProps> = ({ profile, onClose, onUpdateP
                 <section className="bg-emerald-50/30 dark:bg-emerald-950/20 rounded-[32px] p-8 shadow-sm border border-emerald-100 dark:border-emerald-900/30 relative overflow-hidden group">
                     <div className="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl transition-all duration-700"></div>
                     <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
-                        <div className="relative">
-                            <div className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-transform group-hover:rotate-3 shadow-2xl overflow-hidden ${profile.user.role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                        <div className="relative group/avatar">
+                            <div 
+                                onClick={handlePhotoClick}
+                                className={`w-28 h-28 rounded-[32px] flex items-center justify-center text-4xl font-bold transition-all group-hover/avatar:scale-105 shadow-2xl overflow-hidden cursor-pointer ${profile.user.role === 'teacher' ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white'}`}
+                            >
                                 {isValidPhoto ? (
-                                    <img src={photoSource as string} className="w-full h-full object-cover" alt="Profile" />
+                                    <img 
+                                        src={photoSource as string} 
+                                        className={`w-full h-full object-cover ${isUploading ? 'opacity-40' : 'opacity-100'}`} 
+                                        alt="Profile" 
+                                        referrerPolicy="no-referrer"
+                                    />
                                 ) : (
-                                    profile.user.role === 'teacher' ? <SchoolIcon className="w-14 h-14" /> : <GraduationCapIcon className="w-14 h-14" />
+                                    <UserIcon className="w-14 h-14 opacity-40" />
+                                )}
+                                
+                                {isUploading ? (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                        <RefreshCwIcon className="w-8 h-8 text-white animate-spin" />
+                                    </div>
+                                ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                                        <CameraIcon className="w-8 h-8 text-white" />
+                                    </div>
                                 )}
                             </div>
+
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                accept="image/*" 
+                                className="hidden" 
+                            />
+
                             {profile.user.isPremium && (
                                 <div className="absolute -top-3 -right-3 p-2 bg-amber-400 rounded-full border-4 border-white dark:border-zinc-900 shadow-lg">
                                     <CrownIcon className="w-5 h-5 text-white" />
                                 </div>
+                            )}
+
+                            {isValidPhoto && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleResetPhoto(); }}
+                                    className="absolute -bottom-2 -right-2 p-2 bg-white dark:bg-zinc-800 rounded-full shadow-md border border-slate-100 dark:border-zinc-700 text-[8px] font-black uppercase tracking-tighter hover:text-emerald-500 transition-colors"
+                                    title="Restaurer Google Photo"
+                                >
+                                    Google
+                                </button>
                             )}
                         </div>
                         <div className="text-center md:text-left flex-grow">

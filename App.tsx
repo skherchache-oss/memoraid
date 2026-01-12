@@ -60,7 +60,6 @@ const AppContent: React.FC = () => {
     const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
     const [isAppReady, setIsAppReady] = useState(false);
 
-    // Refs pour nettoyer les abonnements lors du changement d'utilisateur
     const unsubscribes = useRef<(() => void)[]>([]);
 
     const clearSubscriptions = () => {
@@ -70,17 +69,10 @@ const AppContent: React.FC = () => {
 
     const handleUpdateProfile = useCallback(async (newFields: Partial<UserProfile>) => {
         if (!currentUser?.uid) return;
-
-        // Mise à jour locale immédiate (optimiste)
-        setProfile(prev => ({
-            ...prev,
-            user: { ...prev.user, ...newFields }
-        }));
-
         try {
             await updateUserProfileInCloud(currentUser.uid, newFields);
         } catch (err: any) {
-            console.error("❌ Erreur mise à jour profil:", err.message);
+            console.error("❌ Erreur cloud profil:", err.message);
             addToast("Erreur de synchronisation.", "error");
         }
     }, [currentUser, addToast]);
@@ -96,12 +88,10 @@ const AppContent: React.FC = () => {
             setCurrentUser(user);
             
             if (user) {
-                // 1. Vérifier si le profil existe déjà dans Firestore
                 const userDocRef = doc(db, 'users', user.uid);
                 const userDocSnap = await getDoc(userDocRef);
 
                 if (!userDocSnap.exists()) {
-                    // C'est une première connexion, on initialise avec les infos Google
                     const realName = user.displayName || user.email?.split('@')[0] || t('default_username');
                     try {
                         await updateUserProfileInCloud(user.uid, {
@@ -118,9 +108,14 @@ const AppContent: React.FC = () => {
                     } catch (e) {
                         console.error("Erreur init profil:", e);
                     }
+                } else {
+                    // Forçage sync photo Google vers Firestore
+                    const data = userDocSnap.data() as UserProfile;
+                    if (!data.photoURL && user.photoURL) {
+                        updateUserProfileInCloud(user.uid, { photoURL: user.photoURL });
+                    }
                 }
 
-                // 2. Mettre en place les abonnements temps réel
                 try {
                     const unsubProfile = subscribeToUserProfile(user.uid, (u) => {
                         if (u) setProfile(prev => ({ ...prev, user: { ...prev.user, ...u } }));
@@ -158,7 +153,7 @@ const AppContent: React.FC = () => {
             unsubscribeAuth();
             clearSubscriptions();
         };
-    }, [t, view]);
+    }, [t]);
 
     const handleNavigate = (viewToNavigate: View) => {
         setView(viewToNavigate);
