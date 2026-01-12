@@ -31,7 +31,6 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'assignments'>('overview');
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
     
-    // --- ÉTAT DU FORMULAIRE DE CRÉATION ---
     const [isCreatingClass, setIsCreatingClass] = useState(false);
     const [newClassName, setNewClassName] = useState(''); 
     const [createLoading, setCreateLoading] = useState(false);
@@ -40,15 +39,20 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
     const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
     const [capsuleToUnshare, setCapsuleToUnshare] = useState<CognitiveCapsule | null>(null);
 
+    // Tri alphabétique des classes
+    const sortedGroups = useMemo(() => {
+        return [...teacherGroups].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }, [teacherGroups]);
+
     useEffect(() => {
-        if (!selectedGroupId && teacherGroups.length > 0) {
-            setSelectedGroupId(teacherGroups[0].id);
+        if (!selectedGroupId && sortedGroups.length > 0) {
+            setSelectedGroupId(sortedGroups[0].id);
         }
-    }, [teacherGroups, selectedGroupId]);
+    }, [sortedGroups, selectedGroupId]);
 
     const selectedGroup = useMemo(() => 
-        teacherGroups.find(g => g.id === selectedGroupId), 
-    [teacherGroups, selectedGroupId]);
+        sortedGroups.find(g => g.id === selectedGroupId), 
+    [sortedGroups, selectedGroupId]);
     
     const classCapsules = useMemo(() => 
         allGroupCapsules.filter(c => c && c.groupId === selectedGroupId), 
@@ -72,25 +76,17 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
         return { totalStudents, totalCapsules, averageMastery: recordedScores > 0 ? Math.round(totalMasterySum / recordedScores) : 0 };
     }, [selectedGroup, classCapsules]);
 
-    /**
-     * HANDLER DE CRÉATION SÉCURISÉ
-     */
     const handleCreateClass = async (e: React.FormEvent) => {
         e.preventDefault();
-        
         const finalName = newClassName.trim();
-        
         if (finalName.length < 2) {
             addToast("Le nom doit faire au moins 2 caractères.", "error");
             return;
         }
-
         if (createLoading) return;
-
         setCreateLoading(true);
         try {
             const response = await createGroup(finalName);
-            
             if (response && response.success) {
                 addToast(`Classe "${finalName}" créée !`, "success");
                 setNewClassName('');
@@ -98,10 +94,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 if (response.classId) setSelectedGroupId(response.classId); 
             }
         } catch (error: any) {
-            // L'erreur de validation backend arrive ici
-            const errorMsg = error.message || "Erreur de création";
-            console.error("❌ [Dashboard] Erreur:", errorMsg);
-            addToast(errorMsg, "error");
+            addToast(error.message || "Erreur de création", "error");
         } finally {
             setCreateLoading(false);
         }
@@ -136,7 +129,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             <SchoolIcon className="w-5 h-5 md:w-6 md:h-6" />
                         </div>
                         <div>
-                            <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">Espace Classes</h2>
+                            <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1">Espace Enseignant</h2>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2.5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-full transition-colors">
@@ -145,60 +138,66 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 </header>
 
                 <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
-                    <aside className="w-full md:w-72 bg-slate-50/50 dark:bg-zinc-950 border-b md:border-b-0 md:border-r border-slate-100 dark:border-zinc-800 flex flex-col flex-shrink-0">
-                        <div className="p-4 md:p-6">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Choisir la classe</label>
+                    <aside className="w-full md:w-80 bg-slate-50/50 dark:bg-zinc-950 border-b md:border-b-0 md:border-r border-slate-100 dark:border-zinc-800 flex flex-col flex-shrink-0 overflow-y-auto">
+                        <div className="p-6">
+                            <label className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mb-4 block">Navigation Classes</label>
                             
                             {!isCreatingClass ? (
-                                <div className="space-y-3">
-                                    <div className="relative">
+                                <div className="space-y-4">
+                                    <div className="relative group">
+                                        <div className="absolute inset-0 bg-emerald-500/5 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                         <select 
-                                            className="w-full p-3.5 pr-10 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-sm font-bold text-slate-900 dark:text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none shadow-sm appearance-none disabled:opacity-50"
+                                            className="relative w-full p-4 pr-12 rounded-2xl bg-white dark:bg-zinc-900 border-2 border-emerald-500/30 dark:border-emerald-500/20 text-base font-black text-slate-900 dark:text-zinc-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all shadow-md appearance-none cursor-pointer"
                                             value={selectedGroupId || ''}
                                             onChange={(e) => setSelectedGroupId(e.target.value)}
-                                            disabled={teacherGroups.length === 0}
+                                            disabled={sortedGroups.length === 0}
                                         >
-                                            {teacherGroups.length === 0 ? (
+                                            {sortedGroups.length === 0 ? (
                                                 <option value="">Aucune classe</option>
                                             ) : (
                                                 <>
-                                                    <option value="" disabled>Sélectionner...</option>
-                                                    {teacherGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                                    <option value="" disabled>Sélectionner une classe</option>
+                                                    {sortedGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                                                 </>
                                             )}
                                         </select>
-                                        <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-500">
+                                            <ChevronDownIcon className="w-5 h-5" />
+                                        </div>
                                     </div>
-                                    <button onClick={() => setIsCreatingClass(true)} className="w-full flex items-center justify-center gap-2 text-[10px] font-black text-emerald-600 dark:text-emerald-400 py-3 rounded-xl border-2 border-dashed border-emerald-200 dark:border-emerald-800 transition-all uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/10">
-                                        <PlusIcon className="w-3.5 h-3.5" /> Créer une classe
+                                    <button 
+                                        onClick={() => setIsCreatingClass(true)} 
+                                        className="w-full flex items-center justify-center gap-2 text-[11px] font-black text-emerald-700 dark:text-emerald-400 py-4 rounded-2xl border-2 border-dashed border-emerald-200 dark:border-emerald-800/50 transition-all uppercase tracking-widest hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:border-emerald-300"
+                                    >
+                                        <PlusIcon className="w-4 h-4" /> Nouvelle Classe
                                     </button>
                                 </div>
                             ) : (
-                                <form onSubmit={handleCreateClass} className="space-y-3 p-4 bg-white dark:bg-zinc-900 rounded-2xl border-2 border-emerald-500/20 shadow-xl animate-fade-in-fast">
+                                <form onSubmit={handleCreateClass} className="space-y-3 p-4 bg-white dark:bg-zinc-900 rounded-[28px] border-2 border-emerald-500 shadow-2xl animate-fade-in-fast">
                                     <input 
                                         type="text" 
                                         autoFocus 
-                                        placeholder="Nom de classe" 
+                                        placeholder="Nom (ex: 3ème B)" 
                                         value={newClassName} 
                                         onChange={(e) => setNewClassName(e.target.value)} 
-                                        className="w-full p-4 border-2 border-emerald-300 rounded-xl bg-white text-slate-950 outline-none font-bold" 
+                                        className="w-full p-4 border-2 border-slate-100 dark:border-zinc-800 rounded-xl bg-slate-50 dark:bg-zinc-950 text-slate-950 dark:text-white outline-none font-bold placeholder:text-slate-300" 
                                         required
                                         minLength={2}
                                         disabled={createLoading}
                                     />
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 pt-2">
                                         <button 
                                             type="submit" 
                                             disabled={createLoading || newClassName.trim().length < 2} 
-                                            className="flex-1 bg-emerald-600 disabled:bg-slate-300 text-white py-2 rounded-lg font-black uppercase text-[10px] tracking-widest flex items-center justify-center"
+                                            className="flex-1 bg-emerald-600 disabled:bg-slate-300 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center shadow-lg shadow-emerald-200 dark:shadow-none"
                                         >
-                                            {createLoading ? <RefreshCwIcon className="w-3 h-3 animate-spin" /> : 'Créer'}
+                                            {createLoading ? <RefreshCwIcon className="w-4 h-4 animate-spin" /> : 'Créer'}
                                         </button>
                                         <button 
                                             type="button" 
                                             disabled={createLoading}
                                             onClick={() => { setIsCreatingClass(false); setNewClassName(''); }} 
-                                            className="flex-1 bg-slate-100 text-slate-500 py-2 rounded-lg font-black uppercase text-[10px] tracking-widest"
+                                            className="flex-1 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest"
                                         >
                                             Annuler
                                         </button>
@@ -207,56 +206,59 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                             )}
                         </div>
                         
-                        <nav className="flex flex-grow flex-col px-4 space-y-2 mt-4">
-                            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
+                        <nav className="flex flex-grow flex-col px-4 space-y-2 mt-4 pb-10">
+                            <button onClick={() => setActiveTab('overview')} className={`w-full flex items-center gap-4 px-6 py-4.5 text-xs font-black uppercase tracking-widest rounded-[22px] transition-all ${activeTab === 'overview' ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-200 dark:shadow-none translate-x-1' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 hover:shadow-sm'}`}>
                                 <SchoolIcon className="w-5 h-5" /> Vue d'ensemble
                             </button>
-                            <button onClick={() => setActiveTab('classes')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'classes' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
+                            <button onClick={() => setActiveTab('classes')} className={`w-full flex items-center gap-4 px-6 py-4.5 text-xs font-black uppercase tracking-widest rounded-[22px] transition-all ${activeTab === 'classes' ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-200 dark:shadow-none translate-x-1' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 hover:shadow-sm'}`}>
                                 <UsersIcon className="w-5 h-5" /> Étudiants
                             </button>
-                            <button onClick={() => setActiveTab('assignments')} className={`w-full flex items-center gap-4 px-5 py-4 text-xs font-black uppercase tracking-widest rounded-2xl transition-all ${activeTab === 'assignments' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800'}`}>
+                            <button onClick={() => setActiveTab('assignments')} className={`w-full flex items-center gap-4 px-6 py-4.5 text-xs font-black uppercase tracking-widest rounded-[22px] transition-all ${activeTab === 'assignments' ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-200 dark:shadow-none translate-x-1' : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 hover:shadow-sm'}`}>
                                 <ClipboardListIcon className="w-5 h-5" /> Affectations
                             </button>
                         </nav>
                     </aside>
 
-                    <main className="flex-grow p-4 md:p-8 overflow-y-auto bg-white dark:bg-zinc-900">
+                    <main className="flex-grow p-4 md:p-10 overflow-y-auto bg-white dark:bg-zinc-900">
                         {!selectedGroup ? (
                             <div className="flex flex-col items-center justify-center h-full text-slate-300 opacity-30 text-center py-20">
                                 <SchoolIcon className="w-20 h-20 mb-6" />
                                 <p className="font-black uppercase tracking-widest text-xs">
-                                    {teacherGroups.length === 0 ? "Créez votre première classe pour commencer" : "Sélectionnez une classe à gauche"}
+                                    {sortedGroups.length === 0 ? "Créez votre première classe pour commencer" : "Sélectionnez une classe à gauche"}
                                 </p>
                             </div>
                         ) : (
                             <div className="max-w-4xl mx-auto animate-fade-in-fast pb-20 md:pb-0">
                                 {activeTab === 'overview' && (
-                                    <div className="space-y-6 md:space-y-8">
-                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                    <div className="space-y-6 md:space-y-10">
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 p-8 bg-slate-50 dark:bg-zinc-800/30 rounded-[40px] border border-slate-100 dark:border-zinc-800 shadow-sm">
                                             <div>
-                                                <h3 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">{selectedGroup.name}</h3>
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-1">Code : <span className="text-emerald-600 dark:text-emerald-400 select-all font-mono text-base ml-2">{selectedGroup.inviteCode}</span></p>
+                                                <h3 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-4">{selectedGroup.name}</h3>
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Code d'invitation :</span>
+                                                    <span className="bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 select-all font-mono text-xl px-4 py-1.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50 shadow-sm">{selectedGroup.inviteCode}</span>
+                                                </div>
                                             </div>
-                                            <button onClick={() => setGroupToDelete(selectedGroup)} className="p-3 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 rounded-2xl transition-colors">
-                                                <Trash2Icon className="w-5 h-5" />
+                                            <button onClick={() => setGroupToDelete(selectedGroup)} className="p-4 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 rounded-2xl transition-colors self-end md:self-center">
+                                                <Trash2Icon className="w-6 h-6" />
                                             </button>
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                                            <div className="p-6 md:p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
-                                                <UsersIcon className="w-6 h-6 text-blue-500 mb-4" />
-                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalStudents}</p>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Élèves</p>
+                                            <div className="p-8 bg-white dark:bg-zinc-800 border border-slate-100 dark:border-zinc-800 rounded-[32px] shadow-sm hover:shadow-md transition-shadow group">
+                                                <UsersIcon className="w-8 h-8 text-blue-500 mb-6 group-hover:scale-110 transition-transform" />
+                                                <p className="text-4xl font-black text-slate-900 dark:text-white">{stats.totalStudents}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Élèves actifs</p>
                                             </div>
-                                            <div className="p-6 md:p-8 bg-emerald-50 dark:bg-emerald-900/10 rounded-[32px] border border-emerald-100 dark:border-emerald-900/30">
-                                                <SchoolIcon className="w-6 h-6 text-emerald-600 mb-4" />
-                                                <p className="text-3xl font-black text-emerald-700 dark:text-emerald-400">{stats.averageMastery}%</p>
-                                                <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mt-1">Moyenne</p>
+                                            <div className="p-8 bg-white dark:bg-zinc-800 border border-emerald-100 dark:border-emerald-900/30 rounded-[32px] shadow-sm hover:shadow-md transition-shadow group">
+                                                <SchoolIcon className="w-8 h-8 text-emerald-600 mb-6 group-hover:scale-110 transition-transform" />
+                                                <p className="text-4xl font-black text-emerald-700 dark:text-emerald-400">{stats.averageMastery}%</p>
+                                                <p className="text-[10px] font-black text-emerald-600/60 uppercase tracking-widest mt-2">Moyenne Classe</p>
                                             </div>
-                                            <div className="p-6 md:p-8 bg-slate-50 dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800">
-                                                <BookOpenIcon className="w-6 h-6 text-purple-500 mb-4" />
-                                                <p className="text-3xl font-black text-slate-900 dark:text-white">{stats.totalCapsules}</p>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Modules</p>
+                                            <div className="p-8 bg-white dark:bg-zinc-800 border border-slate-100 dark:border-zinc-800 rounded-[32px] shadow-sm hover:shadow-md transition-shadow group">
+                                                <BookOpenIcon className="w-8 h-8 text-purple-500 mb-6 group-hover:scale-110 transition-transform" />
+                                                <p className="text-4xl font-black text-slate-900 dark:text-white">{stats.totalCapsules}</p>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Modules Partagés</p>
                                             </div>
                                         </div>
                                     </div>
@@ -264,24 +266,38 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
                                 {activeTab === 'classes' && (
                                     <div className="space-y-6">
-                                        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-[32px] overflow-hidden shadow-sm">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Liste des élèves</h3>
+                                            <span className="text-xs font-bold text-slate-400">{selectedGroup.members?.filter(m => m.role === 'student' || m.role === undefined).length} inscrits</span>
+                                        </div>
+                                        <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-[40px] overflow-hidden shadow-sm">
                                             <table className="w-full text-left">
                                                 <thead className="bg-slate-50 dark:bg-zinc-950 text-slate-400 text-[10px] font-black uppercase tracking-widest">
                                                     <tr>
-                                                        <th className="p-6">Élève</th>
-                                                        <th className="p-6 text-right">Maîtrise</th>
+                                                        <th className="p-8">Nom de l'élève</th>
+                                                        <th className="p-8 text-right">Maîtrise estimée</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-50 dark:divide-zinc-800">
                                                     {selectedGroup.members?.filter(m => m.role === 'student' || m.role === undefined).map((member, idx) => (
-                                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                            <td className="p-6 font-bold text-slate-700 dark:text-zinc-200">{member.name}</td>
-                                                            <td className="p-6 text-right text-slate-400">-</td>
+                                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors group">
+                                                            <td className="p-8 font-bold text-slate-700 dark:text-zinc-200 flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600 transition-colors">
+                                                                    {member.name.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                {member.name}
+                                                            </td>
+                                                            <td className="p-8 text-right font-mono text-slate-400">-</td>
                                                         </tr>
                                                     ))}
                                                     {(selectedGroup.members?.filter(m => m.role === 'student' || m.role === undefined).length === 0) && (
                                                         <tr>
-                                                            <td colSpan={2} className="p-10 text-center text-slate-400 italic text-sm">Aucun élève n'a encore rejoint cette classe.</td>
+                                                            <td colSpan={2} className="p-20 text-center">
+                                                                <div className="max-w-xs mx-auto">
+                                                                    <UsersIcon className="w-12 h-12 mx-auto mb-4 text-slate-200" />
+                                                                    <p className="text-slate-400 font-medium text-sm leading-relaxed">Aucun élève n'a encore rejoint cette classe via le code d'invitation.</p>
+                                                                </div>
+                                                            </td>
                                                         </tr>
                                                     )}
                                                 </tbody>
@@ -291,46 +307,56 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                                 )}
 
                                 {activeTab === 'assignments' && (
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center">
-                                            <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
-                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all">
-                                                <PlusIcon className="w-4 h-4" /> Partager un module
+                                    <div className="space-y-8">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Modules partagés</h3>
+                                            <button onClick={() => setIsAssigningModule(true)} className="flex items-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-[22px] text-xs font-black uppercase tracking-widest shadow-xl shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 active:scale-95 transition-all">
+                                                <PlusIcon className="w-5 h-5" /> Partager un module
                                             </button>
                                         </div>
 
                                         {isAssigningModule && (
-                                            <div className="p-6 bg-indigo-50 dark:bg-zinc-800 rounded-[32px] border-2 border-dashed border-indigo-200 animate-fade-in-fast mb-6">
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-4">Mes modules personnels</h4>
-                                                <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                                            <div className="p-8 bg-indigo-50 dark:bg-zinc-800/50 rounded-[40px] border-2 border-dashed border-indigo-200 dark:border-indigo-900/50 animate-fade-in-fast mb-8">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Sélectionner un module à partager</h4>
+                                                    <button onClick={() => setIsAssigningModule(false)} className="p-2 hover:bg-white rounded-full transition-colors"><XIcon className="w-5 h-5 text-indigo-300"/></button>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-2">
                                                     {teacherPersonalCapsules.length > 0 ? teacherPersonalCapsules.map(cap => (
-                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-100 rounded-xl hover:bg-indigo-600 hover:text-white transition-all group">
-                                                            <span className="font-bold text-sm truncate">{cap.title}</span>
-                                                            <PlusIcon className="w-4 h-4 text-indigo-200 group-hover:text-white" />
+                                                        <button key={cap.id} onClick={() => handleAssignModule(cap)} className="w-full flex items-center justify-between p-5 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all group shadow-sm">
+                                                            <span className="font-bold text-sm truncate pr-4">{cap.title}</span>
+                                                            <div className="p-1.5 bg-indigo-50 rounded-lg group-hover:bg-white/20"><PlusIcon className="w-4 h-4 text-indigo-600 group-hover:text-white" /></div>
                                                         </button>
                                                     )) : (
-                                                        <p className="text-center text-slate-400 py-4 italic text-xs">Vous n'avez pas encore créé de modules personnels.</p>
+                                                        <div className="col-span-2 text-center text-slate-400 py-10 italic text-sm">
+                                                            Vous n'avez pas encore créé de modules personnels à partager.
+                                                        </div>
                                                     )}
                                                 </div>
-                                                <button onClick={() => setIsAssigningModule(false)} className="mt-4 text-xs font-bold text-slate-400 hover:text-slate-600 underline">Annuler</button>
                                             </div>
                                         )}
 
-                                        <div className="space-y-4">
+                                        <div className="grid grid-cols-1 gap-4">
                                             {classCapsules.length > 0 ? classCapsules.map(module => (
-                                                <div key={module.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm group">
-                                                    <div className="flex items-center gap-4 min-w-0">
-                                                        <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl text-indigo-600"><BookOpenIcon className="w-5 h-5" /></div>
-                                                        <h4 className="font-black text-slate-900 dark:text-white truncate">{module.title}</h4>
+                                                <div key={module.id} className="flex items-center justify-between p-6 bg-white dark:bg-zinc-800/50 rounded-[32px] border border-slate-100 dark:border-zinc-800 shadow-sm group hover:border-emerald-300 dark:hover:border-emerald-900 transition-all">
+                                                    <div className="flex items-center gap-5 min-w-0">
+                                                        <div className="p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl text-emerald-600"><BookOpenIcon className="w-6 h-6" /></div>
+                                                        <div className="min-w-0">
+                                                            <h4 className="font-black text-slate-900 dark:text-white truncate text-lg">{module.title}</h4>
+                                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Stade SRS : {module.reviewStage}</p>
+                                                        </div>
                                                     </div>
-                                                    <button onClick={() => setCapsuleToUnshare(module)} className="p-2.5 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
-                                                        <Trash2Icon className="w-4 h-4" />
+                                                    <button onClick={() => setCapsuleToUnshare(module)} className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all opacity-0 group-hover:opacity-100">
+                                                        <Trash2Icon className="w-5 h-5" />
                                                     </button>
                                                 </div>
                                             )) : (
-                                                <div className="text-center py-10 opacity-30">
-                                                    <BookOpenIcon className="w-12 h-12 mx-auto mb-2" />
-                                                    <p className="text-xs font-bold uppercase tracking-widest">Aucun module partagé</p>
+                                                <div className="text-center py-20 bg-slate-50/50 dark:bg-zinc-800/20 rounded-[40px] border-2 border-dashed border-slate-200 dark:border-zinc-800">
+                                                    <div className="w-16 h-16 bg-white dark:bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+                                                        <BookOpenIcon className="w-8 h-8 text-slate-200" />
+                                                    </div>
+                                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Aucun module n'est encore partagé</p>
+                                                    <button onClick={() => setIsAssigningModule(true)} className="mt-6 text-xs font-black text-emerald-600 hover:underline uppercase tracking-widest">Commencer maintenant</button>
                                                 </div>
                                             )}
                                         </div>
@@ -347,8 +373,8 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 onClose={() => setGroupToDelete(null)} 
                 onConfirm={handleDeleteClassConfirm} 
                 title="Supprimer la classe ?" 
-                message={`Cette action est irréversible. Toutes les données de "${groupToDelete?.name}" seront perdues.`}
-                confirmText="Supprimer" 
+                message={`Cette action est irréversible. Toutes les données de la classe "${groupToDelete?.name}" seront perdues.`}
+                confirmText="Supprimer définitivement" 
             />
 
             <ConfirmationModal 
@@ -362,7 +388,7 @@ const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                     }
                 }} 
                 title="Retirer ce module ?" 
-                message="Les élèves ne pourront plus accéder à ce contenu depuis cette classe."
+                message="Les élèves de cette classe ne pourront plus accéder à ce contenu spécifique."
                 confirmText="Retirer" 
             />
         </div>
