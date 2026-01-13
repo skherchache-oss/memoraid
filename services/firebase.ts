@@ -9,18 +9,19 @@ import { getFirestore } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
 /* -------------------------------------------------------------------------- */
-/* CONFIG FIREBASE — MEMORAID                                              */
+/* CONFIG FIREBASE — SANDBOX                                           */
 /* -------------------------------------------------------------------------- */
 
 const firebaseConfig = {
   /* Fix: Use process.env which is pre-configured via Vite's 'define' to avoid ImportMeta type errors in certain environments */
   apiKey: (process.env as any).VITE_FIREBASE_API_KEY,
-  authDomain: " memoraid-7cd9d.firebaseapp.com",
-  projectId: " memoraid-7cd9d",
-  storageBucket: " memoraid-7cd9d.firebasestorage.app",
-  messagingSenderId: " 424814765916",
-  appId: " 1:424814765916:web:aaba185d4dbab2af52c399",
+  authDomain: "memoraid-sandbox.firebaseapp.com",
+  projectId: "memoraid-sandbox",
+  storageBucket: "memoraid-sandbox.appspot.com",
+  messagingSenderId: "41010291417860",
+  appId: "1:1010291417860:web:8ae86c5bfae532c3112651",
 };
+
 
 
 /* -------------------------------------------------------------------------- */
