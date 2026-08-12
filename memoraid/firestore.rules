@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(resourceData) {
+      return resourceData.ownerId == request.auth.uid;
+    }
+
+    function isMember(resourceData) {
+      return resourceData.memberIds is list
+        && request.auth.uid in resourceData.memberIds;
+    }
+
+    /* ================= USERS ================= */
+    match /users/{userId} {
+      // Règle de base impérative pour la sécurité des profils
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /modules/{moduleId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    /* ================= CLASSES ================= */
+    match /classes/{classId} {
+      allow list: if isSignedIn();
+      allow read: if isSignedIn() && (isOwner(resource.data) || isMember(resource.data));
+      
+      // Sécurisation de la création : l'ownerId doit correspondre à l'UID de l'appelant
+      allow create: if request.auth != null
+        && request.resource.data.ownerId == request.auth.uid;
+        
+      allow update, delete: if isSignedIn() && isOwner(resource.data);
+
+      match /modules/{moduleId} {
+        allow read: if isSignedIn() &&
+          (isOwner(get(/databases/$(database)/documents/classes/$(classId)).data)
+          || isMember(get(/databases/$(database)/documents/classes/$(classId)).data));
+
+        allow write: if isSignedIn() &&
+          isOwner(get(/databases/$(database)/documents/classes/$(classId)).data);
+      }
+    }
+  }
+}

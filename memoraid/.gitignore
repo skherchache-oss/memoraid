@@ -1,0 +1,55 @@
+# ---------------------------------------
+# Node / Project files
+# ---------------------------------------
+node_modules/
+dist/
+dist-ssr/
+.build/
+.next/
+out/
+
+# ---------------------------------------
+# Environment variables (CRITIQUE)
+# ---------------------------------------
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------
+# Logs
+# ---------------------------------------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---------------------------------------
+# OS / Editor files
+# ---------------------------------------
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+
+# JetBrains
+.idea/
+
+# Windows / IDE
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ---------------------------------------
+# Misc
+# ---------------------------------------
+*.local
+
+.vercel
+.env*.local

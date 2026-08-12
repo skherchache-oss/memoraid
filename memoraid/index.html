@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg?v=2" />
+    <link rel="apple-touch-icon" href="/icon.svg?v=2" />
+    <link rel="manifest" href="/manifest.json?v=2" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff">
+    <title>Memoraid</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      window.global = window;
+      window.process = { env: { NODE_ENV: 'production' } };
+      
+      tailwind.config = {
+        darkMode: 'class',
+        theme: { 
+          extend: { 
+            fontFamily: { sans: ['Inter', 'sans-serif'] },
+            animation: {
+              'fade-in': 'fadeIn 0.3s ease-out forwards',
+              'toast-enter': 'toastEnter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+              'add-capsule': 'addCapsule 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+              'pulse-slow': 'pulseSlow 4s ease-in-out infinite',
+              'twinkle': 'twinkle 2s ease-in-out infinite',
+              'hum': 'hum 4s ease-in-out infinite',
+              'snow-fall': 'snowFall 10s linear infinite',
+              'electric-flicker-soft': 'electricFlicker 5s linear infinite',
+              'energy-orbit-slow': 'orbit 15s linear infinite',
+              'bounce-slow': 'bounce 3s infinite',
+            },
+            keyframes: {
+              fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+              toastEnter: { '0%': { transform: 'translateY(100%) scale(0.9)', opacity: 0 }, '100%': { transform: 'translateY(0) scale(1)', opacity: 1 } },
+              addCapsule: { '0%': { transform: 'scale(0.8) translateY(20px)', opacity: 0 }, '100%': { transform: 'scale(1) translateY(0)', opacity: 1 } },
+              pulseSlow: { '0%, 100%': { opacity: 0.3 }, '50%': { opacity: 0.6 } },
+              twinkle: { '0%, 100%': { opacity: 0.3 }, '50%': { opacity: 1 } },
+              hum: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-3px)' } },
+              snowFall: { '0%': { transform: 'translateY(-20px)', opacity: 0 }, '10%': { opacity: 1 }, '90%': { opacity: 1 }, '100%': { transform: 'translateY(100px)', opacity: 0 } },
+              electricFlicker: { 
+                '0%, 18%, 22%, 25%, 53%, 57%, 100%': { opacity: 1 },
+                '20%, 24%, 55%': { opacity: 0.7 }
+              },
+              orbit: { 
+                'from': { transform: 'rotate(0deg) translateX(15px) rotate(0deg)' }, 
+                'to': { transform: 'rotate(360deg) translateX(15px) rotate(-360deg)' } 
+              }
+            }
+          } 
+        }
+      }
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+      #preloader {
+        position: fixed;
+        inset: 0;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      .dark #preloader { background: #09090b; }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(16, 185, 129, 0.1);
+        border-top-color: #10b981;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .loader-text {
+        font-family: 'Inter', sans-serif;
+        font-weight: 900;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        color: #10b981;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/",
+    "pdf-lib": "https://esm.sh/pdf-lib@^1.17.1",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "pptxgenjs": "https://esm.sh/pptxgenjs@^4.0.1",
+    "jszip": "https://esm.sh/jszip@^3.10.1",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^1.2.0",
+    "firebase-functions/": "https://esm.sh/firebase-functions@^7.0.3/",
+    "firebase-admin": "https://esm.sh/firebase-admin@^13.6.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="preloader">
+      <div class="spinner"></div>
+      <h1 class="loader-text">Memoraid</h1>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    <script>
+      window.addEventListener('load', () => {
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+          setTimeout(() => {
+            preloader.style.opacity = '0';
+            setTimeout(() => { preloader.style.display = 'none'; }, 500);
+          }, 300);
+        }
+      });
+    </script>
+  </body>
+</html>
